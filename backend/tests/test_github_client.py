@@ -1,4 +1,6 @@
+import re
 from datetime import UTC, datetime
+from pathlib import Path
 
 import pytest
 import responses
@@ -9,7 +11,7 @@ from github_client import (
     MissingTokenError,
     RateLimitError,
 )
-from github_client.client import API_BASE_URL, API_VERSION
+from github_client.client import API_BASE_URL, API_VERSION, RAW_BASE_URL
 
 FIXED_NOW = datetime(2026, 11, 22, 12, 0, tzinfo=UTC)
 REPO_PATH = "/repos/octo/widget"
@@ -201,3 +203,75 @@ def test_stats_202_then_ready(timed_client: GitHubClient, sleeps: list[float]) -
     assert result.status == "ok"
     assert result.data == [{"total": 3}]
     assert sleeps == [2]
+
+
+@responses.activate
+def test_304_reuses_stored_data_at_no_cost(client: GitHubClient) -> None:
+    responses.get(REPO_URL, json={"stars": 5}, headers={"ETag": '"abc"'})
+    responses.get(REPO_URL, status=304)
+    first = client.get(REPO_PATH)
+    second = client.get(REPO_PATH)
+    assert "If-None-Match" not in responses.calls[0].request.headers
+    assert responses.calls[1].request.headers["If-None-Match"] == '"abc"'
+    assert first.from_cache is False
+    assert second.from_cache is True
+    assert second.data == {"stars": 5}
+    assert second.cost == 0
+
+
+@responses.activate
+def test_etags_are_separate_per_query(client: GitHubClient) -> None:
+    responses.get(REPO_URL, json=[1], headers={"ETag": '"page1"'})
+    client.get(REPO_PATH, params={"page": 1})
+    client.get(REPO_PATH, params={"page": 2})
+    assert "If-None-Match" not in responses.calls[1].request.headers
+
+
+@responses.activate
+def test_raw_fetch_sends_no_token_and_costs_nothing(client: GitHubClient) -> None:
+    url = f"{RAW_BASE_URL}/octo/widget/feature/x/docs/my%20file.md"
+    responses.get(url, body="# Hello")
+    result = client.get_raw("octo", "widget", "feature/x", "docs/my file.md")
+    assert result.data == "# Hello"
+    assert result.cost == 0
+    assert result.source == url
+    assert "Authorization" not in responses.calls[0].request.headers
+
+
+@responses.activate
+def test_raw_fetch_works_without_token(settings, client: GitHubClient) -> None:
+    settings.GITHUB_TOKEN = ""
+    responses.get(f"{RAW_BASE_URL}/octo/widget/main/README.md", body="ok")
+    assert client.get_raw("octo", "widget", "main", "README.md").data == "ok"
+
+
+@pytest.mark.parametrize("path", ["../other/file", "a/./b", "a//b", ""])
+def test_raw_fetch_rejects_unsafe_paths(client: GitHubClient, path: str) -> None:
+    with pytest.raises(GitHubError):
+        client.get_raw("octo", "widget", "main", path)
+
+
+def test_real_network_is_blocked_in_tests(client: GitHubClient) -> None:
+    with pytest.raises(RuntimeError, match="Real network access"):
+        client.get(REPO_PATH)
+
+
+def _production_sources() -> list[Path]:
+    backend = Path(__file__).resolve().parent.parent
+    return [p for p in backend.rglob("*.py") if "tests" not in p.relative_to(backend).parts]
+
+
+def test_no_code_calls_the_stargazer_list() -> None:
+    pattern = re.compile(r"/stargazers(?!/(?:history|count)\b)", re.IGNORECASE)
+    offenders = [str(p) for p in _production_sources() if pattern.search(p.read_text())]
+    assert offenders == []
+
+
+def test_only_the_client_names_github_hosts() -> None:
+    pattern = re.compile(r"(?:api\.github\.com|raw\.githubusercontent\.com)")
+    offenders = [
+        str(p)
+        for p in _production_sources()
+        if "github_client" not in p.parts and pattern.search(p.read_text())
+    ]
+    assert offenders == []

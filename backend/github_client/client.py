@@ -5,17 +5,19 @@ import time
 from collections.abc import Callable, Mapping
 from datetime import UTC, datetime
 from typing import Any, Literal
-from urllib.parse import unquote, urlsplit
+from urllib.parse import quote, unquote, urlsplit
 
 import requests
 from django.conf import settings
 
 from .errors import ForbiddenEndpointError, GitHubError, MissingTokenError, RateLimitError
+from .etag_store import CachedResponse, ETagStore, InMemoryETagStore
 from .types import GitHubResponse
 
 logger = logging.getLogger(__name__)
 
 API_BASE_URL = "https://api.github.com"
+RAW_BASE_URL = "https://raw.githubusercontent.com"
 API_VERSION = "2022-11-28"
 REQUEST_TIMEOUT = (5, 30)  # connect, read (seconds)
 
@@ -42,6 +44,11 @@ def _check_path(path: str) -> None:
         following = segments[index + 1] if index + 1 < len(segments) else None
         if following not in _ALLOWED_AFTER_STARGAZERS:
             raise ForbiddenEndpointError(f"The stargazer list endpoint is forbidden: {path}")
+
+
+def _skip_netrc(request: requests.PreparedRequest) -> requests.PreparedRequest:
+    """Passed as ``auth`` so a ~/.netrc entry cannot replace or add credentials."""
+    return request
 
 
 def _int_header(response: requests.Response, name: str) -> int | None:
@@ -73,7 +80,9 @@ class GitHubClient:
         clock: Callable[[], datetime] = _utc_now,
         sleep: Callable[[float], None] = time.sleep,
         rate_limit_margin: int = DEFAULT_RATE_LIMIT_MARGIN,
+        etag_store: ETagStore | None = None,
     ) -> None:
+        self._etag_store: ETagStore = etag_store or InMemoryETagStore()
         self._session = session or requests.Session()
         self._clock = clock
         self._sleep = sleep
@@ -88,24 +97,42 @@ class GitHubClient:
         if not token:
             raise MissingTokenError()
 
+        url = f"{API_BASE_URL}{path}"
+        cache_key = requests.Request("GET", url, params=params).prepare().url or url
+        cached = self._etag_store.get(cache_key)
+        headers = {
+            "Accept": "application/vnd.github+json",
+            "X-GitHub-Api-Version": API_VERSION,
+            "Authorization": f"Bearer {token}",
+        }
+        if cached is not None:
+            headers["If-None-Match"] = cached.etag
+
         cost = 0
         rate_limit_attempts = 0
         stats_retries = 0
         while True:
             self._pause_if_near_limit()
             response = self._session.get(
-                f"{API_BASE_URL}{path}",
+                url,
                 params=params,
-                headers={
-                    "Accept": "application/vnd.github+json",
-                    "X-GitHub-Api-Version": API_VERSION,
-                    "Authorization": f"Bearer {token}",
-                },
+                headers=headers,
                 timeout=REQUEST_TIMEOUT,
                 allow_redirects=True,
+                auth=_skip_netrc,
             )
-            cost += 1 + len(response.history)
             self._record_rate_limit(response)
+
+            if response.status_code == 304 and cached is not None:
+                return GitHubResponse(
+                    data=cached.data,
+                    source=path,
+                    fetched_at=self._clock(),
+                    cost=cost + len(response.history),  # the 304 itself is free
+                    final_url=cached.final_url,
+                    from_cache=True,
+                )
+            cost += 1 + len(response.history)
 
             if response.status_code == 202:
                 if stats_retries == len(STATS_RETRY_WAITS):
@@ -137,7 +164,27 @@ class GitHubClient:
                     status_code=response.status_code,
                 )
             data = response.json() if response.content else None
+            etag = response.headers.get("ETag")
+            if etag:
+                self._etag_store.set(cache_key, CachedResponse(etag, data, response.url))
             return self._result(data, path, cost, response)
+
+    def get_raw(self, owner: str, repo: str, ref: str, path: str) -> GitHubResponse:
+        """Fetch a public file's text. Uses no API quota and sends no token (C9)."""
+        parts = [owner, repo, *ref.split("/"), *path.split("/")]
+        if any(part in {"", ".", ".."} for part in parts):
+            raise GitHubError(f"Invalid raw file location: {owner}/{repo}@{ref}:{path}")
+        url = f"{RAW_BASE_URL}/{'/'.join(quote(part, safe='') for part in parts)}"
+
+        response = self._session.get(
+            url, timeout=REQUEST_TIMEOUT, allow_redirects=True, auth=_skip_netrc
+        )
+        if not response.ok:
+            raise GitHubError(
+                f"GitHub returned {response.status_code} for {url}",
+                status_code=response.status_code,
+            )
+        return self._result(response.text, url, 0, response)
 
     def _result(
         self,
