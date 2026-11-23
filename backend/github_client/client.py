@@ -3,6 +3,7 @@
 import logging
 import time
 from collections.abc import Callable, Mapping
+from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Any, Literal
 from urllib.parse import quote, unquote, urlsplit
@@ -22,6 +23,9 @@ API_VERSION = "2022-11-28"
 REQUEST_TIMEOUT = (5, 30)  # connect, read (seconds)
 
 DEFAULT_RATE_LIMIT_MARGIN = 200
+DEFAULT_SEARCH_RATE_LIMIT_MARGIN = 2
+CORE_RESOURCE = "core"
+SEARCH_RESOURCE = "search"
 MAX_RATE_LIMIT_ATTEMPTS = 5
 DEFAULT_RETRY_SECONDS = 60
 STATS_RETRY_WAITS = (2, 4, 8, 16, 32)
@@ -29,8 +33,18 @@ STATS_RETRY_WAITS = (2, 4, 8, 16, 32)
 _ALLOWED_AFTER_STARGAZERS = {"history", "count"}
 
 
+@dataclass(frozen=True)
+class _Quota:
+    remaining: int
+    reset_at: int
+
+
 def _utc_now() -> datetime:
     return datetime.now(UTC)
+
+
+def _resource_for(path: str) -> str:
+    return SEARCH_RESOURCE if urlsplit(path).path.startswith("/search/") else CORE_RESOURCE
 
 
 def _check_path(path: str) -> None:
@@ -81,14 +95,17 @@ class GitHubClient:
         sleep: Callable[[float], None] = time.sleep,
         rate_limit_margin: int = DEFAULT_RATE_LIMIT_MARGIN,
         etag_store: ETagStore | None = None,
+        search_rate_limit_margin: int = DEFAULT_SEARCH_RATE_LIMIT_MARGIN,
+        wait_for_rate_limit: bool = True,
     ) -> None:
         self._etag_store: ETagStore = etag_store or InMemoryETagStore()
         self._session = session or requests.Session()
         self._clock = clock
         self._sleep = sleep
         self._rate_limit_margin = rate_limit_margin
-        self._remaining: int | None = None
-        self._reset_at: int | None = None
+        self._search_rate_limit_margin = search_rate_limit_margin
+        self._wait_for_rate_limit = wait_for_rate_limit
+        self._quotas: dict[str, _Quota] = {}
 
     def get(self, path: str, params: Mapping[str, Any] | None = None) -> GitHubResponse:
         """GET an API path such as ``/repos/owner/name``."""
@@ -108,20 +125,14 @@ class GitHubClient:
         if cached is not None:
             headers["If-None-Match"] = cached.etag
 
+        resource = _resource_for(path)
         cost = 0
         rate_limit_attempts = 0
         stats_retries = 0
         while True:
-            self._pause_if_near_limit()
-            response = self._session.get(
-                url,
-                params=params,
-                headers=headers,
-                timeout=REQUEST_TIMEOUT,
-                allow_redirects=True,
-                auth=_skip_netrc,
-            )
-            self._record_rate_limit(response)
+            self._pause_if_near_limit(resource, path)
+            response = self._send(url, params=params, headers=headers)
+            self._record_rate_limit(response, resource)
 
             if response.status_code == 304 and cached is not None:
                 return GitHubResponse(
@@ -142,6 +153,12 @@ class GitHubClient:
                 continue
 
             if _is_rate_limited(response):
+                if not self._wait_for_rate_limit:
+                    raise RateLimitError(
+                        f"GitHub rate limited {path}",
+                        status_code=response.status_code,
+                        reset_at=self._reset_time(response),
+                    )
                 rate_limit_attempts += 1
                 if rate_limit_attempts >= MAX_RATE_LIMIT_ATTEMPTS:
                     logger.error(
@@ -153,7 +170,7 @@ class GitHubClient:
                         f"GitHub kept rate limiting {path} after {rate_limit_attempts} tries",
                         status_code=response.status_code,
                     )
-                delay = self._retry_delay(response, rate_limit_attempts)
+                delay = self._retry_delay(response, rate_limit_attempts, resource)
                 if delay > 0:
                     self._sleep(delay)
                 continue
@@ -176,15 +193,21 @@ class GitHubClient:
             raise GitHubError(f"Invalid raw file location: {owner}/{repo}@{ref}:{path}")
         url = f"{RAW_BASE_URL}/{'/'.join(quote(part, safe='') for part in parts)}"
 
-        response = self._session.get(
-            url, timeout=REQUEST_TIMEOUT, allow_redirects=True, auth=_skip_netrc
-        )
+        response = self._send(url)
         if not response.ok:
             raise GitHubError(
                 f"GitHub returned {response.status_code} for {url}",
                 status_code=response.status_code,
             )
         return self._result(response.text, url, 0, response)
+
+    def _send(self, url: str, **kwargs: Any) -> requests.Response:
+        try:
+            return self._session.get(
+                url, timeout=REQUEST_TIMEOUT, allow_redirects=True, auth=_skip_netrc, **kwargs
+            )
+        except requests.RequestException as error:
+            raise GitHubError(f"Could not reach GitHub for {url}") from error
 
     def _result(
         self,
@@ -203,36 +226,49 @@ class GitHubClient:
             status=status,
         )
 
-    def _record_rate_limit(self, response: requests.Response) -> None:
-        """Remember the latest quota headers (C3)."""
+    def _record_rate_limit(self, response: requests.Response, resource: str) -> None:
+        """Remember the latest quota headers for the response's resource (C3)."""
         remaining = _int_header(response, "x-ratelimit-remaining")
         reset_at = _int_header(response, "x-ratelimit-reset")
         if remaining is not None and reset_at is not None:
-            self._remaining = remaining
-            self._reset_at = reset_at
+            key = response.headers.get("x-ratelimit-resource", resource)
+            self._quotas[key] = _Quota(remaining, reset_at)
 
-    def _pause_if_near_limit(self) -> None:
-        """Wait for the quota reset when below the safety margin (C3)."""
-        if self._remaining is None or self._reset_at is None:
+    def _margin(self, resource: str) -> int:
+        if resource == SEARCH_RESOURCE:
+            return self._search_rate_limit_margin
+        return self._rate_limit_margin
+
+    def _pause_if_near_limit(self, resource: str, path: str) -> None:
+        """Wait for the quota reset when below the resource's safety margin (C3)."""
+        quota = self._quotas.get(resource)
+        if quota is None or quota.remaining >= self._margin(resource):
             return
-        if self._remaining >= self._rate_limit_margin:
-            return
-        wait = self._reset_at - self._clock().timestamp()
-        self._remaining = None
-        self._reset_at = None
+        wait = quota.reset_at - self._clock().timestamp()
+        if wait > 0 and not self._wait_for_rate_limit:
+            raise RateLimitError(
+                f"GitHub {resource} quota is too low for {path}", reset_at=quota.reset_at
+            )
+        del self._quotas[resource]
         if wait > 0:
             self._sleep(wait + 1)  # one extra second covers clock skew
 
-    def _retry_delay(self, response: requests.Response, attempt: int) -> float:
+    def _reset_time(self, response: requests.Response) -> int | None:
+        retry_after = _int_header(response, "retry-after")
+        if retry_after is not None:
+            return int(self._clock().timestamp()) + max(retry_after, 0)
+        return _int_header(response, "x-ratelimit-reset")
+
+    def _retry_delay(self, response: requests.Response, attempt: int, resource: str) -> float:
         """Seconds to wait before retrying a rate-limited request (C4)."""
         retry_after = _int_header(response, "retry-after")
         if retry_after is not None:
             return max(retry_after, 0)
+        quota = self._quotas.get(resource)
         if (
-            self._remaining is not None
-            and self._reset_at is not None
-            and self._remaining < self._rate_limit_margin
-            and self._reset_at > self._clock().timestamp()
+            quota is not None
+            and quota.remaining < self._margin(resource)
+            and quota.reset_at > self._clock().timestamp()
         ):
             return 0  # the pause before the next request already waits for the reset
         return DEFAULT_RETRY_SECONDS * 2 ** (attempt - 1)
