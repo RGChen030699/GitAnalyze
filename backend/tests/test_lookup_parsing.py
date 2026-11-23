@@ -11,3 +11,9 @@ def test_L1_accepts_owner_repo_name() -> None:
     parsed = parse_repo_input("vercel/next.js")
 
     assert parsed.repos == [RepoRef("vercel", "next.js")]
+
+
+def test_L1_accepts_url_without_scheme() -> None:
+    parsed = parse_repo_input("github.com/vercel/next.js")
+
+    assert parsed.repos == [RepoRef("vercel", "next.js")]
