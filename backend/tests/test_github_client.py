@@ -386,6 +386,17 @@ def test_raw_fetch_rejects_unsafe_paths(client: GitHubClient, path: str) -> None
         client.get_raw("octo", "widget", "main", path)
 
 
+@responses.activate
+def test_C8_client_counts_requests_sent(client: GitHubClient) -> None:
+    new_url = f"{API_BASE_URL}/repositories/42"
+    responses.get(REPO_URL, status=301, headers={"Location": new_url})
+    responses.get(new_url, json={"full_name": "octo/renamed"})
+
+    client.get(REPO_PATH)
+
+    assert client.requests_sent == 2
+
+
 def test_real_network_is_blocked_in_tests(client: GitHubClient) -> None:
     with pytest.raises(RuntimeError, match="Real network access"):
         client.get(REPO_PATH)
