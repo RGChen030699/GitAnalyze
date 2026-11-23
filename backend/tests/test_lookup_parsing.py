@@ -1,4 +1,4 @@
-from lookup.parsing import RepoRef, parse_repo_input
+from lookup.parsing import ParsedInput, RepoRef, parse_repo_input
 
 
 def test_L1_accepts_https_url() -> None:
@@ -41,3 +41,9 @@ def test_L1_accepts_git_ssh_url() -> None:
     parsed = parse_repo_input("git@github.com:vercel/next.js.git")
 
     assert parsed.repos == [RepoRef("vercel", "next.js")]
+
+
+def test_L3_treats_bare_name_as_search() -> None:
+    parsed = parse_repo_input("zustand")
+
+    assert parsed == ParsedInput(repos=[], search="zustand")
