@@ -179,7 +179,7 @@ _Not run yet._
 - Modify: `backend/config/urls.py`, `backend/config/settings.py`
 - Test: `backend/tests/test_rankings_api.py`, `test_cors.py`
 
-**Interfaces produced:** `rankings.serializers.serialize_row(repo: Repository) -> dict`. Setting `FRONTEND_ORIGIN`, default `http://localhost:5173`. Sort values: `stars` (default), `gained_7d`, `gained_30d`, `gained_year`, `pushed`.
+**Interfaces produced:** `rankings.serializers.serialize_row(repo: Repository) -> dict`. Setting `FRONTEND_ORIGIN`, default `http://localhost:8080`. Sort values: `stars` (default), `gained_7d`, `gained_30d`, `gained_year`, `pushed`.
 
 | Test | Assertion |
 |---|---|
@@ -285,7 +285,7 @@ _Not run yet._
 - [ ] Wire lookup to `/api/lookup`, merge returned rows into the list, and show API error text. Debounce suggestions to 400 ms and abort stale requests. Picking a suggestion runs a lookup.
 - [ ] Show "Rankings are being prepared" only when `prepared=false`. If the API is unreachable, show "Couldn't load rankings" with a retry button.
 - [ ] Run `node --test frontend/tests/`, plus the backend checks.
-- [ ] Manual check: serve with `python -m http.server 5173 --directory frontend`, then verify empty database, `refresh_rankings --limit 10`, filters, a 404 lookup, and no browser requests to `api.github.com`.
+- [ ] Manual check: serve with `python -m http.server 8080 --directory frontend`, then verify empty database, `refresh_rankings --limit 10`, filters, a 404 lookup, and no browser requests to `api.github.com`.
 - [ ] Commit `feat(F7): load rankings and lookup from the API [green]`.
 
 ---
