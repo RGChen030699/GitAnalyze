@@ -1,6 +1,7 @@
 from dataclasses import dataclass
 
 URL_PREFIXES = ("https://", "www.", "github.com/", "git@github.com:")
+MAX_REPOS = 3
 
 
 class TooManyRepos(Exception):
@@ -42,4 +43,6 @@ def parse_repo_input(text: str) -> ParsedInput:
         return ParsedInput(repos=[], search=text)
     entries = text.replace(",", " ").split()
     repos = _unique_repos([_parse_entry(entry) for entry in entries])
+    if len(repos) > MAX_REPOS:
+        raise TooManyRepos("Compare up to 3 repositories at a time")
     return ParsedInput(repos=repos, search=None)
