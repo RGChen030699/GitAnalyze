@@ -549,3 +549,42 @@ def test_summary_reports_repos_requests_failures() -> None:
 
     assert "Refreshed 3 repositories, 13 requests used, 0 failures" in out
     assert err == ""
+
+
+def low_total_search() -> dict[str, Any]:
+    payload = single_repo_search()
+    payload["items"][0]["stargazers_count"] = 10
+    return payload
+
+
+@responses.activate
+@pytest.mark.django_db
+def test_F8_new_gains_never_exceed_total_stars() -> None:
+    mock_search(low_total_search())
+    mock_details(TOP_REPO)
+
+    run()
+
+    repository = top_repository()
+    assert repository.stars_gained_7d == 10
+    assert repository.stars_gained_30d == 10
+    assert repository.stars_gained_year == 10
+    assert repository.weeks_12 == [entry["total"] for entry in reversed(history_page_1()[:12])]
+
+
+@responses.activate
+@pytest.mark.django_db
+def test_F8_kept_gains_never_exceed_lower_total_after_history_failure() -> None:
+    mock_search(single_repo_search())
+    mock_details(TOP_REPO)
+    run()
+    responses.reset()
+    mock_search(low_total_search())
+    mock_details(TOP_REPO, page_1_status=500)
+
+    run()
+
+    repository = top_repository()
+    assert repository.stars_gained_7d == 10
+    assert repository.stars_gained_30d == 10
+    assert repository.stars_gained_year == 10
