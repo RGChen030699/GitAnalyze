@@ -1,4 +1,11 @@
-from lookup.parsing import RepoRef, parse_repo_input
+import pytest
+from lookup.parsing import (
+    InvalidRepoInput,
+    ParsedInput,
+    RepoRef,
+    TooManyRepos,
+    parse_repo_input,
+)
 
 
 def test_L1_accepts_https_url() -> None:
@@ -29,3 +36,77 @@ def test_L1_ignores_tree_path() -> None:
     parsed = parse_repo_input("https://github.com/anthropics/skills/tree/main/skills")
 
     assert parsed.repos == [RepoRef("anthropics", "skills")]
+
+
+def test_L1_strips_git_suffix() -> None:
+    parsed = parse_repo_input("https://github.com/vercel/next.js.git")
+
+    assert parsed.repos == [RepoRef("vercel", "next.js")]
+
+
+def test_L1_accepts_git_ssh_url() -> None:
+    parsed = parse_repo_input("git@github.com:vercel/next.js.git")
+
+    assert parsed.repos == [RepoRef("vercel", "next.js")]
+
+
+def test_L3_treats_bare_name_as_search() -> None:
+    parsed = parse_repo_input("zustand")
+
+    assert parsed == ParsedInput(repos=[], search="zustand")
+
+
+def test_L2_accepts_space_separated_entries() -> None:
+    parsed = parse_repo_input("vercel/next.js facebook/react")
+
+    assert parsed.repos == [RepoRef("vercel", "next.js"), RepoRef("facebook", "react")]
+
+
+def test_L2_accepts_comma_separated_entries() -> None:
+    parsed = parse_repo_input("vercel/next.js,facebook/react")
+
+    assert parsed.repos == [RepoRef("vercel", "next.js"), RepoRef("facebook", "react")]
+
+
+def test_L2_accepts_newline_separated_entries() -> None:
+    parsed = parse_repo_input("vercel/next.js\nfacebook/react")
+
+    assert parsed.repos == [RepoRef("vercel", "next.js"), RepoRef("facebook", "react")]
+
+
+def test_L2_removes_duplicate_entries() -> None:
+    parsed = parse_repo_input("vercel/next.js https://github.com/vercel/next.js")
+
+    assert parsed.repos == [RepoRef("vercel", "next.js")]
+
+
+def test_L2_removes_duplicates_ignoring_case() -> None:
+    parsed = parse_repo_input("Vercel/next.js vercel/next.js")
+
+    assert parsed.repos == [RepoRef("Vercel", "next.js")]
+
+
+def test_L2_rejects_more_than_three_repos() -> None:
+    with pytest.raises(TooManyRepos) as error:
+        parse_repo_input("vercel/next.js facebook/react vuejs/core sveltejs/svelte")
+
+    assert str(error.value) == "Compare up to 3 repositories at a time"
+
+
+def test_L2_limit_counts_unique_repos() -> None:
+    parsed = parse_repo_input("a/b a/b a/b a/b")
+
+    assert parsed.repos == [RepoRef("a", "b")]
+
+
+def test_L1_accepts_http_url() -> None:
+    parsed = parse_repo_input("http://github.com/vercel/next.js")
+
+    assert parsed.repos == [RepoRef("vercel", "next.js")]
+
+
+def test_L1_rejects_non_github_url() -> None:
+    with pytest.raises(InvalidRepoInput) as error:
+        parse_repo_input("https://gitlab.com/vercel/next.js")
+
+    assert str(error.value) == "GitAnalyze only checks GitHub repositories"
