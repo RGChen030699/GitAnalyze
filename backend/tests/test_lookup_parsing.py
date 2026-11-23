@@ -1,5 +1,11 @@
 import pytest
-from lookup.parsing import ParsedInput, RepoRef, TooManyRepos, parse_repo_input
+from lookup.parsing import (
+    InvalidRepoInput,
+    ParsedInput,
+    RepoRef,
+    TooManyRepos,
+    parse_repo_input,
+)
 
 
 def test_L1_accepts_https_url() -> None:
@@ -91,3 +97,10 @@ def test_L2_limit_counts_unique_repos() -> None:
     parsed = parse_repo_input("a/b a/b a/b a/b")
 
     assert parsed.repos == [RepoRef("a", "b")]
+
+
+def test_L1_rejects_non_github_url() -> None:
+    with pytest.raises(InvalidRepoInput) as error:
+        parse_repo_input("https://gitlab.com/vercel/next.js")
+
+    assert str(error.value) == "GitAnalyze only checks GitHub repositories"

@@ -8,6 +8,10 @@ class TooManyRepos(Exception):
     pass
 
 
+class InvalidRepoInput(Exception):
+    pass
+
+
 @dataclass(frozen=True)
 class RepoRef:
     owner: str
