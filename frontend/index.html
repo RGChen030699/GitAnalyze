@@ -1,0 +1,799 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>GitAnalyze Dashboard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,650;12..96,750&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+/* Layout idea: compact header and lookup, one summary band, then the ranked table as the centerpiece. Tokens from docs/design.md §3. */
+:root{
+  --bg:#F3F4F0; --surface:#FFFFFF; --surface-2:#ECEEE8; --line:#D8DBD2; --line-2:#E6E8E1;
+  --ink:#181C18; --ink-2:#454B44; --ink-3:#5E645C;
+  --accent:#3048D6; --accent-ink:#FFFFFF; --accent-soft:#E3E6FB; --accent-text:#2A38B0;
+  --good:#1D7550; --good-soft:#DCEFE4; --warn:#955200; --warn-soft:#FAEAD2; --bad:#AE3127; --bad-soft:#F8E0DC;
+  --c1:#3048D6; --c2:#D07A1F; --c3:#5B615A;
+  --shadow:0 1px 2px rgba(24,28,24,.06),0 8px 24px rgba(24,28,24,.06);
+  --display:'Bricolage Grotesque','IBM Plex Sans',system-ui,sans-serif;
+  --sans:'IBM Plex Sans',system-ui,-apple-system,'Segoe UI',sans-serif;
+  --mono:'IBM Plex Mono',ui-monospace,SFMono-Regular,Menlo,monospace;
+  color-scheme:light;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --bg:#121512; --surface:#1A1E1A; --surface-2:#232823; --line:#343A33; --line-2:#2A2F2A;
+    --ink:#ECEEE9; --ink-2:#BCC2B9; --ink-3:#9DA49A;
+    --accent:#8A9BFE; --accent-ink:#0B1029; --accent-soft:#252B54; --accent-text:#B3BCFF;
+    --good:#62CB98; --good-soft:#173628; --warn:#F1AD52; --warn-soft:#3B2B13; --bad:#F2867B; --bad-soft:#3F1E1B;
+    --c1:#8A9BFE; --c2:#F1AD52; --c3:#BCC2B9;
+    --shadow:0 1px 2px rgba(0,0,0,.3),0 8px 24px rgba(0,0,0,.25);
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#121512; --surface:#1A1E1A; --surface-2:#232823; --line:#343A33; --line-2:#2A2F2A;
+  --ink:#ECEEE9; --ink-2:#BCC2B9; --ink-3:#9DA49A;
+  --accent:#8A9BFE; --accent-ink:#0B1029; --accent-soft:#252B54; --accent-text:#B3BCFF;
+  --good:#62CB98; --good-soft:#173628; --warn:#F1AD52; --warn-soft:#3B2B13; --bad:#F2867B; --bad-soft:#3F1E1B;
+  --c1:#8A9BFE; --c2:#F1AD52; --c3:#BCC2B9;
+  --shadow:0 1px 2px rgba(0,0,0,.3),0 8px 24px rgba(0,0,0,.25);
+  color-scheme:dark;
+}
+*,*::before,*::after{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:15px;line-height:1.5;-webkit-font-smoothing:antialiased;font-variant-numeric:tabular-nums}
+a{color:var(--accent-text)} a:hover{color:var(--ink)}
+button,input,select{font:inherit;color:inherit}
+:focus-visible{outline:3px solid var(--accent);outline-offset:2px;border-radius:6px}
+.mono{font-family:var(--mono)}
+.wrap{max-width:1280px;margin:0 auto;padding:0 24px}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+.note{font-size:13px;color:var(--ink-3);margin:0}
+.muted{color:var(--ink-3)}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+
+/* header */
+.top{position:sticky;top:0;z-index:20;background:var(--surface);border-bottom:1px solid var(--line)}
+.top .wrap{display:flex;flex-wrap:wrap;align-items:center;gap:6px 16px;min-height:56px}
+.brand{display:flex;align-items:center;gap:10px;text-decoration:none;color:var(--ink);font-family:var(--display);font-weight:750;font-size:19px;letter-spacing:-.01em;margin-right:8px}
+.nav{display:flex;flex-wrap:wrap;gap:2px;flex:1 1 auto}
+.nav a{display:inline-flex;align-items:center;gap:8px;min-height:40px;padding:0 11px;font-size:14px;border-radius:10px;text-decoration:none;color:var(--ink-2);font-weight:500}
+.nav a:hover{background:var(--surface-2);color:var(--ink)}
+.nav a[aria-current="page"]{color:var(--ink);background:var(--surface-2)}
+.count{display:inline-grid;place-items:center;min-width:22px;height:22px;padding:0 6px;border-radius:999px;background:var(--accent);color:var(--accent-ink);font-size:12px;font-weight:600}
+.tools{display:flex;align-items:center;gap:6px}
+.icon-btn{display:inline-grid;place-items:center;width:44px;height:44px;border-radius:10px;border:1px solid transparent;background:transparent;color:var(--ink-2);cursor:pointer}
+.icon-btn:hover{background:var(--surface-2);color:var(--ink)}
+.demo{position:relative}
+.demo>button{display:inline-flex;align-items:center;gap:8px;min-height:44px;padding:0 12px;border-radius:10px;border:1px dashed var(--line);background:transparent;cursor:pointer;color:var(--ink-2);font-weight:500;font-size:14px}
+.demo-panel{position:absolute;right:0;top:calc(100% + 8px);width:300px;background:var(--surface);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow);padding:16px;display:none;z-index:40}
+.demo-panel.open{display:block}
+.switch{display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:44px;font-size:14px;cursor:pointer}
+.switch input{width:20px;height:20px;accent-color:var(--accent)}
+
+/* buttons, chips, segmented */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:44px;padding:0 18px;border-radius:10px;border:1px solid var(--line);background:var(--surface);color:var(--ink);font-weight:500;text-decoration:none;cursor:pointer;white-space:nowrap}
+.btn:hover{border-color:var(--ink-3)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink);font-weight:600}
+.btn.primary:hover{filter:brightness(1.08)}
+.btn.ghost{border-color:transparent;background:transparent;color:var(--ink-2)}
+.btn.ghost:hover{background:var(--surface-2)}
+.btn.small{min-height:36px;padding:0 12px;font-size:14px}
+.btn[disabled]{opacity:.55;cursor:not-allowed}
+.chip{display:inline-flex;align-items:center;gap:6px;padding:2px 9px;border-radius:999px;background:var(--surface-2);color:var(--ink-2);font-size:12px;font-weight:500;white-space:nowrap}
+.chip.accent{background:var(--accent-soft);color:var(--accent-text)}
+.chip.warn{background:var(--warn-soft);color:var(--warn)}
+.chip.bad{background:var(--bad-soft);color:var(--bad)}
+.chip.good{background:var(--good-soft);color:var(--good)}
+.chip svg{width:13px;height:13px}
+.seg{display:inline-flex;padding:3px;border-radius:12px;background:var(--surface-2);gap:2px}
+.seg button{min-height:38px;padding:0 11px;border:none;border-radius:9px;background:transparent;color:var(--ink-2);font-weight:500;font-size:14px;cursor:pointer}
+.seg button[aria-pressed="true"]{background:var(--surface);color:var(--ink);box-shadow:0 1px 2px rgba(0,0,0,.12)}
+.field{display:flex;flex-direction:column;gap:6px;font-size:13px;font-weight:500;color:var(--ink-2)}
+select{min-height:44px;padding:0 34px 0 12px;border-radius:10px;border:1px solid var(--line);background:var(--surface);font-size:14px;appearance:none;background-image:linear-gradient(45deg,transparent 50%,var(--ink-3) 50%),linear-gradient(135deg,var(--ink-3) 50%,transparent 50%);background-position:calc(100% - 17px) 19px,calc(100% - 12px) 19px;background-size:5px 5px;background-repeat:no-repeat}
+.toggle{display:inline-flex;align-items:center;gap:10px;min-height:44px;font-size:14px;font-weight:500;cursor:pointer;color:var(--ink-2)}
+.toggle input{width:20px;height:20px;accent-color:var(--accent)}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:14px}
+.info{width:30px;height:30px;border-radius:8px;border:none;background:transparent;color:var(--ink-3);cursor:pointer;display:inline-grid;place-items:center;vertical-align:middle;flex:none}
+.info:hover{background:var(--surface-2);color:var(--ink)}
+.info svg{width:16px;height:16px}
+
+/* page head + lookup */
+main.wrap{padding-top:22px;padding-bottom:72px;display:grid;gap:16px}
+.head{display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:6px 24px}
+.head h1{margin:0;font-family:var(--display);font-weight:750;font-size:clamp(22px,2.2vw,28px);letter-spacing:-.02em;line-height:1.15;text-wrap:balance}
+.head p{margin:4px 0 0;color:var(--ink-2);font-size:14px}
+.fresh{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--ink-3)}
+.fresh .dot{width:8px;height:8px;border-radius:50%;background:var(--good)}
+.lookup{position:relative}
+.lookup-box{display:flex;flex-wrap:wrap;gap:6px;padding:5px;background:var(--surface);border:2px solid var(--line);border-radius:14px;box-shadow:var(--shadow);transition:border-color .15s}
+.lookup-box:focus-within{border-color:var(--accent)}
+.lookup-box input{flex:1 1 360px;min-height:40px;border:none;background:transparent;padding:0 10px;font-family:var(--mono);font-size:14px;outline:none}
+.lookup-box .btn{min-height:40px;padding:0 22px;border-radius:10px;font-size:14px}
+.lookup-meta{display:flex;flex-wrap:wrap;align-items:center;gap:6px 14px;margin-top:8px;min-height:24px;font-size:13px;color:var(--ink-3)}
+.lookup-meta .chip{font-family:var(--mono);font-size:12px}
+.alert{display:flex;gap:10px;align-items:flex-start;padding:10px 14px;border-radius:12px;font-weight:500;font-size:14px;margin-top:10px}
+.alert svg{flex:none;margin-top:2px}
+.alert.warn{background:var(--warn-soft);color:var(--warn)}
+.alert.bad{background:var(--bad-soft);color:var(--bad)}
+.suggest{position:absolute;left:0;right:0;top:calc(100% + 6px);background:var(--surface);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow);overflow:hidden;z-index:30}
+.suggest button{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:2px 16px;width:100%;padding:11px 16px;text-align:left;border:none;border-top:1px solid var(--line-2);background:transparent;cursor:pointer}
+.suggest button:first-of-type{border-top:none}
+.suggest button:hover,.suggest button.active{background:var(--accent-soft)}
+.suggest .s-name{font-family:var(--mono);font-weight:500;color:var(--accent-text)}
+.suggest .s-desc{grid-column:1;font-size:13px;color:var(--ink-2)}
+.suggest .s-stars{grid-row:1/3;grid-column:2;align-self:center;font-size:13px;color:var(--ink-3)}
+.suggest .s-head{padding:9px 16px;font-size:12px;color:var(--ink-3);background:var(--surface-2)}
+.recent{display:flex;flex-wrap:wrap;align-items:center;gap:6px}
+.recent button{border:1px solid var(--line);background:transparent;border-radius:999px;padding:3px 10px;font-family:var(--mono);font-size:12px;color:var(--ink-2);cursor:pointer;min-height:30px}
+.recent button:hover{border-color:var(--ink-3);color:var(--ink)}
+
+/* summary band */
+.summary{display:grid;grid-template-columns:repeat(4,minmax(0,1fr)) minmax(260px,1.6fr);align-items:stretch}
+.summary>div{padding:14px 20px;border-left:1px solid var(--line-2);display:flex;flex-direction:column;gap:2px;min-width:0}
+.summary>div:first-child{border-left:none}
+.summary dt{display:flex;align-items:center;gap:2px;font-size:13px;color:var(--ink-2)}
+.summary dd{margin:0;font-family:var(--display);font-weight:650;font-size:24px;letter-spacing:-.01em;line-height:1.15}
+.summary small{font-size:12px;color:var(--ink-3)}
+.mix{height:10px;display:flex;border-radius:999px;overflow:hidden;background:var(--surface-2);margin:8px 0 8px}
+.mix span{height:100%}
+.mix-legend{display:flex;flex-wrap:wrap;gap:4px 14px;font-size:12px;color:var(--ink-2)}
+.mix-legend span{display:inline-flex;align-items:center;gap:5px}
+.mix-legend i{width:9px;height:9px;border-radius:2px;display:inline-block}
+@media (max-width:1000px){.summary{grid-template-columns:repeat(2,minmax(0,1fr))}.summary>div{border-left:none;border-top:1px solid var(--line-2)}.summary>div:nth-child(-n+2){border-top:none}.summary>div:last-child{grid-column:1/-1}}
+
+/* controls */
+.controls{display:flex;flex-wrap:wrap;align-items:flex-end;gap:12px 18px;padding:14px 18px}
+.controls .spacer{flex:1 1 auto}
+
+/* table */
+.tbl-panel{overflow:visible}
+.tbl-bar{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px 16px;padding:12px 18px;border-bottom:1px solid var(--line)}
+.focus-note{display:inline-flex;align-items:center;gap:8px;font-size:14px;color:var(--ink-2)}
+.tbl-scroll{overflow:visible}
+@media (max-width:1000px){.tbl-scroll{overflow-x:auto}}
+table.rank{width:100%;border-collapse:separate;border-spacing:0;font-size:14px}
+.rank th{position:sticky;top:56px;z-index:5;background:var(--surface);text-align:left;font-size:12px;font-weight:600;color:var(--ink-3);padding:0 10px;height:44px;border-bottom:1px solid var(--line);white-space:nowrap}
+@media (max-width:1000px){.rank th{position:static}}
+.rank th.num,.rank td.num{text-align:right}
+.rank th .sort{display:inline-flex;align-items:center;gap:4px;border:none;background:transparent;padding:6px 4px;margin:0 -4px;border-radius:6px;color:inherit;font:inherit;font-weight:600;cursor:pointer}
+.rank th .sort:hover{color:var(--ink);background:var(--surface-2)}
+.rank th[aria-sort="ascending"] .sort,.rank th[aria-sort="descending"] .sort{color:var(--ink)}
+.rank th .arrow{width:10px;opacity:.9}
+.rank td{padding:10px;border-bottom:1px solid var(--line-2);vertical-align:middle}
+.rank tbody tr:hover td{background:color-mix(in srgb,var(--accent-soft) 45%,transparent)}
+.rank tbody tr.hl td{background:var(--accent-soft)}
+.rank tbody tr:last-child td{border-bottom:none}
+.rank .c-rank{width:44px;color:var(--ink-3);text-align:right;padding-left:18px}
+.rank .r-name{display:flex;flex-wrap:wrap;align-items:center;gap:4px 8px}
+.rank .r-name b{font-family:var(--mono);font-weight:500;overflow-wrap:anywhere}
+.rank .r-name b span{color:var(--ink-3);font-weight:400}
+.rank .r-desc{font-size:13px;color:var(--ink-2);max-width:46ch;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-top:2px}
+.rank .r-spike{font-size:12px;font-weight:500;color:var(--warn);margin-top:2px}
+.rank .c-repo{min-width:280px}
+.rank td.num b{font-weight:600}
+.rank td.num small{display:block;font-size:11px;color:var(--ink-3)}
+.rank .neg{color:var(--bad)}
+.rank .c-add{width:56px;padding-right:18px;text-align:right}
+.add-btn{width:36px;height:36px;border-radius:10px;border:1px solid var(--line);background:var(--surface);cursor:pointer;display:inline-grid;place-items:center;color:var(--ink-2)}
+.add-btn:hover{border-color:var(--ink-3);color:var(--ink)}
+.add-btn[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.status{display:inline-flex;align-items:center;gap:5px;padding:2px 9px 2px 6px;border-radius:999px;font-size:12px;font-weight:600;white-space:nowrap}
+.status svg{width:13px;height:13px}
+.tone-good{background:var(--good-soft);color:var(--good)}
+.tone-warn{background:var(--warn-soft);color:var(--warn)}
+.tone-bad{background:var(--bad-soft);color:var(--bad)}
+.tone-neutral{background:var(--surface-2);color:var(--ink-2)}
+.more{display:grid;justify-items:center;gap:6px;padding:16px;border-top:1px solid var(--line-2)}
+.tbl-foot{padding:12px 18px;border-top:1px solid var(--line);display:flex;flex-wrap:wrap;gap:6px 20px}
+.empty{padding:48px 24px;text-align:center;display:grid;gap:10px;justify-items:center}
+.empty h2{margin:0;font-family:var(--display);font-weight:650;font-size:20px}
+@media (max-width:900px){.opt{display:none}}
+
+/* popover, toast, modal, tray */
+.pop{position:absolute;z-index:60;width:min(360px,calc(100vw - 32px));background:var(--surface);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow);padding:18px;display:none}
+.pop.open{display:block}
+.pop h4{margin:0 0 8px;font-size:16px}
+.pop p{margin:0 0 10px;font-size:14px;color:var(--ink-2)}
+.pop dl{margin:0;display:grid;grid-template-columns:96px minmax(0,1fr);gap:6px 10px;font-size:13px}
+.pop dt{color:var(--ink-3)} .pop dd{margin:0}
+.pop .src{font-family:var(--mono);font-size:12px;overflow-wrap:anywhere}
+.toast{position:fixed;left:50%;bottom:90px;transform:translateX(-50%) translateY(12px);opacity:0;z-index:70;background:var(--ink);color:var(--bg);padding:12px 18px;border-radius:12px;font-size:14px;font-weight:500;transition:opacity .2s,transform .2s;pointer-events:none;max-width:calc(100% - 32px)}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+.tray{position:fixed;left:50%;transform:translateX(-50%);bottom:16px;z-index:30;display:flex;flex-wrap:wrap;align-items:center;gap:10px 12px;padding:8px 8px 8px 18px;border-radius:16px;background:var(--ink);color:var(--bg);box-shadow:0 10px 30px rgba(0,0,0,.25);max-width:calc(100% - 32px)}
+.tray[hidden]{display:none}
+.tray .chip{background:rgba(255,255,255,.14);color:var(--bg);font-family:var(--mono);font-size:12px}
+.tray .chip button{border:none;background:transparent;color:inherit;cursor:pointer;width:26px;height:26px;margin:-4px -8px -4px 0;display:grid;place-items:center;border-radius:50%}
+.tray .btn.primary{background:var(--bg);color:var(--ink);border-color:var(--bg)}
+.modal-back{position:fixed;inset:0;background:rgba(10,12,10,.45);z-index:80;display:none;align-items:center;justify-content:center;padding:20px}
+.modal-back.open{display:flex}
+.modal{background:var(--surface);border-radius:18px;padding:24px;width:min(640px,100%);max-height:85vh;overflow:auto;display:grid;gap:14px}
+.modal h2{margin:0;font-family:var(--display);font-weight:650;font-size:22px}
+.modal textarea{width:100%;min-height:240px;font-family:var(--mono);font-size:12px;padding:12px;border:1px solid var(--line);border-radius:10px;background:var(--bg);color:var(--ink)}
+footer{border-top:1px solid var(--line);padding:20px 0 90px;font-size:13px;color:var(--ink-3)}
+footer .wrap{display:flex;flex-wrap:wrap;gap:8px 24px}
+</style>
+</head>
+<body>
+<header class="top">
+  <div class="wrap">
+    <a class="brand" href="#" aria-label="GitAnalyze home">
+      <svg width="28" height="28" viewBox="0 0 28 28" aria-hidden="true"><rect x="1" y="1" width="26" height="26" rx="8" fill="var(--accent)"></rect><path d="M7 15.5l4 4 10-11" fill="none" stroke="var(--accent-ink)" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"></path></svg>
+      GitAnalyze
+    </a>
+    <nav class="nav" aria-label="Main">
+      <a href="#" aria-current="page">Check</a>
+      <a href="#" data-soon>Explore</a>
+      <a href="#" data-soon>Compare <span class="count" id="navCount" hidden>0</span></a>
+      <a href="#" data-soon>How it works</a>
+    </nav>
+    <div class="tools">
+      <div class="demo">
+        <button type="button" id="demoBtn" aria-expanded="false" aria-controls="demoPanel">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 6h10M18 6h2M4 12h4M12 12h8M4 18h12"></path><circle cx="16" cy="6" r="2"></circle><circle cx="10" cy="12" r="2"></circle><circle cx="18" cy="18" r="2"></circle></svg>
+          Demo
+        </button>
+        <div class="demo-panel" id="demoPanel" role="dialog" aria-label="Demo scenarios">
+          <p class="note" style="margin-bottom:10px">This prototype runs on sample repositories and numbers. Switch scenarios to see how the page handles them.</p>
+          <label class="switch">GitHub rate limit reached<input type="checkbox" id="demoBusy"></label>
+          <label class="switch">Rankings not built yet<input type="checkbox" id="demoEmpty"></label>
+          <button type="button" class="btn small" id="demoReset" style="width:100%;margin-top:6px">Reset demo</button>
+        </div>
+      </div>
+      <button type="button" class="icon-btn" id="themeBtn" aria-label="Switch colour theme">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z"></path></svg>
+      </button>
+    </div>
+  </div>
+</header>
+
+<main class="wrap" id="main">
+  <section class="head" aria-labelledby="pageTitle">
+    <div>
+      <h1 id="pageTitle">Check a repository before you depend on it.</h1>
+      <p>Search by name or paste a GitHub link. Every number shows its source.</p>
+    </div>
+    <div class="fresh"><span class="dot" aria-hidden="true"></span><span id="freshText">Rankings updated today at 04:10 UTC</span></div>
+  </section>
+
+  <section aria-label="Look up repositories">
+    <div class="lookup" id="lookup">
+      <form class="lookup-box" id="lookupForm" autocomplete="off">
+        <label for="lookupInput" class="sr">Repository name, owner/repo or GitHub link</label>
+        <input id="lookupInput" type="text" spellcheck="false" placeholder="owner/repo, github.com/owner/repo, git@github.com:owner/repo.git, or a name" aria-describedby="lookupHelp" aria-autocomplete="list" aria-controls="suggestList" aria-expanded="false">
+        <button class="btn primary" type="submit" id="lookupGo">Check</button>
+      </form>
+    </div>
+    <div id="lookupStatus" aria-live="polite"></div>
+    <div class="lookup-meta">
+      <span id="lookupHelp">Up to 3, separated by spaces or commas. One opens its row; two or three add them to compare.</span>
+      <span class="recent" id="recent"></span>
+    </div>
+  </section>
+
+  <section class="panel" aria-label="Summary of the current view">
+    <dl class="summary" id="summary"></dl>
+  </section>
+
+  <section class="panel tbl-panel" aria-labelledby="tblTitle">
+    <h2 id="tblTitle" class="sr">Repository rankings</h2>
+    <div class="controls" id="controls">
+      <label class="field" for="fLang">Language<select id="fLang"></select></label>
+      <label class="field" for="fStatus">Status<select id="fStatus">
+        <option value="any">Any status</option><option>Active</option><option>Slowing</option><option>Quiet</option><option>Archived</option>
+      </select></label>
+      <div class="field"><span id="winL">Stars gained over</span><div class="seg" role="group" aria-labelledby="winL" id="fWin"></div></div>
+      <div class="field"><span id="limL">Show</span><div class="seg" role="group" aria-labelledby="limL" id="fLimit"></div></div>
+      <label class="toggle"><input type="checkbox" id="fAi">Has AI capabilities</label>
+      <label class="toggle"><input type="checkbox" id="fArch" checked>Hide archived</label>
+    </div>
+    <div class="tbl-bar">
+      <span class="note" id="showing" aria-live="polite"></span>
+      <span style="display:flex;flex-wrap:wrap;align-items:center;gap:8px"><span id="focusNote"></span>
+        <button type="button" class="btn small" id="copyCsv">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><rect x="8" y="8" width="12" height="12" rx="2"></rect><path d="M16 8V5a1 1 0 0 0-1-1H5a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h3"></path></svg>
+        Copy as CSV
+      </button>
+      </span>
+    </div>
+    <div class="tbl-scroll">
+      <table class="rank">
+        <thead><tr id="thead"></tr></thead>
+        <tbody id="tbody"></tbody>
+      </table>
+    </div>
+    <div id="moreWrap"></div>
+    <div class="tbl-foot">
+      <span class="note">Rankings cover the <span id="trackedN"></span> repositories in our watch list: top by stars, GitHub Trending, AI topics, and repositories people looked up. Not every repository on GitHub.</span>
+      <span class="note">Sample data for now. In production, numbers come from the public GitHub API, processed by GitAnalyze (independent, not affiliated with GitHub). Stars are bookmarks, not usage.</span>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <span>GitAnalyze is an independent project. It is not affiliated with or endorsed by GitHub.</span>
+    <span>Prototype with sample repositories and numbers.</span>
+    <span>Data from the public GitHub API, refreshed daily.</span>
+    <span>Definitions and known limits are on How it works.</span>
+  </div>
+</footer>
+
+<div class="tray" id="tray" hidden></div>
+<div class="pop" id="pop" role="dialog" aria-modal="false"></div>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+<div class="modal-back" id="modalBack"><div class="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle" id="modal"></div></div>
+
+<script>
+(function () {
+'use strict';
+const $ = (s, el) => (el || document).querySelector(s);
+const $$ = (s, el) => Array.from((el || document).querySelectorAll(s));
+const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const fmtN = (n) => Math.round(n).toLocaleString('en-US');
+const fmtK = (n) => { const a = Math.abs(n); if (a >= 10000) return (n / 1000).toFixed(1).replace(/\.0$/, '') + 'k'; return fmtN(n); };
+function ago(d) {
+  if (d < 1) return 'today'; if (d < 2) return 'yesterday';
+  if (d < 31) return Math.round(d) + ' days ago';
+  if (d < 365) { const m = Math.round(d / 30.4); return m + (m === 1 ? ' month ago' : ' months ago'); }
+  const y = Math.floor(d / 365); return y + (y === 1 ? ' year ago' : ' years ago');
+}
+function hash(s) { let h = 2166136261; for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); } return h >>> 0; }
+function rng(seed) { let a = seed; return () => { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+
+/* ---------- icons ---------- */
+const I = {
+  good: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>',
+  warn: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 8v5M12 16.5v.5"/><path d="M10.3 3.9L2.6 17.5A2 2 0 0 0 4.3 20.5h15.4a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/></svg>',
+  bad: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" aria-hidden="true"><path d="M7 7l10 10M17 7L7 17"/></svg>',
+  neutral: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" aria-hidden="true"><path d="M6 12h12"/></svg>',
+  info: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7.5v.5"/></svg>',
+  plus: '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>',
+  check: '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>',
+  x: '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>',
+  up: '<svg class="arrow" viewBox="0 0 10 10" aria-hidden="true"><path d="M5 2l3.5 5h-7z" fill="currentColor"/></svg>',
+  down: '<svg class="arrow" viewBox="0 0 10 10" aria-hidden="true"><path d="M5 8L1.5 3h7z" fill="currentColor"/></svg>'
+};
+const TONE = { Active: 'good', Slowing: 'warn', Quiet: 'neutral', Archived: 'bad' };
+const statusPill = (s) => '<span class="status tone-' + TONE[s] + '">' + I[TONE[s]] + esc(s) + '</span>';
+
+/* ---------- metric definitions (one source, per F6) ---------- */
+const M = {
+  status: { label: 'Status', means: 'A quick read on whether the project is still moving.', method: 'Archived wins. Active: a commit in the last 30 days and a release in the last 182 days, or no releases ever. Slowing: a commit in the last 182 days. Otherwise Quiet.', source: 'Computed from pushed_at, releases and archived', cannot: 'Whether the code is any good, or whether a bot is the only one pushing.' },
+  stars: { label: 'Stars', means: 'How many people bookmarked it on GitHub.', method: 'stargazers_count.', source: 'GET /repos/{owner}/{repo}', cannot: 'How many people use it. Stars can also be bought.' },
+  gained: { label: 'Stars gained', means: 'People who starred it in the window, minus those who removed their star.', method: 'Sum of daily counts from GitHub star history over the selected window.', source: 'GET /repos/{owner}/{repo}/stargazers/history', cannot: 'Whether people use it, or whether the stars are genuine.' },
+  trend: { label: '12-week trend', means: 'Stars gained per week over the last 12 weeks.', method: 'Weekly net stars; the dot marks the latest week.', source: 'GET /repos/{owner}/{repo}/stargazers/history', cannot: 'Anything about usage. A spike can come from one link going viral.' },
+  commit: { label: 'Last commit', means: 'When anyone last pushed to any branch.', method: 'The repository’s pushed_at field, compared in UTC.', source: 'GET /repos/{owner}/{repo}', cannot: 'Whether the main branch changed; bot pushes count too.' },
+  contributors: { label: 'Contributors', means: 'Accounts with commits in the repository.', method: 'The last page number of the contributor list at one per page, anonymous included.', source: 'GET /repos/{owner}/{repo}/contributors?per_page=1&anon=1', cannot: 'How many contributors are still active.' },
+  ai: { label: 'AI capabilities', means: 'Whether the repository contains AI skills, agent setup files or an MCP server.', method: 'File rules in four levels, applied to the full file tree; vendored folders skipped.', source: 'GET /repos/{owner}/{repo}/git/trees/{branch}?recursive=1', cannot: 'Whether a skill works well or is safe. We never give a safety score.' },
+  tracked: { label: 'Repositories in view', means: 'How many tracked repositories match the current filters.', method: 'Count after language, status, AI and archived filters.', source: 'GitAnalyze watch list, refreshed daily', cannot: 'Repositories outside the watch list.' },
+  active: { label: 'Active share', means: 'The share of repositories in view with recent commits and releases.', method: 'Active repositories divided by repositories in view.', source: 'Computed from Status', cannot: 'How healthy each project is beyond the status rule.' }
+};
+
+/* ---------- sample data (deterministic) ---------- */
+const NOW_LABEL = 'Nov 22, 2026';
+const NAMED = [
+  ['lumen-labs/agent-kit', 'Agent skills for document work: PDF, slides, spreadsheets.', 'Python', 18455, 'Active', true, 2, 64, 'Organization'],
+  ['orbit-ui/skills-pack', 'Community collection of coding-agent skills.', 'TypeScript', 6240, 'Slowing', true, 41, 23, 'User'],
+  ['pocketdev/mcp-bridge', 'Connect AI apps to your local tools over MCP.', 'TypeScript', 4910, 'Active', true, 5, 11, 'User'],
+  ['oldguard/legacy-orm', 'Object-relational mapper for Python.', 'Python', 21800, 'Archived', false, 420, 212, 'Organization'],
+  ['statecraft/zustand-lite', 'Tiny state manager for React with hooks.', 'TypeScript', 3100, 'Slowing', false, 95, 19, 'User'],
+  ['newwave/hype-agent', 'An autonomous agent that promises to do everything.', 'Python', 3200, 'Active', true, 1, 2, 'User'],
+  ['quarry/dataframe-x', 'Fast columnar dataframes with a familiar API.', 'Rust', 48200, 'Active', false, 3, 410, 'Organization'],
+  ['nimbus/edge-router', 'Tiny HTTP router for edge runtimes.', 'TypeScript', 31500, 'Active', false, 6, 188, 'Organization'],
+  ['ferrous/kvstore', 'Embedded key-value store with transactions.', 'Rust', 27400, 'Active', false, 9, 142, 'Organization'],
+  ['cobalt/cli-kit', 'Build polished command-line apps.', 'Go', 22300, 'Active', false, 4, 131, 'Organization'],
+  ['draftbox/editor', 'Collaborative rich-text editor.', 'TypeScript', 19700, 'Slowing', false, 88, 97, 'Organization'],
+  ['tessellate/maps', 'Vector map rendering in the browser.', 'JavaScript', 16900, 'Active', false, 12, 120, 'Organization'],
+  ['blink/vision-ocr', 'On-device OCR models.', 'Python', 13400, 'Active', true, 7, 58, 'Organization'],
+  ['vectorly/embed-db', 'Vector search inside your Postgres.', 'Go', 12100, 'Active', true, 2, 74, 'Organization'],
+  ['skillsmith/claude-skills', 'Curated skills for coding agents.', 'Python', 9300, 'Active', true, 1, 37, 'User'],
+  ['mcp-tools/github-mcp', 'MCP server exposing repository tools.', 'TypeScript', 8900, 'Active', true, 3, 44, 'Organization'],
+  ['palette/ui-tokens', 'Design tokens compiler for any platform.', 'JavaScript', 9800, 'Quiet', false, 410, 33, 'User'],
+  ['promptlab/eval-harness', 'Run and score LLM prompt evaluations.', 'Python', 5400, 'Active', true, 8, 29, 'Organization'],
+  ['quietco/auth-lite', 'Session auth for small apps.', 'TypeScript', 3900, 'Archived', false, 600, 15, 'Organization'],
+  ['tinyagent/agent-runner', 'Minimal runner for multi-step coding agents.', 'Python', 1700, 'Active', true, 2, 9, 'User']
+];
+const OWNERS = ['kestrel', 'basalt', 'orchard-labs', 'lattice', 'tidewater', 'emberly', 'vantage-oss', 'corvid', 'helix-io', 'sable', 'granite', 'meridian', 'foxglove', 'arcturus', 'juniper', 'tundra', 'cinder', 'pelican', 'marble', 'sprout', 'loomwork', 'spark-ui', 'gridworks', 'inkwell', 'hyperlane', 'moss', 'rapidfire', 'fieldnotes', 'harbor-js', 'signalhq', 'driftwood', 'canopy', 'bramble', 'quillon', 'larkspur'];
+const PRE = ['fast', 'tiny', 'open', 'micro', 'hyper', 'stream', 'graph', 'data', 'edge', 'type', 'query', 'flow', 'pixel', 'schema', 'cache', 'event', 'job', 'log', 'metric', 'test', 'lint', 'build', 'doc', 'form', 'auth', 'route', 'sync', 'state', 'chart', 'table', 'parse', 'agent', 'prompt', 'vector', 'mcp', 'skill', 'token', 'eval'];
+const SUF = ['kit', 'db', 'js', 'forge', 'core', 'hub', 'engine', 'runner', 'bench', 'store', 'ui', 'cli', 'sdk', 'router', 'queue', 'grid', 'board', 'lens', 'watch', 'scan', 'press', 'box'];
+const LANGS = [['TypeScript', 26], ['Python', 24], ['Go', 14], ['Rust', 12], ['JavaScript', 12], ['Java', 5], ['C++', 4], ['Ruby', 3]];
+const AI_WORDS = ['agent', 'prompt', 'vector', 'mcp', 'skill', 'token', 'eval'];
+const DESC = {
+  kit: 'Batteries-included toolkit for', db: 'Embedded database for', js: 'Small JavaScript library for', forge: 'Generator and scaffolding for', core: 'Core primitives for', hub: 'Self-hosted hub for', engine: 'High-throughput engine for', runner: 'Task runner for', bench: 'Benchmark suite for', store: 'Persistent store for', ui: 'Accessible UI components for', cli: 'Command-line tool for', sdk: 'Typed SDK for', router: 'Request router for', queue: 'Durable job queue for', grid: 'Virtualized data grid for', board: 'Dashboard builder for', lens: 'Inspector and debugger for', watch: 'Monitoring and alerts for', scan: 'Static analysis for', press: 'Static site generator for', box: 'Sandboxed runtime for'
+};
+const TOPIC = { fast: 'low-latency services', tiny: 'small bundles', open: 'open data pipelines', micro: 'microservices', hyper: 'hypermedia apps', stream: 'event streams', graph: 'graph data', data: 'analytics teams', edge: 'edge runtimes', type: 'typed APIs', query: 'SQL workloads', flow: 'workflow automation', pixel: 'image processing', schema: 'schema migrations', cache: 'caching layers', event: 'event sourcing', job: 'background jobs', log: 'structured logging', metric: 'metrics and KPIs', test: 'integration testing', lint: 'code quality', build: 'monorepo builds', doc: 'documentation sites', form: 'form validation', auth: 'authentication', route: 'web routing', sync: 'offline sync', state: 'app state', chart: 'charts and plots', table: 'tabular data', parse: 'parsing text formats', agent: 'coding agents', prompt: 'prompt engineering', vector: 'vector search', mcp: 'MCP servers', skill: 'agent skills', token: 'tokenizers', eval: 'LLM evaluations' };
+
+function pickLang(R) { const t = LANGS.reduce((a, b) => a + b[1], 0); let x = R() * t; for (const [l, w] of LANGS) { if ((x -= w) < 0) return l; } return 'Go'; }
+function weeksFor(R, gain30, status, spike) {
+  const base = Math.max(0, gain30 / 4.3); const out = [];
+  for (let i = 0; i < 12; i++) {
+    let v = base * (0.55 + R() * 0.9) * (status === 'Active' ? 0.75 + i / 30 : status === 'Slowing' ? 1.25 - i / 22 : 1);
+    if (spike && i >= 10) v = i === 11 ? 3000 : 140;
+    out.push(Math.round(v));
+  }
+  if (status === 'Archived') { out[10] = -1; out[11] = -3; }
+  return out;
+}
+function makeRepo(full, desc, lang, stars, status, ai, pushed, contributors, ownerType, R, spike) {
+  const g = status === 'Active' ? 0.12 + R() * 0.38 : status === 'Slowing' ? 0.03 + R() * 0.08 : status === 'Quiet' ? R() * 0.02 : -0.004;
+  const gainYear = Math.round(stars * g);
+  const gain30 = spike ? 3240 : Math.round(gainYear / 12 * (0.6 + R() * 0.9));
+  const weeks = weeksFor(R, gain30, status, spike);
+  const gain7 = spike ? 3000 : weeks[11];
+  const forks = spike ? 5 : Math.round(stars * (0.05 + R() * 0.07));
+  const openIssues = spike ? 0 : Math.round(stars * (0.003 + R() * 0.008));
+  const [owner, name] = full.split('/');
+  return { id: full.toLowerCase(), full, owner, name, desc, lang, stars, status, ai, pushed, contributors, ownerType, gain7, gain30, gainYear, weeks, forks, openIssues, spike: !!spike, trending: 0 };
+}
+const REPOS = [];
+NAMED.forEach(([full, desc, lang, stars, status, ai, pushed, contrib, ot]) => {
+  REPOS.push(makeRepo(full, desc, lang, stars, status, ai, pushed, contrib, ot, rng(hash(full)), full === 'newwave/hype-agent'));
+});
+(function generate() {
+  const R = rng(20261122); const seen = new Set(REPOS.map((r) => r.id));
+  while (REPOS.length < 280) {
+    const p = PRE[Math.floor(R() * PRE.length)], s = SUF[Math.floor(R() * SUF.length)], o = OWNERS[Math.floor(R() * OWNERS.length)];
+    const full = o + '/' + p + '-' + s; if (seen.has(full)) continue; seen.add(full);
+    const stars = Math.round(Math.exp(Math.log(600) + Math.pow(R(), 1.7) * (Math.log(95000) - Math.log(600))));
+    const u = R(); const status = u < 0.56 ? 'Active' : u < 0.78 ? 'Slowing' : u < 0.93 ? 'Quiet' : 'Archived';
+    const pushed = status === 'Active' ? 1 + Math.floor(R() * 29) : status === 'Slowing' ? 31 + Math.floor(R() * 150) : 190 + Math.floor(R() * 700);
+    const ai = AI_WORDS.includes(p) || R() < 0.06;
+    const contributors = Math.max(1, Math.round(stars / (180 + R() * 500) + R() * 12));
+    REPOS.push(makeRepo(full, DESC[s] + ' ' + TOPIC[p] + '.', pickLang(R), stars, status, ai, pushed, contributors, R() < 0.55 ? 'Organization' : 'User', R, false));
+  }
+  REPOS.filter((r) => r.status === 'Active' && !r.spike).sort((a, b) => b.gain7 - a.gain7).slice(0, 8).forEach((r, i) => { r.trending = i + 1; });
+  REPOS.find((r) => r.id === 'newwave/hype-agent').trending = 1;
+})();
+const BY_ID = Object.fromEntries(REPOS.map((r) => [r.id, r]));
+
+/* ---------- state ---------- */
+const DEFAULTS = { lang: 'Any', status: 'any', win: '7d', limit: 25, pages: 1, aiOnly: false, hideArch: true, sort: 'stars', dir: 'desc', focus: null, focusLabel: '', query: '' };
+const state = Object.assign({}, DEFAULTS, { compare: [], recent: ['lumen-labs/agent-kit'], busy: false, empty: false });
+const WIN = { '7d': ['gain7', 'last 7 days', 'This week'], '30d': ['gain30', 'last 30 days', 'This month'], '1y': ['gainYear', 'last 12 months', 'This year'] };
+const gained = (r) => r[WIN[state.win][0]];
+
+/* ---------- parsing (mirrors backend/lookup/parsing.py, F1 L1–L3) ---------- */
+const NAME = '[A-Za-z0-9](?:[A-Za-z0-9-]{0,38})';
+const REPO = '[A-Za-z0-9._-]{1,100}';
+function parseOne(raw) {
+  const s = raw.trim().replace(/[?#].*$/, '').replace(/\/+$/, '');
+  let m = s.match(/^git@github\.com:([^/\s]+)\/([^/\s]+?)(?:\.git)?$/i);
+  if (m) return ref(m[1], m[2]);
+  m = s.match(/^(?:https?:\/\/)?(?:www\.)?github\.com\/([^/\s]+)\/([^/\s]+?)(?:\.git)?(?:\/.*)?$/i);
+  if (m) return ref(m[1], m[2]);
+  if (/^(?:https?:\/\/|git@)|^[a-z0-9-]+(\.[a-z0-9-]+)+\//i.test(s)) return { kind: 'other-host' };
+  m = s.match(/^([^/\s]+)\/([^/\s]+)$/);
+  if (m) return ref(m[1], m[2]);
+  return { kind: 'name', text: s };
+}
+function ref(owner, name) {
+  if (!new RegExp('^' + NAME + '$').test(owner) || !new RegExp('^' + REPO + '$').test(name) || name === '.' || name === '..') return { kind: 'invalid' };
+  return { kind: 'repo', id: (owner + '/' + name).toLowerCase(), label: owner + '/' + name };
+}
+function analyse(text) {
+  const parts = text.split(/[\s,]+/).filter(Boolean);
+  const parsed = parts.map(parseOne);
+  const repos = []; const seen = new Set();
+  parsed.forEach((p) => { if (p.kind === 'repo' && !seen.has(p.id)) { seen.add(p.id); repos.push(p); } });
+  const names = parsed.filter((p) => p.kind === 'name');
+  return {
+    empty: parts.length === 0,
+    otherHost: parsed.some((p) => p.kind === 'other-host'),
+    invalid: parsed.some((p) => p.kind === 'invalid'),
+    repos,
+    search: names.length && !repos.length ? text.trim() : '',
+    mixed: names.length > 0 && repos.length > 0,
+    tooMany: repos.length > 3
+  };
+}
+
+/* ---------- list ---------- */
+function filtered() {
+  let list = REPOS.filter((r) =>
+    (state.lang === 'Any' || r.lang === state.lang) &&
+    (state.status === 'any' || r.status === state.status) &&
+    (!state.aiOnly || r.ai) &&
+    (!state.hideArch || r.status !== 'Archived' || (state.focus && state.focus.includes(r.id))));
+  if (state.focus) list = list.filter((r) => state.focus.includes(r.id));
+  if (state.query) { const w = state.query.toLowerCase().split(/\s+/); list = list.filter((r) => w.every((x) => (r.full + ' ' + r.desc).toLowerCase().includes(x))); }
+  const key = { stars: (r) => r.stars, gained: gained, commit: (r) => -r.pushed, contributors: (r) => r.contributors, name: null }[state.sort];
+  const d = state.dir === 'asc' ? 1 : -1;
+  list.sort((a, b) => {
+    if (!key) return d * a.full.localeCompare(b.full);
+    return d * (key(a) - key(b)) || a.full.localeCompare(b.full);
+  });
+  return list;
+}
+
+/* ---------- render: summary ---------- */
+function infoBtn(key, label) { return '<button type="button" class="info" data-info="' + key + '" aria-expanded="false" aria-label="About ' + esc(label || M[key].label) + '">' + I.info + '</button>'; }
+function renderSummary(list) {
+  const n = list.length;
+  const counts = { Active: 0, Slowing: 0, Quiet: 0, Archived: 0 };
+  list.forEach((r) => counts[r.status]++);
+  const ai = list.filter((r) => r.ai).length;
+  const g = list.reduce((a, r) => a + gained(r), 0);
+  const pct = n ? Math.round(counts.Active / n * 100) : 0;
+  const colors = { Active: 'var(--good)', Slowing: 'var(--warn)', Quiet: 'var(--ink-3)', Archived: 'var(--bad)' };
+  $('#summary').innerHTML =
+    '<div><dt>Repositories in view' + infoBtn('tracked') + '</dt><dd>' + fmtN(n) + '</dd><small>of ' + fmtN(REPOS.length) + ' tracked</small></div>' +
+    '<div><dt>Active share' + infoBtn('active') + '</dt><dd>' + (n ? pct + '%' : 'N/A') + '</dd><small>' + fmtN(counts.Active) + ' actively maintained</small></div>' +
+    '<div><dt>Stars gained' + infoBtn('gained') + '</dt><dd>' + (g >= 0 ? '+' : '') + fmtK(g) + '</dd><small>' + WIN[state.win][1] + ', net</small></div>' +
+    '<div><dt>With AI capabilities' + infoBtn('ai') + '</dt><dd>' + fmtN(ai) + '</dd><small>skills, agent files or MCP</small></div>' +
+    '<div><dt>Status mix' + infoBtn('status') + '</dt>' +
+      '<div class="mix" role="img" aria-label="' + Object.entries(counts).map(([k, v]) => v + ' ' + k).join(', ') + '">' +
+        Object.entries(counts).map(([k, v]) => v ? '<span style="width:' + (v / Math.max(1, n) * 100) + '%;background:' + colors[k] + '"></span>' : '').join('') + '</div>' +
+      '<div class="mix-legend">' + Object.entries(counts).map(([k, v]) => '<span><i style="background:' + colors[k] + '"></i>' + k + ' ' + fmtN(v) + '</span>').join('') + '</div></div>';
+}
+
+/* ---------- render: table ---------- */
+const COLS = [
+  ['rank', '#', null, 'c-rank num'],
+  ['name', 'Repository', null, 'c-repo'],
+  ['status', 'Status', 'status', ''],
+  ['lang', 'Language', null, 'opt'],
+  ['stars', 'Stars', 'stars', 'num'],
+  ['gained', 'Gained', 'gained', 'num'],
+  ['trend', '12-week trend', 'trend', 'opt'],
+  ['commit', 'Last commit', 'commit', 'num opt'],
+  ['contributors', 'Contributors', 'contributors', 'num opt'],
+  ['add', 'Compare', null, 'c-add']
+];
+const SORTABLE = ['name', 'stars', 'gained', 'commit', 'contributors'];
+function renderHead() {
+  $('#thead').innerHTML = COLS.map(([k, label, info, cls]) => {
+    const sorted = state.sort === k;
+    const aria = sorted ? ' aria-sort="' + (state.dir === 'asc' ? 'ascending' : 'descending') + '"' : (SORTABLE.includes(k) ? ' aria-sort="none"' : '');
+    const lab = k === 'gained' ? 'Gained, ' + WIN[state.win][1].replace('last ', '') : label;
+    const inner = k === 'add' ? '<span class="sr">' + label + '</span>' : SORTABLE.includes(k)
+      ? '<button type="button" class="sort" data-sort="' + k + '">' + esc(lab) + (sorted ? (state.dir === 'asc' ? I.up : I.down) : '') + '</button>'
+      : esc(lab);
+    return '<th scope="col" class="' + cls + '"' + aria + '>' + inner + (info ? infoBtn(info, lab) : '') + '</th>';
+  }).join('');
+}
+function spark(r) {
+  const w = r.weeks; const mx = Math.max(...w, 1), mn = Math.min(...w, 0);
+  const X = (i) => 2 + i * (88 / 11), Y = (v) => 25 - (v - mn) / ((mx - mn) || 1) * 21;
+  const pts = w.map((v, i) => X(i).toFixed(1) + ',' + Y(v).toFixed(1)).join(' ');
+  const area = 'M' + X(0) + ',' + Y(mn) + ' L' + pts.split(' ').join(' L') + ' L' + X(11) + ',' + Y(mn) + ' Z';
+  return '<svg width="92" height="28" viewBox="0 0 92 28" role="img" aria-label="Stars gained per week, last 12 weeks, latest ' + fmtN(w[11]) + '">' +
+    '<line x1="2" x2="90" y1="' + Y(0).toFixed(1) + '" y2="' + Y(0).toFixed(1) + '" stroke="var(--line)" stroke-width="1"/>' +
+    '<path d="' + area + '" fill="var(--c1)" opacity=".12"/>' +
+    '<polyline points="' + pts + '" fill="none" stroke="var(--c1)" stroke-width="1.6" stroke-linejoin="round"/>' +
+    '<circle cx="' + X(11).toFixed(1) + '" cy="' + Y(w[11]).toFixed(1) + '" r="2.6" fill="var(--c1)"/></svg>';
+}
+function rowHtml(r, i) {
+  const g = gained(r); const inC = state.compare.includes(r.id);
+  const hl = state.focus && state.focus.length === 1 && state.focus[0] === r.id;
+  return '<tr' + (hl ? ' class="hl"' : '') + ' data-id="' + esc(r.id) + '">' +
+    '<td class="c-rank num">' + (i + 1) + '</td>' +
+    '<td class="c-repo"><div class="r-name"><b><span>' + esc(r.owner) + '/</span>' + esc(r.name) + '</b>' +
+      (r.ai ? '<span class="chip accent">AI</span>' : '') + (r.trending ? '<span class="chip warn">Trending #' + r.trending + '</span>' : '') + '</div>' +
+      '<div class="r-desc" title="' + esc(r.desc) + '">' + esc(r.desc) + '</div>' +
+      (r.spike ? '<div class="r-spike">Unusual spike: lots of new stars but little other activity.</div>' : '') + '</td>' +
+    '<td>' + statusPill(r.status) + '</td>' +
+    '<td class="opt muted">' + esc(r.lang) + '</td>' +
+    '<td class="num"><b>' + fmtK(r.stars) + '</b></td>' +
+    '<td class="num"><b class="' + (g < 0 ? 'neg' : '') + '">' + (g >= 0 ? '+' : '−') + fmtN(Math.abs(g)) + '</b></td>' +
+    '<td class="opt">' + spark(r) + '</td>' +
+    '<td class="num opt">' + ago(r.pushed) + '</td>' +
+    '<td class="num opt">' + fmtN(r.contributors) + '</td>' +
+    '<td class="c-add"><button type="button" class="add-btn" data-add="' + esc(r.id) + '" aria-pressed="' + inC + '" aria-label="' + (inC ? 'Remove ' : 'Add ') + esc(r.full) + (inC ? ' from compare' : ' to compare') + '">' + (inC ? I.check : I.plus) + '</button></td></tr>';
+}
+let observer = null;
+function renderTable() {
+  if (observer) { observer.disconnect(); observer = null; }
+  renderHead();
+  const list = filtered();
+  renderSummary(list);
+  $('#trackedN').textContent = fmtN(REPOS.length);
+  if (state.empty) {
+    $('#tbody').innerHTML = '<tr><td colspan="' + COLS.length + '"><div class="empty"><h2>Rankings are being prepared</h2><p class="muted" style="margin:0">The first daily refresh hasn’t finished yet. You can still check a repository above.</p></div></td></tr>';
+    $('#moreWrap').innerHTML = ''; $('#showing').textContent = ''; $('#focusNote').innerHTML = '';
+    return;
+  }
+  const shown = list.slice(0, state.limit * state.pages);
+  $('#showing').textContent = list.length ? 'Showing ' + fmtN(shown.length) + ' of ' + fmtN(list.length) + ' · sorted by ' + sortLabel() : 'No results';
+  $('#focusNote').innerHTML = state.focus || state.query
+    ? '<span class="focus-note">' + esc(state.focusLabel) + '<button type="button" class="btn ghost small" id="clearFocus">' + I.x + 'Show all</button></span>' : '';
+  if (!list.length) {
+    $('#tbody').innerHTML = '<tr><td colspan="' + COLS.length + '"><div class="empty"><h2>No repositories match these filters</h2><button class="btn" type="button" id="resetFilters">Reset filters</button></div></td></tr>';
+  } else {
+    $('#tbody').innerHTML = shown.map(rowHtml).join('');
+  }
+  const rest = list.length - shown.length;
+  $('#moreWrap').innerHTML = rest > 0 ? '<div class="more" id="moreSentinel"><button class="btn" type="button" id="moreBtn">Show ' + Math.min(state.limit, rest) + ' more</button><span class="note">More load automatically as you scroll.</span></div>' : (list.length > state.limit ? '<div class="more"><span class="note">End of list: all ' + fmtN(list.length) + ' repositories shown.</span></div>' : '');
+  if (rest > 0 && 'IntersectionObserver' in window) {
+    let armed = false; setTimeout(() => { armed = true; }, 600);
+    observer = new IntersectionObserver((en) => { if (armed && en[0].isIntersecting) loadMore(); }, { rootMargin: '160px' });
+    observer.observe($('#moreSentinel'));
+  }
+}
+function sortLabel() { return { stars: 'stars', gained: 'stars gained, ' + WIN[state.win][1], commit: 'last commit', contributors: 'contributors', name: 'name' }[state.sort] + (state.dir === 'asc' ? ' (ascending)' : ''); }
+function loadMore() { const y = window.scrollY; state.pages++; renderTable(); window.scrollTo(0, y); }
+
+/* ---------- render: controls ---------- */
+function renderControls() {
+  const langs = ['Any'].concat(Array.from(new Set(REPOS.map((r) => r.lang))).sort());
+  $('#fLang').innerHTML = langs.map((l) => '<option value="' + l + '"' + (l === state.lang ? ' selected' : '') + '>' + (l === 'Any' ? 'Any language' : l) + '</option>').join('');
+  $('#fStatus').value = state.status;
+  $('#fWin').innerHTML = Object.entries(WIN).map(([k, v]) => '<button type="button" data-win="' + k + '" aria-pressed="' + (state.win === k) + '">' + v[2] + '</button>').join('');
+  $('#fLimit').innerHTML = [25, 50, 100].map((n) => '<button type="button" data-limit="' + n + '" aria-pressed="' + (state.limit === n) + '">' + n + '</button>').join('');
+  $('#fAi').checked = state.aiOnly; $('#fArch').checked = state.hideArch;
+}
+function renderRecent() {
+  $('#recent').innerHTML = state.recent.length ? '<span>Recently checked</span>' + state.recent.map((id) => '<button type="button" data-recent="' + esc(id) + '">' + esc(BY_ID[id] ? BY_ID[id].full : id) + '</button>').join('') : '';
+}
+function renderTray() {
+  const tray = $('#tray'); const nc = $('#navCount');
+  nc.hidden = !state.compare.length; nc.textContent = state.compare.length;
+  if (!state.compare.length) { tray.hidden = true; return; }
+  tray.hidden = false;
+  tray.innerHTML = '<span style="font-weight:600;font-size:14px">Compare</span>' + state.compare.map((id) => '<span class="chip">' + esc(BY_ID[id].name) + '<button type="button" data-untray="' + esc(id) + '" aria-label="Remove ' + esc(BY_ID[id].full) + ' from compare">' + I.x + '</button></span>').join('') +
+    '<button type="button" class="btn primary small" id="trayGo"' + (state.compare.length < 2 ? ' disabled' : '') + '>' + (state.compare.length > 1 ? 'Compare ' + state.compare.length : 'Add one more to compare') + '</button>';
+}
+function renderAll() { renderControls(); renderTable(); renderRecent(); renderTray(); }
+
+/* ---------- lookup ---------- */
+let sugTimer, active = -1;
+function setStatus(html) { $('#lookupStatus').innerHTML = html; }
+function alertBox(tone, text) { return '<div class="alert ' + tone + '" role="alert">' + (tone === 'bad' ? I.bad : I.warn).replace('viewBox', 'width="16" height="16" viewBox') + '<span>' + esc(text) + '</span></div>'; }
+function closeSuggest() { const s = $('.suggest'); if (s) s.remove(); active = -1; $('#lookupInput').setAttribute('aria-expanded', 'false'); }
+function showSuggest(q) {
+  closeSuggest();
+  const w = q.toLowerCase().split(/\s+/).filter(Boolean);
+  const hits = REPOS.filter((r) => w.every((x) => (r.full + ' ' + r.desc).toLowerCase().includes(x))).sort((a, b) => b.stars - a.stars).slice(0, 5);
+  const el = document.createElement('div'); el.className = 'suggest'; el.id = 'suggestList'; el.setAttribute('role', 'listbox');
+  el.innerHTML = '<div class="s-head">' + (hits.length ? 'Top matches by stars · press Enter to filter the table' : 'No repositories match “' + esc(q.trim()) + '”. Try a different name, or paste a link.') + '</div>' +
+    hits.map((r) => '<button type="button" role="option" data-pick="' + esc(r.id) + '"><span class="s-name">' + esc(r.full) + '</span><span class="s-desc">' + esc(r.desc) + '</span><span class="s-stars">' + fmtK(r.stars) + ' stars</span></button>').join('');
+  $('#lookup').appendChild(el); $('#lookupInput').setAttribute('aria-expanded', 'true');
+}
+function onLookupInput() {
+  const a = analyse($('#lookupInput').value);
+  const go = $('#lookupGo');
+  let html = '';
+  if (a.repos.length && !a.otherHost) html += '<div class="lookup-meta" style="margin-top:8px"><span>We read this as</span>' + a.repos.map((p) => '<span class="chip accent">' + esc(p.label) + '</span>').join('') + '</div>';
+  if (a.tooMany) html += alertBox('warn', 'Compare up to 3 repositories at a time.');
+  setStatus(html);
+  go.disabled = a.empty || a.tooMany;
+  go.textContent = a.search ? 'Search' : a.repos.length > 1 ? 'Compare ' + Math.min(3, a.repos.length) : 'Check';
+  clearTimeout(sugTimer); closeSuggest();
+  if (a.search) sugTimer = setTimeout(() => showSuggest(a.search), 220);
+}
+function focusRepos(ids, label) {
+  Object.assign(state, { focus: ids, focusLabel: label, query: '', pages: 1 });
+  renderTable();
+  const row = $('#tbody tr[data-id="' + CSS.escape(ids[0]) + '"]');
+  if (row) row.scrollIntoView({ block: 'center', behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
+}
+function remember(id) { state.recent = [id].concat(state.recent.filter((x) => x !== id)).slice(0, 4); renderRecent(); }
+function submitLookup(e) {
+  e.preventDefault();
+  const text = $('#lookupInput').value; const a = analyse(text);
+  closeSuggest();
+  if (a.empty) return;
+  if (a.otherHost) { setStatus(alertBox('bad', 'GitAnalyze only checks GitHub repositories.')); return; }
+  if (a.invalid) { setStatus(alertBox('bad', 'That doesn’t look like a GitHub repository. Use owner/repo or a github.com link.')); return; }
+  if (a.tooMany) return;
+  if (a.search) {
+    Object.assign(state, { query: a.search, focus: null, focusLabel: 'Search “' + a.search + '”', pages: 1 });
+    renderTable(); setStatus(''); return;
+  }
+  const missing = a.repos.filter((p) => !BY_ID[p.id]);
+  if (missing.length) {
+    setStatus(state.busy
+      ? alertBox('warn', 'GitHub is busy. Try again in 14 minutes. Repositories we already have still open normally.')
+      : alertBox('warn', 'We couldn’t find a public repository at ' + missing[0].label + '. Check the spelling, or whether it’s private.'));
+    return;
+  }
+  const ids = a.repos.map((p) => p.id);
+  ids.forEach(remember);
+  if (ids.length === 1) {
+    focusRepos(ids, 'Showing ' + BY_ID[ids[0]].full);
+    toast('Showing ' + BY_ID[ids[0]].full + '. The full report opens from here in the app.');
+  } else {
+    state.compare = ids.slice(0, 3); renderTray();
+    focusRepos(ids, 'Comparing ' + ids.length + ' repositories');
+    toast('Added ' + ids.length + ' repositories to compare.');
+  }
+  setStatus('');
+}
+
+/* ---------- compare ---------- */
+function toggleCompare(id) {
+  const i = state.compare.indexOf(id);
+  if (i >= 0) { state.compare.splice(i, 1); toast('Removed ' + BY_ID[id].full + ' from compare.'); }
+  else if (state.compare.length >= 3) { toast('Compare up to 3 repositories at a time.'); return; }
+  else { state.compare.push(id); toast('Added ' + BY_ID[id].full + ' to compare.'); }
+  $$('[data-add="' + CSS.escape(id) + '"]').forEach((b) => { const on = state.compare.includes(id); b.setAttribute('aria-pressed', on); b.innerHTML = on ? I.check : I.plus; b.setAttribute('aria-label', (on ? 'Remove ' : 'Add ') + BY_ID[id].full + (on ? ' from compare' : ' to compare')); });
+  renderTray();
+}
+
+/* ---------- csv ---------- */
+function csv() {
+  const q = (s) => '"' + String(s).replace(/"/g, '""') + '"';
+  const list = filtered().slice(0, state.limit * state.pages);
+  const head = ['Rank', 'Repository', 'Status', 'Language', 'Stars', 'Stars gained (' + WIN[state.win][1] + ')', 'Last commit (days ago)', 'Contributors', 'AI capabilities'];
+  const rows = list.map((r, i) => [i + 1, r.full, r.status, r.lang, r.stars, gained(r), r.pushed, r.contributors, r.ai ? 'Yes' : 'No']);
+  return [head].concat(rows).map((r) => r.map(q).join(',')).join('\n') + '\n' + q('Source: GitHub API via GitAnalyze. Sample data, ' + NOW_LABEL + '.');
+}
+async function copyCsv() {
+  const text = csv();
+  try { await navigator.clipboard.writeText(text); toast('Copied ' + (text.split('\n').length - 2) + ' rows as CSV with the source line.'); }
+  catch (err) { openModal('<h2 id="modalTitle">Copy the table as CSV</h2><p class="note">Your browser blocked clipboard access. Select the text and copy it.</p><textarea readonly>' + esc(text) + '</textarea><div style="display:flex;justify-content:flex-end"><button class="btn" type="button" data-close>Close</button></div>'); const ta = $('#modal textarea'); ta.focus(); ta.select(); }
+}
+
+/* ---------- toast, popover, modal ---------- */
+let toastTimer;
+function toast(msg) { const t = $('#toast'); t.textContent = msg; t.classList.add('show'); clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.remove('show'), 3200); }
+const pop = $('#pop'); let popAnchor = null;
+function openInfo(key, btn) {
+  const m = M[key]; if (!m) return;
+  if (popAnchor === btn && pop.classList.contains('open')) { closePop(); return; }
+  pop.innerHTML = '<h4 id="popTitle">' + esc(m.label) + '</h4><p>' + esc(m.means) + '</p><dl><dt>How</dt><dd>' + esc(m.method) + '</dd><dt>Source</dt><dd class="src">' + esc(m.source) + '</dd><dt>Updated</dt><dd>Today at 04:10 UTC</dd><dt>Can’t tell you</dt><dd>' + esc(m.cannot) + '</dd></dl>';
+  pop.setAttribute('aria-labelledby', 'popTitle'); pop.classList.add('open');
+  const r = btn.getBoundingClientRect(); const w = pop.offsetWidth;
+  let left = Math.min(Math.max(16, r.left + window.scrollX - 12), document.documentElement.clientWidth - 16 - w);
+  let top = r.bottom + window.scrollY + 8;
+  if (r.bottom + pop.offsetHeight + 16 > window.innerHeight && r.top > pop.offsetHeight + 80) top = r.top + window.scrollY - pop.offsetHeight - 8;
+  pop.style.left = left + 'px'; pop.style.top = top + 'px';
+  if (popAnchor) popAnchor.setAttribute('aria-expanded', 'false');
+  popAnchor = btn; btn.setAttribute('aria-expanded', 'true');
+}
+function closePop() { pop.classList.remove('open'); if (popAnchor) popAnchor.setAttribute('aria-expanded', 'false'); popAnchor = null; }
+function openModal(html) { $('#modal').innerHTML = html; $('#modalBack').classList.add('open'); }
+function closeModal() { $('#modalBack').classList.remove('open'); }
+
+/* ---------- events ---------- */
+document.addEventListener('click', (e) => {
+  const t = e.target;
+  const info = t.closest('[data-info]'); if (info) { e.stopPropagation(); openInfo(info.dataset.info, info); return; }
+  if (pop.classList.contains('open') && !pop.contains(t)) closePop();
+  if (!t.closest('.demo')) { $('#demoPanel').classList.remove('open'); $('#demoBtn').setAttribute('aria-expanded', 'false'); }
+  if (!t.closest('#lookup')) closeSuggest();
+  const s = t.closest('[data-sort]'); if (s) { const k = s.dataset.sort; if (state.sort === k) state.dir = state.dir === 'desc' ? 'asc' : 'desc'; else { state.sort = k; state.dir = k === 'name' ? 'asc' : 'desc'; } state.pages = 1; renderTable(); const b = $('[data-sort="' + k + '"]'); if (b) b.focus(); return; }
+  const add = t.closest('[data-add]'); if (add) { toggleCompare(add.dataset.add); return; }
+  const un = t.closest('[data-untray]'); if (un) { toggleCompare(un.dataset.untray); return; }
+  const pick = t.closest('[data-pick]'); if (pick) { const id = pick.dataset.pick; closeSuggest(); $('#lookupInput').value = BY_ID[id].full; onLookupInput(); remember(id); focusRepos([id], 'Showing ' + BY_ID[id].full); return; }
+  const rec = t.closest('[data-recent]'); if (rec) { focusRepos([rec.dataset.recent], 'Showing ' + BY_ID[rec.dataset.recent].full); return; }
+  const w = t.closest('[data-win]'); if (w) { state.win = w.dataset.win; state.pages = 1; renderControls(); renderTable(); return; }
+  const l = t.closest('[data-limit]'); if (l) { state.limit = +l.dataset.limit; state.pages = 1; renderControls(); renderTable(); return; }
+  if (t.closest('#moreBtn')) { loadMore(); return; }
+  if (t.closest('#clearFocus')) { Object.assign(state, { focus: null, focusLabel: '', query: '', pages: 1 }); $('#lookupInput').value = ''; onLookupInput(); renderTable(); return; }
+  if (t.closest('#resetFilters')) { Object.assign(state, { lang: 'Any', status: 'any', aiOnly: false, hideArch: true, focus: null, query: '', pages: 1 }); renderControls(); renderTable(); return; }
+  if (t.closest('#trayGo')) { focusRepos(state.compare.slice(), 'Comparing ' + state.compare.length + ' repositories'); return; }
+  if (t.closest('[data-soon]')) { e.preventDefault(); toast('This prototype covers the main page only.'); return; }
+  if (t.closest('#copyCsv')) { copyCsv(); return; }
+  if (t.id === 'modalBack' || t.closest('[data-close]')) closeModal();
+});
+$('#demoBtn').addEventListener('click', (e) => { e.stopPropagation(); const p = $('#demoPanel'); const o = !p.classList.contains('open'); p.classList.toggle('open', o); $('#demoBtn').setAttribute('aria-expanded', String(o)); });
+$('#demoBusy').addEventListener('change', (e) => { state.busy = e.target.checked; toast(state.busy ? 'GitHub rate limit simulated. Try looking up a repository we don’t have.' : 'Rate limit cleared.'); });
+$('#demoEmpty').addEventListener('change', (e) => { state.empty = e.target.checked; renderTable(); });
+$('#demoReset').addEventListener('click', () => { Object.assign(state, DEFAULTS, { compare: [], recent: ['lumen-labs/agent-kit'], busy: false, empty: false }); $('#demoBusy').checked = false; $('#demoEmpty').checked = false; $('#lookupInput').value = ''; setStatus(''); renderAll(); toast('Demo reset.'); });
+$('#fLang').addEventListener('change', (e) => { state.lang = e.target.value; state.pages = 1; renderTable(); });
+$('#fStatus').addEventListener('change', (e) => { state.status = e.target.value; if (e.target.value === 'Archived') { state.hideArch = false; $('#fArch').checked = false; } state.pages = 1; renderTable(); });
+$('#fAi').addEventListener('change', (e) => { state.aiOnly = e.target.checked; state.pages = 1; renderTable(); });
+$('#fArch').addEventListener('change', (e) => { state.hideArch = e.target.checked; state.pages = 1; renderTable(); });
+$('#lookupInput').addEventListener('input', onLookupInput);
+$('#lookupInput').addEventListener('keydown', (e) => {
+  const opts = $$('.suggest [data-pick]');
+  if ((e.key === 'ArrowDown' || e.key === 'ArrowUp') && opts.length) { e.preventDefault(); active = (active + (e.key === 'ArrowDown' ? 1 : -1) + opts.length) % opts.length; opts.forEach((o, i) => o.classList.toggle('active', i === active)); }
+  if (e.key === 'Enter' && active >= 0 && opts[active]) { e.preventDefault(); opts[active].click(); }
+});
+$('#lookupForm').addEventListener('submit', submitLookup);
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape') { closePop(); closeModal(); closeSuggest(); $('#demoPanel').classList.remove('open'); } });
+const root = document.documentElement;
+try { const th = localStorage.getItem('ga-theme'); if (th) root.dataset.theme = th; } catch (err) {}
+$('#themeBtn').addEventListener('click', () => {
+  const dark = root.dataset.theme ? root.dataset.theme === 'dark' : matchMedia('(prefers-color-scheme: dark)').matches;
+  root.dataset.theme = dark ? 'light' : 'dark';
+  try { localStorage.setItem('ga-theme', root.dataset.theme); } catch (err) {}
+});
+
+renderAll();
+})();
+</script>
+</body>
+</html>
