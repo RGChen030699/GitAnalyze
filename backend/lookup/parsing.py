@@ -32,6 +32,8 @@ def _strip_url_prefixes(text: str) -> str:
 
 def _parse_entry(entry: str) -> RepoRef:
     owner, name = _strip_url_prefixes(entry).split("/")[:2]
+    if "." in owner:
+        raise InvalidRepoInput("GitAnalyze only checks GitHub repositories")
     return RepoRef(owner, name.removesuffix(".git"))
 
 
