@@ -29,4 +29,5 @@ def _parse_entry(entry: str) -> RepoRef:
 def parse_repo_input(text: str) -> ParsedInput:
     if "/" not in text:
         return ParsedInput(repos=[], search=text)
-    return ParsedInput(repos=[_parse_entry(entry) for entry in text.split()], search=None)
+    entries = text.replace(",", " ").split()
+    return ParsedInput(repos=[_parse_entry(entry) for entry in entries], search=None)
