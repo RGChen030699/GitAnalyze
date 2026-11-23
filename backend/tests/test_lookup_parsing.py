@@ -85,3 +85,9 @@ def test_L2_rejects_more_than_three_repos() -> None:
         parse_repo_input("vercel/next.js facebook/react vuejs/core sveltejs/svelte")
 
     assert str(error.value) == "Compare up to 3 repositories at a time"
+
+
+def test_L2_limit_counts_unique_repos() -> None:
+    parsed = parse_repo_input("a/b a/b a/b a/b")
+
+    assert parsed.repos == [RepoRef("a", "b")]
