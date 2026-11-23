@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 
-URL_PREFIXES = ("https://", "www.", "github.com/")
+URL_PREFIXES = ("https://", "www.", "github.com/", "git@github.com:")
 
 
 @dataclass(frozen=True)
