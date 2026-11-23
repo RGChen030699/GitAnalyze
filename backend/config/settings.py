@@ -1,6 +1,9 @@
 """Django settings for GitAnalyze."""
 import os
 from pathlib import Path
+from typing import Any
+
+import dj_database_url
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -47,8 +50,22 @@ TEMPLATES = [
 
 WSGI_APPLICATION = "config.wsgi.application"
 
-# PostgreSQL when POSTGRES_DB is set; SQLite fallback for quick local runs and unit tests.
-if os.environ.get("POSTGRES_DB"):
+SECURE_SSL_MODES = {"require", "verify-ca", "verify-full"}
+
+
+def _database_from_url(url: str) -> dict[str, Any]:
+    database: dict[str, Any] = dict(dj_database_url.parse(url))
+    options = database.setdefault("OPTIONS", {})
+    if options.get("sslmode") not in SECURE_SSL_MODES:
+        options["sslmode"] = "require"
+    return database
+
+
+# DATABASE_URL first, then POSTGRES_*, then SQLite for quick local runs.
+DATABASES: dict[str, dict[str, Any]]
+if os.environ.get("DATABASE_URL"):
+    DATABASES = {"default": _database_from_url(os.environ["DATABASE_URL"])}
+elif os.environ.get("POSTGRES_DB"):
     DATABASES = {
         "default": {
             "ENGINE": "django.db.backends.postgresql",
