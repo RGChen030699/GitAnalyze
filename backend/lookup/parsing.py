@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 
-URL_PREFIXES = ("https://", "www.", "github.com/", "git@github.com:")
+URL_PREFIXES = ("https://", "http://", "www.", "github.com/", "git@github.com:")
 MAX_REPOS = 3
 
 
