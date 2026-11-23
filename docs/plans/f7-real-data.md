@@ -10,7 +10,7 @@
 
 **Spec:** `docs/prd/F7-top-repositories.md`, with `F0`, `F1` (L1–L4), `F2` (R1–R4, S1–S5), `F3` §2 and `F8` §2.
 
-**Status:** Plan only. Nothing here has been implemented or run. Step 1 has not been executed.
+**Status:** Steps 1 and 3a are done. Steps 2, 3 and 4–8 have not been implemented.
 
 ## Global Constraints
 
@@ -40,7 +40,7 @@
 
 `contributors`, `ai`, `spike` and `trending` are always `null` in this plan. Their data sources are follow-ups.
 
-**Rankings response:** `{prepared, updated_at, tracked, count, page, limit, results}`.
+**Rankings response:** `{prepared, updated_at, tracked, count, page, limit, languages, results}`. `languages` is `[{name, count}]` across all ranked repositories, ignoring the request's filters and page. It is sorted by `count` descending, then `name`, excludes `null`, and has at most 15 entries (T2).
 
 **Lookup response:** `{repos: [row], suggestions: [{full_name, description, stars}]}`. Errors are `{detail}`.
 
@@ -52,19 +52,26 @@
 - Create: `backend/tests/fixtures/github/stargazers_history.json`, `search_repositories.json`, `repo.json`, `releases.json`
 - Modify: this plan, section "Step 1 result"
 
-- [ ] Run one live `GitHubClient().get("/repos/pallets/flask/stargazers/history", params={"per_page": 30, "page": 1})` from `python backend/manage.py shell`, with `GITHUB_TOKEN` exported. Never print the token.
-- [ ] Record the HTTP status, entry keys, newest-first order, and whether `week` values fall on a Sunday.
-- [ ] Apply the outcome:
+- [x] Run one live `GitHubClient().get("/repos/pallets/flask/stargazers/history", params={"per_page": 30, "page": 1})` from `python backend/manage.py shell`, with `GITHUB_TOKEN` exported. Never print the token.
+- [x] Record the HTTP status, entry keys, newest-first order, and whether `week` values fall on a Sunday.
+- [x] Apply the outcome:
   - **200 with `week`, `total`, `days`:** set `STAR_HISTORY_ENABLED = True` in Step 4 and save this response as the fixture.
   - **404:** set `STAR_HISTORY_ENABLED = False`. Stars gained and sparkline stay `null`. Add a follow-up to this plan.
   - **401, 403, 429, 5xx or a network error:** the result is inconclusive. Stop and report it. Do not treat it as "doesn't exist".
   - **200 with a different shape:** stop and update Step 4 before continuing.
-- [ ] Record the three remaining fixtures with one read-only call each: search (`per_page=3`), `/repos/pallets/flask`, and its releases.
-- [ ] Commit: `docs(F7): verify star history endpoint and record fixtures [plan]`
+- [x] Record the three remaining fixtures with one read-only call each: search (`per_page=3`), `/repos/pallets/flask`, and its releases.
+- [x] Commit: `docs(F7): verify star history endpoint and record fixtures [plan]`
 
 #### Step 1 result
 
-_Not run yet._
+Run on 2026-11-23 against `pallets/flask`.
+
+- **Outcome:** the endpoint returned a successful response with `week`, `total` and `days`, so `STAR_HISTORY_ENABLED = True`.
+- **Shape:** page 1 has 30 entries, newest first. Each has 7 `days` values, and `total` equals their sum in all 30.
+- **`week` format:** an integer Unix timestamp in seconds, not a date string. All 30 values are Sunday 00:00 UTC. Step 4 must convert it to `week_start`.
+- **Current week:** the newest entry is partial, with zeros for days that have not happened yet (`[22, 17, 0, 0, 0, 0, 0]`). Step 4 must ignore those future days.
+- **Fixtures:** recorded in `backend/tests/fixtures/github/`. Search uses `language:Python stars:>1000`, and releases use `per_page=3`. Token-specific `permissions` and `temp_clone_token` fields were removed.
+- **Requests:** 5 in total. The search ran twice because the first recording attempt stopped when low search quota paused the next core request. That is the bug Step 2 fixes.
 
 ---
 
@@ -117,12 +124,40 @@ _Not run yet._
 
 ---
 
+### Step 3a: `DATABASE_URL` support and SQLite-only tests
+
+**Files:**
+- Create: `backend/config/test_settings.py`
+- Modify: `backend/config/settings.py`, `requirements.txt`, `pytest.ini`
+- Test: `backend/tests/test_database_settings.py`
+
+**New dependency:** `dj-database-url`. Hosted Postgres such as Neon provides one connection URL, and this library parses its credentials, escaping and query options into Django's format, so we don't maintain our own parser.
+
+**Database order:** `DATABASE_URL`, then `POSTGRES_*`, then SQLite. Pytest always uses in-memory SQLite through `--ds=config.test_settings`, which also overrides an exported `DJANGO_SETTINGS_MODULE`.
+
+| Test | Assertion |
+|---|---|
+| `test_DB1_database_url_configures_postgres` | Engine, host, port, name and user come from the URL |
+| `test_DB1_database_url_wins_over_postgres_vars` | `DATABASE_URL` is used when both are set |
+| `test_DB2_ssl_required_when_url_has_no_sslmode` | `sslmode=require` |
+| `test_DB2_weak_sslmode_is_upgraded` | `sslmode=disable` becomes `require` |
+| `test_DB2_stronger_sslmode_is_kept` | `sslmode=verify-full` is not downgraded |
+| `test_DB3_postgres_vars_still_work` | `POSTGRES_*` fallback, with no SSL option added |
+| `test_DB3_sqlite_is_the_default` | SQLite with no database variables |
+| `test_DB4_pytest_uses_sqlite_with_database_env` | A nested pytest run stays on SQLite with `DATABASE_URL` or `POSTGRES_DB` exported |
+
+- [x] Write tests, confirm red, commit `test(F7): database URL settings [red]`.
+- [x] Add the dependency, the settings branch, `config.test_settings` and the pytest option.
+- [x] Run the checks, commit `feat(F7): support DATABASE_URL with required SSL [green]`. Existing ruff lint and format issues in `backend/config/` and `backend/manage.py` were left alone.
+
+---
+
 ### Step 4: Models, pure rules and `refresh_rankings`
 
 **Files:**
 - Create: `backend/repositories/` (`apps.py`, `models.py`, `services.py`, `ingest.py`, `migrations/`, `management/commands/refresh_rankings.py`), `backend/health/__init__.py`, `backend/health/services.py`
-- Modify: `backend/config/settings.py` (`INSTALLED_APPS`)
-- Test: `backend/tests/test_ranking_services.py`, `test_compute_status.py`, `test_refresh_rankings.py`
+- Modify: `backend/config/settings.py` (`INSTALLED_APPS`, `RANKINGS_LANGUAGES`), `.env.example`
+- Test: `backend/tests/test_ranking_services.py`, `test_compute_status.py`, `test_refresh_rankings.py`, `test_rankings_languages_setting.py`
 
 **Models:**
 - `Repository`: `github_id` (unique), `full_name` (unique, case-insensitive), `owner_login`, `owner_type`, `description?`, `language?`, `archived`, `pushed_at?`, `stargazers_count`, `forks_count`, `open_issues_count`, `newest_release_at?`, `status?`, `stars_gained_7d?`, `stars_gained_30d?`, `stars_gained_year?`, `weeks_12?` (JSON), `source`, `fetched_at`, `star_history_fetched_at?`, `ranked_at?`, `raw` (JSON).
@@ -137,7 +172,11 @@ _Not run yet._
 - `repositories.ingest.upsert_repository(payload: dict, source: str, fetched_at: datetime) -> Repository`
 - `repositories.ingest.refresh_details(client: GitHubClient, repo: Repository, now: datetime) -> None`
 
-**Constants:** `WATCH_LANGUAGES = ("Python", "TypeScript", "JavaScript", "Go", "Rust")`, `TOP_OVERALL = 100`, `TOP_PER_LANGUAGE = 50`, `STAR_HISTORY_ENABLED` (from Step 1).
+**Setting:** `RANKINGS_LANGUAGES` is read from the environment as a comma-separated list, default `Python,TypeScript,JavaScript`. Entries are trimmed, blanks are dropped, and case-insensitive duplicates keep the first spelling. An unset or blank value uses the default.
+
+**Command option:** `refresh_rankings --language X` is repeatable and replaces `RANKINGS_LANGUAGES` for that run. The overall search still runs. Names with spaces are quoted in the query (`language:"Jupyter Notebook"`). Rows from earlier runs stay ranked, so removing a language does not remove its stored repositories.
+
+**Constants:** `TOP_OVERALL = 100`, `TOP_PER_LANGUAGE = 50`, `STAR_HISTORY_ENABLED = True` (from Step 1).
 
 | Test | Assertion |
 |---|---|
@@ -151,7 +190,12 @@ _Not run yet._
 | `test_F8_negative_weeks_kept` | Net-negative days stay negative |
 | `test_G3_weeks_12_oldest_first_zero_fills_gaps` | 12 values, last is the current week, missing weeks are 0 |
 | `test_W1_watch_list_dedupes_and_applies_limit` | Overlap counted once; `limit` keeps the highest-starred |
-| `test_refresh_uses_six_searches` | One overall search (`per_page=100`), five language searches (`per_page=50`) |
+| `test_rankings_languages_default` | Unset or blank gives `("Python", "TypeScript", "JavaScript")` |
+| `test_rankings_languages_parses_env` | ` Go, rust,,GO ` gives `("Go", "rust")` |
+| `test_refresh_uses_configured_languages` | Default setting: one overall search (`per_page=100`), three language searches (`per_page=50`) |
+| `test_refresh_language_option_replaces_setting` | `--language Go --language Rust`: one overall search and only those two language searches |
+| `test_refresh_quotes_language_with_space` | `--language "Jupyter Notebook"` sends `language:"Jupyter Notebook"` |
+| `test_refresh_blank_language_is_error` | `--language " "` raises `CommandError` before any request |
 | `test_refresh_stores_source_and_fetched_at` | On both `Repository` and `StarWeek` |
 | `test_refresh_is_idempotent` | A second run creates no duplicate rows |
 | `test_C7_rename_updates_same_row` | Same `github_id`, new `full_name`: one row |
@@ -167,7 +211,8 @@ _Not run yet._
 - [ ] Write tests, confirm red, commit `test(F7): models, rules and refresh command [red]`.
 - [ ] Implement the models and create the migration with `makemigrations`.
 - [ ] Implement the command. Per repository, fetch 2 history pages (`per_page=30`, enough for 52 weeks) and `GET /repos/{owner}/{repo}/releases?per_page=100`. Basic fields come from the search result. Save each repository in its own transaction.
-- [ ] Budget check: at most 6 searches + 350 × 3 = 1,056 requests per run.
+- [ ] Add `RANKINGS_LANGUAGES=Python,TypeScript,JavaScript` to `.env.example`. Claude's permissions block that file, so the user runs this edit.
+- [ ] Budget check, for `L` languages: at most `1 + L` searches + `(100 + 50L) × 3` core requests, or `301 + 151L` per run. The default (`L = 3`) is 4 searches + 250 × 3 = **754 requests**. Each extra language adds up to 151. With `--limit N`, the total is at most `1 + L + 3N`.
 - [ ] Run the checks, commit `feat(F7): store rankings via refresh_rankings [green]`.
 
 ---
@@ -193,6 +238,10 @@ _Not run yet._
 | `test_nulls_stay_null_in_json` | Never coerced to `0` |
 | `test_F7_empty_database_not_prepared` | `prepared=false`, `results=[]` |
 | `test_F7_lookup_only_rows_still_not_prepared` | Rows with `ranked_at=None` do not count as prepared |
+| `test_T2_languages_sorted_by_repository_count` | Count descending, ties by name, `null` excluded |
+| `test_T2_languages_ignore_request_filters` | `language=Python` and `page=2` return the same list |
+| `test_T2_languages_exclude_lookup_only_rows` | Rows with `ranked_at=None` are not counted |
+| `test_T2_languages_capped_at_15` | 16 languages return the top 15 |
 | `test_cors_allows_frontend_origin` | Exact `Access-Control-Allow-Origin` and `Vary: Origin` |
 | `test_cors_rejects_other_origin` | Header absent |
 | `test_cors_only_on_api_paths` | `/admin/` gets no header |
@@ -264,6 +313,7 @@ _Not run yet._
 - `display(value, format) -> string` returns "N/A" for `null`.
 - `compareNullable(a, b, dir) -> number` puts `null` last in both directions.
 - `sumKnown(values) -> number | null` returns `null` when every value is `null`.
+- `languageOptions(languages) -> string[]` returns `"Any"` followed by the API's language names, in API order.
 
 | Test | Assertion |
 |---|---|
@@ -272,6 +322,7 @@ _Not run yet._
 | `display shows N/A for null but keeps real 0` | `0` stays `0` |
 | `compareNullable sorts null last both ways` | Ascending and descending |
 | `sumKnown ignores null and returns null if all null` | Both cases |
+| `languageOptions keeps API order after Any` | Not re-sorted alphabetically; an empty list gives only `Any` |
 | `test_T7_frontend_never_calls_github_api` | `index.html` and `rows.js` contain no `api.github.com` |
 | `test_frontend_has_no_sample_data` | No `makeRepo`, `generate`, `NAMED`, "Sample data" or demo panel |
 
@@ -281,7 +332,8 @@ _Not run yet._
 - [ ] Remove the sample generator, demo panel, sample-data notes and hard-coded "Today at 04:10 UTC". Use real `fetched_at` and `updated_at`.
 - [ ] Handle `null` in `rowHtml`, `spark`, `ago`, `statusPill`, `renderSummary`, status counts, sorting and CSV.
 - [ ] Disable the AI filter and show "N/A" for the AI summary, because AI data is not collected yet.
-- [ ] Apply the small F7 fixes: add limit 10 (T4), "Show more" (T5), "Updated <time>" (T9), top 15 languages (T2).
+- [ ] Apply the small F7 fixes: add limit 10 (T4), "Show more" (T5), "Updated <time>" (T9).
+- [ ] Build the Language filter from the API's `languages` with `languageOptions`, so it lists only languages present in the database, sorted by repository count (T2). Remove any hard-coded language list.
 - [ ] Wire lookup to `/api/lookup`, merge returned rows into the list, and show API error text. Debounce suggestions to 400 ms and abort stale requests. Picking a suggestion runs a lookup.
 - [ ] Show "Rankings are being prepared" only when `prepared=false`. If the API is unreachable, show "Couldn't load rankings" with a retry button.
 - [ ] Run `node --test frontend/tests/`, plus the backend checks.
