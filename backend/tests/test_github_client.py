@@ -3,6 +3,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 import pytest
+import requests
 import responses
 from github_client import (
     ForbiddenEndpointError,
@@ -181,6 +182,140 @@ def test_plain_403_fails_fast(timed_client: GitHubClient, sleeps: list[float]) -
     assert not isinstance(excinfo.value, RateLimitError)
     assert len(responses.calls) == 1
     assert sleeps == []
+
+
+SEARCH_PATH = "/search/repositories"
+SEARCH_URL = f"{API_BASE_URL}{SEARCH_PATH}"
+RESET_AT = int(FIXED_NOW.timestamp()) + 100
+
+
+def _quota(remaining: int, resource: str | None = None, reset_at: int = RESET_AT) -> dict[str, str]:
+    headers = {"x-ratelimit-remaining": str(remaining), "x-ratelimit-reset": str(reset_at)}
+    if resource is not None:
+        headers["x-ratelimit-resource"] = resource
+    return headers
+
+
+@responses.activate
+def test_C3_low_search_quota_does_not_pause_core(
+    timed_client: GitHubClient, sleeps: list[float]
+) -> None:
+    responses.get(SEARCH_URL, json={}, headers=_quota(5, "search"))
+    responses.get(REPO_URL, json={})
+    timed_client.get(SEARCH_PATH)
+    timed_client.get(REPO_PATH)
+    assert sleeps == []
+
+
+@responses.activate
+def test_C3_search_without_resource_header_does_not_pause_core(
+    timed_client: GitHubClient, sleeps: list[float]
+) -> None:
+    responses.get(SEARCH_URL, json={}, headers=_quota(5))
+    responses.get(REPO_URL, json={})
+    timed_client.get(SEARCH_PATH)
+    timed_client.get(REPO_PATH)
+    assert sleeps == []
+
+
+@responses.activate
+def test_C3_low_core_quota_does_not_pause_search(
+    timed_client: GitHubClient, sleeps: list[float]
+) -> None:
+    responses.get(REPO_URL, json={}, headers=_quota(150, "core"))
+    responses.get(SEARCH_URL, json={})
+    timed_client.get(REPO_PATH)
+    timed_client.get(SEARCH_PATH)
+    assert sleeps == []
+
+
+@responses.activate
+def test_C3_search_pauses_below_search_margin(
+    timed_client: GitHubClient, sleeps: list[float]
+) -> None:
+    responses.get(SEARCH_URL, json={}, headers=_quota(1, "search"))
+    responses.get(SEARCH_URL, json={})
+    timed_client.get(SEARCH_PATH)
+    timed_client.get(SEARCH_PATH)
+    assert sleeps == [101]
+
+
+@responses.activate
+def test_C3_search_at_margin_does_not_pause(
+    timed_client: GitHubClient, sleeps: list[float]
+) -> None:
+    responses.get(SEARCH_URL, json={}, headers=_quota(2, "search"))
+    responses.get(SEARCH_URL, json={})
+    timed_client.get(SEARCH_PATH)
+    timed_client.get(SEARCH_PATH)
+    assert sleeps == []
+
+
+@responses.activate
+def test_C3_core_still_pauses_below_200(timed_client: GitHubClient, sleeps: list[float]) -> None:
+    responses.get(REPO_URL, json={}, headers=_quota(150, "core"))
+    responses.get(REPO_URL, json={})
+    timed_client.get(REPO_PATH)
+    timed_client.get(REPO_PATH)
+    assert sleeps == [101]
+
+
+@pytest.fixture
+def no_wait_client(sleeps: list[float]) -> GitHubClient:
+    return GitHubClient(clock=lambda: FIXED_NOW, sleep=sleeps.append, wait_for_rate_limit=False)
+
+
+@responses.activate
+def test_C3_no_wait_mode_raises_instead_of_sleeping(
+    no_wait_client: GitHubClient, sleeps: list[float]
+) -> None:
+    responses.get(REPO_URL, json={}, headers=_quota(150, "core"))
+    no_wait_client.get(REPO_PATH)
+    with pytest.raises(RateLimitError) as excinfo:
+        no_wait_client.get(REPO_PATH)
+    assert excinfo.value.reset_at == RESET_AT
+    assert len(responses.calls) == 1
+    assert sleeps == []
+
+
+@responses.activate
+def test_C3_no_wait_mode_continues_after_reset(
+    no_wait_client: GitHubClient, sleeps: list[float]
+) -> None:
+    past_reset = int(FIXED_NOW.timestamp()) - 10
+    responses.get(REPO_URL, json={}, headers=_quota(150, "core", past_reset))
+    no_wait_client.get(REPO_PATH)
+    no_wait_client.get(REPO_PATH)
+    assert len(responses.calls) == 2
+    assert sleeps == []
+
+
+@responses.activate
+def test_C4_no_wait_mode_does_not_retry_429(
+    no_wait_client: GitHubClient, sleeps: list[float]
+) -> None:
+    responses.get(REPO_URL, status=429, headers={"retry-after": "30"})
+    with pytest.raises(RateLimitError) as excinfo:
+        no_wait_client.get(REPO_PATH)
+    assert excinfo.value.status_code == 429
+    assert excinfo.value.reset_at == int(FIXED_NOW.timestamp()) + 30
+    assert len(responses.calls) == 1
+    assert sleeps == []
+
+
+@responses.activate
+def test_network_error_raises_github_error(client: GitHubClient) -> None:
+    responses.get(REPO_URL, body=requests.ConnectionError("connection dropped"))
+    with pytest.raises(GitHubError):
+        client.get(REPO_PATH)
+
+
+@responses.activate
+def test_raw_network_error_raises_github_error(client: GitHubClient) -> None:
+    url = f"{RAW_BASE_URL}/octo/widget/main/README.md"
+    responses.get(url, body=requests.ConnectionError("connection dropped"))
+    with pytest.raises(GitHubError):
+        client.get_raw("octo", "widget", "main", "README.md")
 
 
 @responses.activate
