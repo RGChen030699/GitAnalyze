@@ -99,6 +99,12 @@ def test_L2_limit_counts_unique_repos() -> None:
     assert parsed.repos == [RepoRef("a", "b")]
 
 
+def test_L1_accepts_http_url() -> None:
+    parsed = parse_repo_input("http://github.com/vercel/next.js")
+
+    assert parsed.repos == [RepoRef("vercel", "next.js")]
+
+
 def test_L1_rejects_non_github_url() -> None:
     with pytest.raises(InvalidRepoInput) as error:
         parse_repo_input("https://gitlab.com/vercel/next.js")
