@@ -17,3 +17,9 @@ def test_L1_accepts_url_without_scheme() -> None:
     parsed = parse_repo_input("github.com/vercel/next.js")
 
     assert parsed.repos == [RepoRef("vercel", "next.js")]
+
+
+def test_L1_accepts_www_url() -> None:
+    parsed = parse_repo_input("www.github.com/vercel/next.js")
+
+    assert parsed.repos == [RepoRef("vercel", "next.js")]
