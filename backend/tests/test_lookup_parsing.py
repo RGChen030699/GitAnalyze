@@ -5,3 +5,9 @@ def test_L1_accepts_https_url() -> None:
     parsed = parse_repo_input("https://github.com/vercel/next.js")
 
     assert parsed.repos == [RepoRef("vercel", "next.js")]
+
+
+def test_L1_accepts_owner_repo_name() -> None:
+    parsed = parse_repo_input("vercel/next.js")
+
+    assert parsed.repos == [RepoRef("vercel", "next.js")]
