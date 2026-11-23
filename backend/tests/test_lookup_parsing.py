@@ -65,3 +65,9 @@ def test_L2_accepts_newline_separated_entries() -> None:
     parsed = parse_repo_input("vercel/next.js\nfacebook/react")
 
     assert parsed.repos == [RepoRef("vercel", "next.js"), RepoRef("facebook", "react")]
+
+
+def test_L2_removes_duplicate_entries() -> None:
+    parsed = parse_repo_input("vercel/next.js https://github.com/vercel/next.js")
+
+    assert parsed.repos == [RepoRef("vercel", "next.js")]
