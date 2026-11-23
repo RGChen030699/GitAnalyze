@@ -26,9 +26,16 @@ def _parse_entry(entry: str) -> RepoRef:
     return RepoRef(owner, name.removesuffix(".git"))
 
 
+def _unique_repos(repos: list[RepoRef]) -> list[RepoRef]:
+    unique: dict[tuple[str, str], RepoRef] = {}
+    for repo in repos:
+        unique.setdefault((repo.owner.lower(), repo.name.lower()), repo)
+    return list(unique.values())
+
+
 def parse_repo_input(text: str) -> ParsedInput:
     if "/" not in text:
         return ParsedInput(repos=[], search=text)
     entries = text.replace(",", " ").split()
-    repos = list(dict.fromkeys(_parse_entry(entry) for entry in entries))
+    repos = _unique_repos([_parse_entry(entry) for entry in entries])
     return ParsedInput(repos=repos, search=None)
