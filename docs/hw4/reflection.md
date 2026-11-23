@@ -25,7 +25,7 @@ Both would have been costly to change after the client and its 26 tests existed.
 - The commit scope is `github`, not `F0` as CLAUDE.md asks.
 - The plan's pushback was Claude critiquing its own draft rather than one of us reviewing it.
 
-TDD worked more cleanly. The F1 history has four red → green cycles (https URL, no scheme, `www.`, extra `/tree/...` path), a guard test honestly labelled "already passes, not a red cycle", and two refactors, merged with a merge commit so none of it was squashed away. Writing the test first kept each step small: the first green was a one-line `removeprefix`, and later cycles forced the general prefix handling that the refactors then cleaned up.
+TDD worked more cleanly. The final F1 history on `main` has 14 `[red]`, 14 `[green]` and 3 `[refactor]` commits, merged without squashing. Three guard tests that passed on their first run are labelled as guards with no `[red]` tag, so the history claims no failure that did not happen. The red commits for `TooManyRepos` and `InvalidRepoInput` added only empty exception classes, so the test file still imported and each new test failed on its assertion (`DID NOT RAISE`). Tests cover all six criteria in our parser working list (AC1–AC6); the endpoint and UI criteria in the F1 spec remain later work. We then deliberately stopped and listed extra cases (mixed input, incomplete links, a "state management" guard) in `docs/plans/f1-followups.md` rather than growing the scope.
 
 ## Q2: Context management strategies that worked best
 
@@ -34,7 +34,7 @@ What worked best was keeping stable facts in files that Claude loads when needed
 1. **Specs on demand.** CLAUDE.md imports only `@docs/prd/PRD.md` and lists the ten feature specs in a table marked "load only the one you need". Sessions read one spec, not eleven documents.
 2. **Rules in CLAUDE.md, not in prompts.** Claude already knew that tests must not be changed to pass, the full suite must pass before a commit, and how to tag commits. Prompts only had to name the next step.
 3. **Restart after changing CLAUDE.md or subagents.** Our F0 session started before the `codebase-explorer` subagent was committed, so Claude fell back to the built-in Explore agent. Exiting and restarting loaded the new CLAUDE.md, subagents and permissions.
-4. **`/clear` between tasks, `/compact` within one.** We cleared between Part 2 and Part 3, compacted with a focus during the TDD cycles, and resumed with `claude --continue` after a break.
+4. **`/clear` between tasks, `/compact` within one.** We cleared between Part 2 and Part 3, compacted with a focus during the TDD cycles, and resumed with `claude --continue` after a break. In Part 3b we exported `docs/hw4/logs/part3b-cycles-6-8.md` before `/compact`, so the full cycle history survived the summary, then resumed with `claude --continue`.
 5. **A shared document between sessions.** Each of us worked in separate Claude Code sessions, whose context is not shared. A shared HW4 plan (scope, commit format, checklist) let either of us start a fresh session without re-explaining the history.
 
 ## Annotated session log

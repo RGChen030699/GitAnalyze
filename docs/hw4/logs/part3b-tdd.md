@@ -29,6 +29,9 @@ the mixed-input decision, and the current parsing.py
   ⎿  Read backend/tests/test_lookup_parsing.py (49 lines)
   ⎿  Read docs/prd/F1-repository-lookup.md (41 lines)
 
+← /COMPACT: cycles 6–8 were exported above first, then compacted with a focus.
+← --CONTINUE: we resumed here with claude --continue. The command itself is not captured in this export.
+
 ❯ Which F1 cycle is next, and which acceptance criterion does it cover?         
   ⎿  1 agent type available
   ⎿  14 skills available
@@ -81,6 +84,8 @@ the mixed-input decision, and the current parsing.py
   returns one repo named next.js facebook instead of two repos. The other 43
   tests still pass.
 
+← RED: test-only commit, and it fails for the expected reason.
+
   This test only covers spaces, but L2 also requires commas and new lines. The
   minimum green step is to split on whitespace, which handles new lines too, so
   commas would still need their own red→green. I recommend adding that as a
@@ -109,6 +114,8 @@ the mixed-input decision, and the current parsing.py
 ⏺ Cycle 9 is green and committed as bab6f08. The parser now splits input on
   whitespace, all 44 tests pass, and ruff on the changed file and mypy are
   clean.
+
+← GREEN: minimum change (split on whitespace), full suite passing.
 
   Commas are the remaining gap in L2: vercel/next.js,facebook/react currently
   returns one repo with the name next.js,facebook. New lines already work
@@ -423,6 +430,8 @@ the mixed-input decision, and the current parsing.py
   test_L2_rejects_more_than_three_repos fails for the right reason, DID NOT 
   RAISE TooManyRepos, because the parser has no limit yet. The other 48 tests
   still pass, and ruff on both files and mypy are clean.
+
+← RED: the empty exception class lets the test fail on its assertion, not on an import error.
 
   The minimum green step is a MAX_REPOS = 3 constant and a check after dedupe
   that raises the exact message. Placing it after dedupe follows your decision
@@ -751,6 +760,8 @@ the mixed-input decision, and the current parsing.py
   - Refactor (4ac620c): I moved separator handling into _split_entries, and
     parsing, dedupe, and the limit into _parse_repos. parse_repo_input now only
     decides between a search and a list of repos, and behavior is unchanged.
+
+← REFACTOR: structure changed, behavior did not, and all 52 tests stayed green.
 
   Both commits are local, so the branch is 2 ahead of origin until you push.
   Your exported log, docs/hw4/logs/part3b-cycles-6-8.md, is still untracked.
