@@ -83,9 +83,9 @@ All colours are CSS custom properties on `:root`. Dark values apply under `@medi
 
 | Token | Light | Dark | Use |
 |---|---|---|---|
-| `--accent` | `#3446D9` | `#8D9CFF` | Primary buttons, focus ring, selected tab underline |
-| `--accent-ink` | `#FFFFFF` | `#0F1433` | Text on `--accent` |
-| `--accent-soft` | `#E3E6FB` | `#262C55` | Parsed-entry chips, best-value cells, hover rows |
+| `--accent` | `#3048D6` | `#8A9BFE` | Primary buttons, focus ring, selected tab underline |
+| `--accent-ink` | `#FFFFFF` | `#0B1029` | Text on `--accent` |
+| `--accent-soft` | `#E3E6FB` | `#252B54` | Parsed-entry chips, best-value cells, hover rows |
 | `--accent-text` | `#2A38B0` | `#B3BCFF` | Links and accent text on light surfaces |
 
 ### 3.3 Colour — status
@@ -105,7 +105,7 @@ Used for chart lines and bars. The three differ in lightness as well as hue, and
 
 | Token | Light | Dark | Dash (compare) |
 |---|---|---|---|
-| `--c1` | `#3446D9` | `#8D9CFF` | Solid |
+| `--c1` | `#3048D6` | `#8A9BFE` | Solid |
 | `--c2` | `#D07A1F` | `#F1AD52` | `9 6` (dashed) |
 | `--c3` | `#5B615A` | `#BCC2B9` | `2 6` (dotted) |
 
