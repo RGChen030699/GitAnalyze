@@ -14,5 +14,5 @@ class ParsedInput:
 
 
 def parse_repo_input(text: str) -> ParsedInput:
-    owner, name = text.removeprefix("https://github.com/").split("/")
+    owner, name = text.removeprefix("https://").removeprefix("github.com/").split("/")
     return ParsedInput(repos=[RepoRef(owner, name)], search=None)
