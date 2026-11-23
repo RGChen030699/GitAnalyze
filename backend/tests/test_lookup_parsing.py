@@ -1,4 +1,5 @@
-from lookup.parsing import ParsedInput, RepoRef, parse_repo_input
+import pytest
+from lookup.parsing import ParsedInput, RepoRef, TooManyRepos, parse_repo_input
 
 
 def test_L1_accepts_https_url() -> None:
@@ -77,3 +78,10 @@ def test_L2_removes_duplicates_ignoring_case() -> None:
     parsed = parse_repo_input("Vercel/next.js vercel/next.js")
 
     assert parsed.repos == [RepoRef("Vercel", "next.js")]
+
+
+def test_L2_rejects_more_than_three_repos() -> None:
+    with pytest.raises(TooManyRepos) as error:
+        parse_repo_input("vercel/next.js facebook/react vuejs/core sveltejs/svelte")
+
+    assert str(error.value) == "Compare up to 3 repositories at a time"

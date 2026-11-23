@@ -3,6 +3,10 @@ from dataclasses import dataclass
 URL_PREFIXES = ("https://", "www.", "github.com/", "git@github.com:")
 
 
+class TooManyRepos(Exception):
+    pass
+
+
 @dataclass(frozen=True)
 class RepoRef:
     owner: str
