@@ -42,6 +42,7 @@
   color-scheme:dark;
 }
 *,*::before,*::after{box-sizing:border-box}
+[hidden]{display:none!important}
 body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:15px;line-height:1.5;-webkit-font-smoothing:antialiased;font-variant-numeric:tabular-nums}
 a{color:var(--accent-text)} a:hover{color:var(--ink)}
 button,input,select{font:inherit;color:inherit}
@@ -283,7 +284,8 @@ footer .wrap{display:flex;flex-wrap:wrap;gap:8px 24px}
       <label class="field" for="fStatus">Status<select id="fStatus">
         <option value="any">Any status</option><option>Active</option><option>Slowing</option><option>Quiet</option><option>Archived</option>
       </select></label>
-      <div class="field"><span id="winL">Stars gained over</span><div class="seg" role="group" aria-labelledby="winL" id="fWin"></div></div>
+      <div class="field"><span id="viewL">Rank by</span><div class="seg" role="group" aria-labelledby="viewL" id="fView"></div></div>
+      <div class="field" id="winField" hidden><span id="winL">Gained over</span><div class="seg" role="group" aria-labelledby="winL" id="fWin"></div></div>
       <div class="field"><span id="limL">Show</span><div class="seg" role="group" aria-labelledby="limL" id="fLimit"></div></div>
       <label class="toggle"><input type="checkbox" id="fAi">Has AI capabilities</label>
       <label class="toggle"><input type="checkbox" id="fArch" checked>Hide archived</label>
@@ -443,13 +445,13 @@ NAMED.forEach(([full, desc, lang, stars, status, ai, pushed, contrib, ot]) => {
     const contributors = Math.max(1, Math.round(stars / (180 + R() * 500) + R() * 12));
     REPOS.push(makeRepo(full, DESC[s] + ' ' + TOPIC[p] + '.', pickLang(R), stars, status, ai, pushed, contributors, R() < 0.55 ? 'Organization' : 'User', R, false));
   }
-  REPOS.filter((r) => r.status === 'Active' && !r.spike).sort((a, b) => b.gain7 - a.gain7).slice(0, 8).forEach((r, i) => { r.trending = i + 1; });
+  REPOS.filter((r) => r.status === 'Active' && !r.spike).sort((a, b) => b.gain7 - a.gain7).slice(0, 8).forEach((r, i) => { r.trending = i + 2; });
   REPOS.find((r) => r.id === 'newwave/hype-agent').trending = 1;
 })();
 const BY_ID = Object.fromEntries(REPOS.map((r) => [r.id, r]));
 
 /* ---------- state ---------- */
-const DEFAULTS = { lang: 'Any', status: 'any', win: '7d', limit: 25, pages: 1, aiOnly: false, hideArch: true, sort: 'stars', dir: 'desc', focus: null, focusLabel: '', query: '' };
+const DEFAULTS = { view: 'stars', lang: 'Any', status: 'any', win: '7d', limit: 25, pages: 1, aiOnly: false, hideArch: true, sort: 'stars', dir: 'desc', focus: null, focusLabel: '', query: '' };
 const state = Object.assign({}, DEFAULTS, { compare: [], recent: ['lumen-labs/agent-kit'], busy: false, empty: false });
 const WIN = { '7d': ['gain7', 'last 7 days', 'This week'], '30d': ['gain30', 'last 30 days', 'This month'], '1y': ['gainYear', 'last 12 months', 'This year'] };
 const gained = (r) => r[WIN[state.win][0]];
@@ -496,9 +498,10 @@ function filtered() {
     (state.status === 'any' || r.status === state.status) &&
     (!state.aiOnly || r.ai) &&
     (!state.hideArch || r.status !== 'Archived' || (state.focus && state.focus.includes(r.id))));
+  if (state.view === 'trending' && !state.focus) list = list.filter((r) => r.trending > 0);
   if (state.focus) list = list.filter((r) => state.focus.includes(r.id));
   if (state.query) { const w = state.query.toLowerCase().split(/\s+/); list = list.filter((r) => w.every((x) => (r.full + ' ' + r.desc).toLowerCase().includes(x))); }
-  const key = { stars: (r) => r.stars, gained: gained, commit: (r) => -r.pushed, contributors: (r) => r.contributors, name: null }[state.sort];
+  const key = { trending: (r) => -r.trending, stars: (r) => r.stars, gained: gained, commit: (r) => -r.pushed, contributors: (r) => r.contributors, name: null }[state.sort];
   const d = state.dir === 'asc' ? 1 : -1;
   list.sort((a, b) => {
     if (!key) return d * a.full.localeCompare(b.full);
@@ -611,7 +614,7 @@ function renderTable() {
     observer.observe($('#moreSentinel'));
   }
 }
-function sortLabel() { return { stars: 'stars', gained: 'stars gained, ' + WIN[state.win][1], commit: 'last commit', contributors: 'contributors', name: 'name' }[state.sort] + (state.dir === 'asc' ? ' (ascending)' : ''); }
+function sortLabel() { return { trending: 'GitHub Trending rank', stars: 'stars', gained: 'stars gained, ' + WIN[state.win][1], commit: 'last commit', contributors: 'contributors', name: 'name' }[state.sort] + (state.dir === 'asc' ? ' (ascending)' : ''); }
 function loadMore() { const y = window.scrollY; state.pages++; renderTable(); window.scrollTo(0, y); }
 
 /* ---------- render: controls ---------- */
@@ -619,6 +622,9 @@ function renderControls() {
   const langs = ['Any'].concat(Array.from(new Set(REPOS.map((r) => r.lang))).sort());
   $('#fLang').innerHTML = langs.map((l) => '<option value="' + l + '"' + (l === state.lang ? ' selected' : '') + '>' + (l === 'Any' ? 'Any language' : l) + '</option>').join('');
   $('#fStatus').value = state.status;
+  const VIEWS = [['stars', 'Total stars'], ['gaining', 'Gaining stars'], ['trending', 'Trending']];
+  $('#fView').innerHTML = VIEWS.map(([k, l]) => '<button type="button" data-view="' + k + '" aria-pressed="' + (state.view === k) + '">' + l + '</button>').join('');
+  $('#winField').hidden = state.view !== 'gaining';
   $('#fWin').innerHTML = Object.entries(WIN).map(([k, v]) => '<button type="button" data-win="' + k + '" aria-pressed="' + (state.win === k) + '">' + v[2] + '</button>').join('');
   $('#fLimit').innerHTML = [25, 50, 100].map((n) => '<button type="button" data-limit="' + n + '" aria-pressed="' + (state.limit === n) + '">' + n + '</button>').join('');
   $('#fAi').checked = state.aiOnly; $('#fArch').checked = state.hideArch;
@@ -758,6 +764,7 @@ document.addEventListener('click', (e) => {
   const un = t.closest('[data-untray]'); if (un) { toggleCompare(un.dataset.untray); return; }
   const pick = t.closest('[data-pick]'); if (pick) { const id = pick.dataset.pick; closeSuggest(); $('#lookupInput').value = BY_ID[id].full; onLookupInput(); remember(id); focusRepos([id], 'Showing ' + BY_ID[id].full); return; }
   const rec = t.closest('[data-recent]'); if (rec) { focusRepos([rec.dataset.recent], 'Showing ' + BY_ID[rec.dataset.recent].full); return; }
+  const v = t.closest('[data-view]'); if (v) { state.view = v.dataset.view; state.sort = state.view === 'gaining' ? 'gained' : state.view === 'trending' ? 'trending' : 'stars'; state.dir = 'desc'; state.pages = 1; renderControls(); renderTable(); return; }
   const w = t.closest('[data-win]'); if (w) { state.win = w.dataset.win; state.pages = 1; renderControls(); renderTable(); return; }
   const l = t.closest('[data-limit]'); if (l) { state.limit = +l.dataset.limit; state.pages = 1; renderControls(); renderTable(); return; }
   if (t.closest('#moreBtn')) { loadMore(); return; }
