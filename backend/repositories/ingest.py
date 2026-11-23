@@ -10,12 +10,19 @@ from github_client import GitHubClient, GitHubError, GitHubResponse
 from health.services import compute_status
 
 from repositories.models import Repository, StarWeek
-from repositories.services import StarPoint, stars_gained, stars_gained_year, weeks_12
+from repositories.services import (
+    StarPoint,
+    cap_gain,
+    stars_gained,
+    stars_gained_year,
+    weeks_12,
+)
 
 STAR_HISTORY_ENABLED = True  # F7 Step 1: verified live on 2026-11-23
 HISTORY_PAGE_SIZE = 30
 RELEASES_PAGE_SIZE = 100
 DAYS_PER_WEEK = 7
+GAIN_FIELDS = ("stars_gained_7d", "stars_gained_30d", "stars_gained_year")
 
 
 @dataclass(frozen=True)
@@ -28,6 +35,18 @@ class _History:
 
 def _parse_optional_datetime(value: str | None) -> datetime | None:
     return parse_datetime(value) if value else None
+
+
+def _cap_gains(repo: Repository) -> bool:
+    """Cap stored gains at total stars and return whether any value changed."""
+    changed = False
+    for field in GAIN_FIELDS:
+        gained = getattr(repo, field)
+        capped = cap_gain(gained, repo.stargazers_count)
+        if capped != gained:
+            setattr(repo, field, capped)
+            changed = True
+    return changed
 
 
 def upsert_repository(payload: dict[str, Any], source: str, fetched_at: datetime) -> Repository:
@@ -50,6 +69,8 @@ def upsert_repository(payload: dict[str, Any], source: str, fetched_at: datetime
             "raw": payload,
         },
     )
+    if _cap_gains(repository):
+        repository.save(update_fields=GAIN_FIELDS)
     return repository
 
 
@@ -120,6 +141,7 @@ def _store_history(repo: Repository, history: _History, now: datetime) -> None:
     repo.star_history_fetched_at = history.fetched_at
     if history.complete:
         repo.stars_gained_year = stars_gained_year(points, as_of)
+    _cap_gains(repo)
 
 
 def refresh_details(client: GitHubClient, repo: Repository, now: datetime) -> list[str]:

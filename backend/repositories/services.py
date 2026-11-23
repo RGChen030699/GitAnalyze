@@ -54,6 +54,11 @@ def weeks_12(points: Sequence[StarPoint], as_of: date) -> list[int]:
     ]
 
 
+def cap_gain(gained: int | None, total: int) -> int | None:
+    """Keep stars gained from exceeding total stars; null and negative values pass through."""
+    return None if gained is None else min(gained, total)
+
+
 def language_query(language: str) -> str:
     name = f'"{language}"' if " " in language else language
     return f"language:{name} {OVERALL_QUERY}"
