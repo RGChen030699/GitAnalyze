@@ -29,3 +29,9 @@ def test_L1_ignores_tree_path() -> None:
     parsed = parse_repo_input("https://github.com/anthropics/skills/tree/main/skills")
 
     assert parsed.repos == [RepoRef("anthropics", "skills")]
+
+
+def test_L1_strips_git_suffix() -> None:
+    parsed = parse_repo_input("https://github.com/vercel/next.js.git")
+
+    assert parsed.repos == [RepoRef("vercel", "next.js")]
