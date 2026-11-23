@@ -30,4 +30,5 @@ def parse_repo_input(text: str) -> ParsedInput:
     if "/" not in text:
         return ParsedInput(repos=[], search=text)
     entries = text.replace(",", " ").split()
-    return ParsedInput(repos=[_parse_entry(entry) for entry in entries], search=None)
+    repos = list(dict.fromkeys(_parse_entry(entry) for entry in entries))
+    return ParsedInput(repos=repos, search=None)
