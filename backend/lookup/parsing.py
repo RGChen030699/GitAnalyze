@@ -21,6 +21,10 @@ def _strip_url_prefixes(text: str) -> str:
     return text
 
 
+def _parse_entry(entry: str) -> RepoRef:
+    owner, name = _strip_url_prefixes(entry).split("/")[:2]
+    return RepoRef(owner, name)
+
+
 def parse_repo_input(text: str) -> ParsedInput:
-    owner, name = _strip_url_prefixes(text).split("/")[:2]
-    return ParsedInput(repos=[RepoRef(owner, name)], search=None)
+    return ParsedInput(repos=[_parse_entry(text)], search=None)
