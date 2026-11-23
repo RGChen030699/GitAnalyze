@@ -1,11 +1,14 @@
-"""Pure star history calculations (F3, F8)."""
+"""Pure star history and watch list calculations (F0, F3, F8)."""
 
 from collections.abc import Iterator, Sequence
 from dataclasses import dataclass
 from datetime import date, timedelta
+from itertools import chain
+from typing import Any
 
 YEAR_DAYS = 52 * 7
 SPARKLINE_WEEKS = 12
+OVERALL_QUERY = "stars:>1000"
 
 
 @dataclass(frozen=True)
@@ -49,3 +52,24 @@ def weeks_12(points: Sequence[StarPoint], as_of: date) -> list[int]:
         totals.get(current_week - timedelta(weeks=offset), 0)
         for offset in range(SPARKLINE_WEEKS - 1, -1, -1)
     ]
+
+
+def language_query(language: str) -> str:
+    name = f'"{language}"' if " " in language else language
+    return f"language:{name} {OVERALL_QUERY}"
+
+
+def build_watch_list(
+    overall: list[dict[str, Any]],
+    by_language: list[list[dict[str, Any]]],
+    limit: int | None,
+) -> list[dict[str, Any]]:
+    """Merge search results by GitHub id, most stars first, then apply ``limit``."""
+    unique: dict[int, dict[str, Any]] = {}
+    for item in chain(overall, *by_language):
+        unique.setdefault(item["id"], item)
+    ranked = sorted(
+        unique.values(),
+        key=lambda item: (-item["stargazers_count"], item["full_name"].lower()),
+    )
+    return ranked if limit is None else ranked[:limit]

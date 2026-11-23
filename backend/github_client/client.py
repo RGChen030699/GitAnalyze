@@ -106,6 +106,7 @@ class GitHubClient:
         self._search_rate_limit_margin = search_rate_limit_margin
         self._wait_for_rate_limit = wait_for_rate_limit
         self._quotas: dict[str, _Quota] = {}
+        self.requests_sent = 0
 
     def get(self, path: str, params: Mapping[str, Any] | None = None) -> GitHubResponse:
         """GET an API path such as ``/repos/owner/name``."""
@@ -203,11 +204,13 @@ class GitHubClient:
 
     def _send(self, url: str, **kwargs: Any) -> requests.Response:
         try:
-            return self._session.get(
+            response = self._session.get(
                 url, timeout=REQUEST_TIMEOUT, allow_redirects=True, auth=_skip_netrc, **kwargs
             )
         except requests.RequestException as error:
             raise GitHubError(f"Could not reach GitHub for {url}") from error
+        self.requests_sent += 1 + len(response.history)
+        return response
 
     def _result(
         self,

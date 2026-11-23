@@ -6,6 +6,8 @@ from typing import Any
 
 import dj_database_url
 
+from config.languages import parse_rankings_languages
+
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 SECRET_KEY = os.environ.get("DJANGO_SECRET_KEY", "dev-only-insecure-key-change-me")
@@ -109,3 +111,5 @@ REST_FRAMEWORK = {
 
 # F0 C1: the GitHub client reads this; it fails with a clear error if missing.
 GITHUB_TOKEN = os.environ.get("GITHUB_TOKEN", "")
+
+RANKINGS_LANGUAGES = parse_rankings_languages(os.environ.get("RANKINGS_LANGUAGES"))
