@@ -10,7 +10,7 @@
 
 **Spec:** `docs/prd/F7-top-repositories.md`, with `F0`, `F1` (L1–L4), `F2` (R1–R4, S1–S5), `F3` §2 and `F8` §2.
 
-**Status:** Steps 1 and 3a are done. Steps 2, 3 and 4–8 have not been implemented.
+**Status:** Steps 1, 2, 3, 3a and 4 are done. Steps 5–8 have not been implemented. `refresh_rankings` has been tested only with recorded fixtures on in-memory SQLite. It has not run against live GitHub or a real Postgres database.
 
 ## Global Constraints
 
@@ -95,10 +95,10 @@ Run on 2026-11-23 against `pallets/flask`.
 | `test_C4_no_wait_mode_does_not_retry_429` | A 429 raises at once after one request |
 | `test_network_error_raises_github_error` | `requests.ConnectionError` becomes `GitHubError` |
 
-- [ ] Write tests, confirm red, commit `test(F0): per-resource rate limits [red]`.
-- [ ] Track quota per resource, keyed by the `x-ratelimit-resource` header. Before a request, treat `/search/` paths as `search` and all others as `core`. Keep `rate_limit_margin` for core.
-- [ ] Wrap `requests.RequestException` as `GitHubError`.
-- [ ] Run the checks, commit `feat(F0): track rate limits per resource [green]`.
+- [x] Write tests, confirm red, commit `test(F0): per-resource rate limits [red]`.
+- [x] Track quota per resource, keyed by the `x-ratelimit-resource` header. Before a request, treat `/search/` paths as `search` and all others as `core`. Keep `rate_limit_margin` for core.
+- [x] Wrap `requests.RequestException` as `GitHubError`.
+- [x] Run the checks, commit `feat(F0): track rate limits per resource [green]`.
 
 ---
 
@@ -118,9 +118,9 @@ Run on 2026-11-23 against `pallets/flask`.
 | `test_W1_search_rejects_per_page_over_100` | `ValueError`, no request sent |
 | `test_W1_search_parses_recorded_fixture` | `data["items"][0]` has `full_name` and `stargazers_count` |
 
-- [ ] Write tests, confirm red, commit `test(F0): search helper [red]`.
-- [ ] Implement, using `dataclasses.replace` to put the query in `source`.
-- [ ] Run the checks, commit `feat(F0): add repository search helper [green]`.
+- [x] Write tests, confirm red, commit `test(F0): search helper [red]`.
+- [x] Implement, using `dataclasses.replace` to put the query in `source`.
+- [x] Run the checks, commit `feat(F0): add repository search helper [green]`.
 
 ---
 
@@ -170,7 +170,7 @@ Run on 2026-11-23 against `pallets/flask`.
 - `repositories.services.weeks_12(points, as_of) -> list[int]` (exactly 12, oldest first)
 - `repositories.services.build_watch_list(overall: list[dict], by_language: list[list[dict]], limit: int | None) -> list[dict]`
 - `repositories.ingest.upsert_repository(payload: dict, source: str, fetched_at: datetime) -> Repository`
-- `repositories.ingest.refresh_details(client: GitHubClient, repo: Repository, now: datetime) -> None`
+- `repositories.ingest.refresh_details(client: GitHubClient, repo: Repository, now: datetime) -> list[str]` (names of the parts that failed)
 
 **Setting:** `RANKINGS_LANGUAGES` is read from the environment as a comma-separated list, default `Python,TypeScript,JavaScript`. Entries are trimmed, blanks are dropped, and case-insensitive duplicates keep the first spelling. An unset or blank value uses the default.
 
@@ -208,12 +208,19 @@ Run on 2026-11-23 against `pallets/flask`.
 | `test_limit_must_be_positive` | `--limit 0` raises `CommandError` |
 | `test_summary_reports_repos_requests_failures` | Output contains all three (F0 §3.4) |
 
-- [ ] Write tests, confirm red, commit `test(F7): models, rules and refresh command [red]`.
-- [ ] Implement the models and create the migration with `makemigrations`.
-- [ ] Implement the command. Per repository, fetch 2 history pages (`per_page=30`, enough for 52 weeks) and `GET /repos/{owner}/{repo}/releases?per_page=100`. Basic fields come from the search result. Save each repository in its own transaction.
-- [ ] Add `RANKINGS_LANGUAGES=Python,TypeScript,JavaScript` to `.env.example`. Claude's permissions block that file, so the user runs this edit.
-- [ ] Budget check, for `L` languages: at most `1 + L` searches + `(100 + 50L) × 3` core requests, or `301 + 151L` per run. The default (`L = 3`) is 4 searches + 250 × 3 = **754 requests**. Each extra language adds up to 151. With `--limit N`, the total is at most `1 + L + 3N`.
-- [ ] Run the checks, commit `feat(F7): store rankings via refresh_rankings [green]`.
+- [x] Write tests, confirm red, and commit in three parts: models (`718f564`), pure rules (`faf87df`), and the command (`46d5e7e`).
+- [x] Implement the models and create the migration with `makemigrations` (`b021399`). Implement the pure rules (`d198781`).
+- [x] Implement the command (`8894362`). Per repository, fetch up to 2 history pages (`per_page=30`, enough for 52 weeks) and `GET /repos/{owner}/{repo}/releases?per_page=100`. Basic fields come from the search result. Save each repository's details in one transaction.
+- [x] Add `RANKINGS_LANGUAGES=Python,TypeScript,JavaScript` to `.env.example` (`8264f09`, committed by the user).
+- [x] Budget check, for `L` languages: at most `1 + L` searches + `(100 + 50L) × 3` core requests, or `301 + 151L` per run. The default (`L = 3`) is 4 searches + 250 × 3 = **754 requests**. Each extra language adds up to 151. With `--limit N`, the total is at most `1 + L + 3N`. These are calculated limits, because no full live run has happened.
+
+#### Step 4 implementation choices
+
+- **Star floor:** every search uses `stars:>1000`, alone for the overall search and with `language:<name>` for language searches. The earlier plan did not specify a query, and this matches the recorded search fixture.
+- **`refresh_details` return value:** it returns a list of failed parts (`releases`, `star history`, `star history page 2`) instead of `None`, so the command can log them and count that repository as one failure.
+- **Request counting:** `GitHubClient.requests_sent` counts HTTP responses received, including retries and redirects. The run summary reports it. Requests that end in a network error are not counted.
+- **Reused names:** rows are matched on `github_id`. If a new repository takes a name still stored on another row, the unique-name constraint rejects it. The run counts one failure, leaves the existing row unchanged, and continues.
+- [x] Run the checks, commit `feat(F7): store rankings via refresh_rankings [green]`.
 
 ---
 
