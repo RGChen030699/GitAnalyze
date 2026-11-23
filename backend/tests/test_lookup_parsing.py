@@ -71,3 +71,9 @@ def test_L2_removes_duplicate_entries() -> None:
     parsed = parse_repo_input("vercel/next.js https://github.com/vercel/next.js")
 
     assert parsed.repos == [RepoRef("vercel", "next.js")]
+
+
+def test_L2_removes_duplicates_ignoring_case() -> None:
+    parsed = parse_repo_input("Vercel/next.js vercel/next.js")
+
+    assert parsed.repos == [RepoRef("Vercel", "next.js")]
