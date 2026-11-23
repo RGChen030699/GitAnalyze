@@ -44,11 +44,18 @@ def _unique_repos(repos: list[RepoRef]) -> list[RepoRef]:
     return list(unique.values())
 
 
+def _split_entries(text: str) -> list[str]:
+    return text.replace(",", " ").split()
+
+
+def _parse_repos(text: str) -> list[RepoRef]:
+    repos = _unique_repos([_parse_entry(entry) for entry in _split_entries(text)])
+    if len(repos) > MAX_REPOS:
+        raise TooManyRepos("Compare up to 3 repositories at a time")
+    return repos
+
+
 def parse_repo_input(text: str) -> ParsedInput:
     if "/" not in text:
         return ParsedInput(repos=[], search=text)
-    entries = text.replace(",", " ").split()
-    repos = _unique_repos([_parse_entry(entry) for entry in entries])
-    if len(repos) > MAX_REPOS:
-        raise TooManyRepos("Compare up to 3 repositories at a time")
-    return ParsedInput(repos=repos, search=None)
+    return ParsedInput(repos=_parse_repos(text), search=None)
