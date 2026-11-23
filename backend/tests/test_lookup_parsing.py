@@ -35,3 +35,9 @@ def test_L1_strips_git_suffix() -> None:
     parsed = parse_repo_input("https://github.com/vercel/next.js.git")
 
     assert parsed.repos == [RepoRef("vercel", "next.js")]
+
+
+def test_L1_accepts_git_ssh_url() -> None:
+    parsed = parse_repo_input("git@github.com:vercel/next.js.git")
+
+    assert parsed.repos == [RepoRef("vercel", "next.js")]
