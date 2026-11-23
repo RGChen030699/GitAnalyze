@@ -1,5 +1,7 @@
 from dataclasses import dataclass
 
+URL_PREFIXES = ("https://", "www.", "github.com/")
+
 
 @dataclass(frozen=True)
 class RepoRef:
@@ -13,8 +15,12 @@ class ParsedInput:
     search: str | None
 
 
+def _strip_url_prefixes(text: str) -> str:
+    for prefix in URL_PREFIXES:
+        text = text.removeprefix(prefix)
+    return text
+
+
 def parse_repo_input(text: str) -> ParsedInput:
-    owner, name = (
-        text.removeprefix("https://").removeprefix("www.").removeprefix("github.com/").split("/")
-    )
+    owner, name = _strip_url_prefixes(text).split("/")
     return ParsedInput(repos=[RepoRef(owner, name)], search=None)
