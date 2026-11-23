@@ -59,3 +59,9 @@ def test_L2_accepts_comma_separated_entries() -> None:
     parsed = parse_repo_input("vercel/next.js,facebook/react")
 
     assert parsed.repos == [RepoRef("vercel", "next.js"), RepoRef("facebook", "react")]
+
+
+def test_L2_accepts_newline_separated_entries() -> None:
+    parsed = parse_repo_input("vercel/next.js\nfacebook/react")
+
+    assert parsed.repos == [RepoRef("vercel", "next.js"), RepoRef("facebook", "react")]
