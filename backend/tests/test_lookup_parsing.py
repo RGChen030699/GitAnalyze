@@ -47,3 +47,9 @@ def test_L3_treats_bare_name_as_search() -> None:
     parsed = parse_repo_input("zustand")
 
     assert parsed == ParsedInput(repos=[], search="zustand")
+
+
+def test_L2_accepts_space_separated_entries() -> None:
+    parsed = parse_repo_input("vercel/next.js facebook/react")
+
+    assert parsed.repos == [RepoRef("vercel", "next.js"), RepoRef("facebook", "react")]
