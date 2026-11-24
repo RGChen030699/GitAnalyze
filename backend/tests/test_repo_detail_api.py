@@ -15,6 +15,7 @@ NOW = datetime(2026, 11, 23, 12, 0, tzinfo=UTC)
 REPO_SOURCE = "/repos/pallets/flask"
 REPO_URL = f"{API_BASE_URL}{REPO_SOURCE}"
 HISTORY_SOURCE = "/repos/pallets/flask/stargazers/history"
+UNSTORED_FIELDS = ("commit_activity", "contributors", "releases", "issues", "pull_requests")
 DETAIL_FIELDS = (
     "full_name",
     "owner",
@@ -245,3 +246,15 @@ def test_C8_detail_gives_source_and_fetched_at_for_each_value(client: Client) ->
     assert provenance["stars_gained_30d"] == history_origin
     assert provenance["stars_gained_year"] is None
     assert provenance["description"] is None
+
+
+@pytest.mark.django_db
+def test_detail_unstored_data_is_null_not_zero(client: Client) -> None:
+    make_repo()
+
+    body = client.get("/api/repos/pallets/flask").json()
+
+    for field in UNSTORED_FIELDS:
+        assert field in body, field
+        assert body[field] is None, field
+        assert body["provenance"][field] is None, field
