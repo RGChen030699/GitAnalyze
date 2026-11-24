@@ -69,7 +69,7 @@ mypy backend
 - **`.env` is not loaded automatically.** There is no dotenv dependency, so export variables in the shell.
 - `POSTGRES_DB` selects the database: PostgreSQL when set, otherwise SQLite at `backend/db.sqlite3`. **This applies to pytest too.** An exported `POSTGRES_DB` makes tests hit Postgres.
 - DRF renders JSON only (`DEFAULT_RENDERER_CLASSES`), so the browsable API is off.
-- Tooling targets Python 3.12 with 100-character lines (`pyproject.toml`).
+- Tooling targets Python 3.12 with 100-character lines (`ruff.toml`, `mypy.ini`). There is no `pyproject.toml`: Vercel's Python builder would install from it instead of `requirements.txt`.
 
 ## Architecture
 

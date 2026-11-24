@@ -14,7 +14,6 @@ ENTRY_POINT = REPO_ROOT / "api" / "index.py"
 ROOT_VERCEL = REPO_ROOT / "vercel.json"
 FRONTEND_VERCEL = REPO_ROOT / "frontend" / "vercel.json"
 WORKFLOW = REPO_ROOT / ".github" / "workflows" / "refresh-rankings.yml"
-VERCELIGNORE = REPO_ROOT / ".vercelignore"
 HOSTING_ENV = (
     "VERCEL",
     "VERCEL_URL",
@@ -143,16 +142,23 @@ def test_H9_daily_refresh_workflow_uses_repository_secrets() -> None:
     assert "GITHUB_TOKEN: ${{ secrets.GH_API_TOKEN }}" in text
 
 
-def test_H10_vercel_deployment_leaves_out_frontend_docs_and_tests() -> None:
-    ignored = VERCELIGNORE.read_text().split()
+def test_H10_backend_function_leaves_out_frontend_docs_and_tests() -> None:
+    excluded = json.loads(ROOT_VERCEL.read_text())["builds"][0]["config"]["excludeFiles"]
 
-    for entry in ("frontend/", "docs/", "backend/tests/", ".claude/", "*.html"):
-        assert entry in ignored, entry
+    for entry in ("frontend/**", "docs/**", "backend/tests/**", ".venv/**"):
+        assert entry in excluded, entry
+
+
+def test_H10_no_repo_root_vercelignore() -> None:
+    # A repo-root .vercelignore also applies to the frontend project and strips its pages.
+    assert not (REPO_ROOT / ".vercelignore").exists()
 
 
 def test_H10_vercel_installs_from_requirements_not_pyproject() -> None:
-    # Vercel's Python builder prefers pyproject.toml, which holds only ruff and mypy settings.
-    assert "pyproject.toml" in VERCELIGNORE.read_text().split()
+    # Vercel's Python builder prefers pyproject.toml; ruff and mypy settings live elsewhere.
+    assert not (REPO_ROOT / "pyproject.toml").exists()
+    assert "line-length = 100" in (REPO_ROOT / "ruff.toml").read_text()
+    assert "python_version = 3.12" in (REPO_ROOT / "mypy.ini").read_text()
 
 
 def test_H10_python_version_is_pinned_for_vercel() -> None:
