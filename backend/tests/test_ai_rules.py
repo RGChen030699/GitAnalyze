@@ -398,3 +398,30 @@ def test_F4_panel_never_contains_a_score_or_safe_label() -> None:
     text = str(panel(entries, files)).lower()
     for word in ("score", "rating", "safe", "verdict"):
         assert word not in text
+
+
+# --- Found on the live anthropics/skills scan ---
+
+
+def test_F4_data_files_in_a_scripts_folder_are_not_scripts() -> None:
+    paths = [
+        "skills/docx/scripts/office/validate.py",
+        "skills/docx/scripts/office/schemas/wml.xsd",
+        "skills/docx/scripts/templates/people.xml",
+        "skills/docx/scripts/requirements.txt",
+        "skills/docx/scripts/bundle.tar.gz",
+        "skills/docx/scripts/run",
+    ]
+    assert skill_scripts("skills/docx", paths) == ["scripts/office/validate.py", "scripts/run"]
+
+
+def test_F4_a_skills_own_dependency_files_do_not_make_the_repo_an_mcp_server() -> None:
+    entries = [
+        blob("skills/mcp-builder/SKILL.md", SHA_A),
+        blob("skills/mcp-builder/scripts/requirements.txt"),
+    ]
+    files = {
+        "skills/mcp-builder/SKILL.md": skill_md("mcp-builder"),
+        "skills/mcp-builder/scripts/requirements.txt": "mcp>=1.0\n",
+    }
+    assert panel(entries, files)["mcp_server"] == []
