@@ -6,7 +6,7 @@ name: Refresh rankings
 # GITHUB_TOKEN, the name the app reads.
 on:
   schedule:
-    - cron: "10 4 * * *" # 04:10 UTC every day
+    - cron: "0 11 * * *" # 11:00 UTC: 06:00 EST, 07:00 during daylight saving time
   workflow_dispatch: {}
 
 permissions:
@@ -28,7 +28,8 @@ jobs:
           cache: pip
       - run: pip install -r requirements.txt
       - name: Refresh rankings
-        run: python backend/manage.py refresh_rankings --limit 200
+        run: python backend/manage.py refresh_rankings --limit 800
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           GITHUB_TOKEN: ${{ secrets.GH_API_TOKEN }}
+          RANKINGS_LANGUAGES: TypeScript,Python,JavaScript,Java,C#,PHP,Shell,C++,Go,Rust,Swift,Kotlin
