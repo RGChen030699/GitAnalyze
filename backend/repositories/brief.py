@@ -49,4 +49,6 @@ def maintenance(commits_13w: int | None, commits_prev_13w: int | None) -> BriefA
     """Is someone still working on it? Commits in the last 13 weeks against the 13 before."""
     if commits_13w is None or commits_prev_13w is None:
         return None
+    if commits_13w == 0:
+        return BriefAnswer("bad", "Stopped")
     return None
