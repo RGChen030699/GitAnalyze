@@ -89,7 +89,9 @@ def test_compare_interest_row_uses_the_15_days_before() -> None:
 
 
 def test_compare_interest_row_reads_the_api_change() -> None:
-    assert "{ l:'Change on the 15 days before', v: it => it.A.interestChange," in read("compare.html")
+    row = "{ l:'Change on the 15 days before', v: it => it.A.interestChange,"
+
+    assert row in read("compare.html")
 
 
 def test_report_interest_text_reads_the_api_change() -> None:

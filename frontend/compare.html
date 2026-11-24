@@ -392,7 +392,7 @@ const ROWS = [
   { g:'Popularity' },
   { l:'Total stars', k:'stars', v: it => it.total, best:'high', fmt: n0 },
   { l:'Stars gained, 30 days', k:'gained', v: it => it.A.g30, best:'high', fmt: signed },
-  { l:'Change on the 15 days before', v: it => it.A.momChange, best:'high', fmt: x => pct(x) },
+  { l:'Change on the 15 days before', v: it => it.A.interestChange, best:'high', fmt: x => pct(x) },
   { l:'Star pattern', k:'star_pattern', v: it => it.A.checks[3].na ? null : it.A.checks[3].t, tone: it => it.A.checks[3].tone, txt:true },
   { g:'Maintenance' },
   { l:'Last commit', k:'commit', v: it => it.A.lastCommit === null ? null : Math.round((NOW - it.A.lastCommit)/DAY), best:'low', fmt: x => x <= 0 ? 'Today' : x === 1 ? '1 day ago' : `${n0(x)} days ago` },

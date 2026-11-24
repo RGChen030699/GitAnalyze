@@ -76,10 +76,16 @@
     return days;
   }
 
-  /** Evidence line for an answer that names its window (interest: window_days). */
+  // Same formats as report-kit.js, which Node tests don't load.
+  const sign = (x) => (x > 0 ? '+' : x < 0 ? '−' : '');
+  const signed = (x) => sign(x) + Math.abs(Math.round(x)).toLocaleString('en-US');
+  const pct = (x) => sign(x) + Math.abs(Math.round(x * 100)) + '%';
+
+  /** Evidence line from the numbers behind the interest answer; other answers carry none. */
   function evidence(a) {
     const w = a.window_days;
-    return w ? `Net stars in ${w} days, change on the ${w} days before` : '';
+    if (!w || missing(a.recent)) return '';
+    return `${signed(a.recent)} net stars in ${w} days, ${show(a.change, pct)} on the ${w} days before`;
   }
 
   function briefFindings(brief) {
@@ -163,12 +169,14 @@
     const lastRel = det.newest_release_at ? { t: Date.parse(det.newest_release_at), pre: false } : null;
     const relDays = lastRel ? (now - lastRel.t) / DAY : null;
     const findings = briefFindings(det.brief);
+    const interest = det.brief && det.brief.interest;
+    const interestChange = interest && !missing(interest.change) ? interest.change : null;
     const checks = [maintenanceCheck(det.status, lastCommit, lastRel, relDays, now),
       naCheck('maintainers', 'Maintainers'), naCheck('license', 'License'), naCheck('star_pattern', 'Star pattern')];
     const known = checks.filter((c) => !c.na);
     const A = {
       status: det.status || 'N/A', statusTone: statusTone(det.status), lastCommit, lastRel, relDays,
-      g7: det.stars_gained_7d, g30: det.stars_gained_30d, momChange: null, commits90: null, commitsPrev90: null, devChange: null,
+      g7: det.stars_gained_7d, g30: det.stars_gained_30d, momChange: null, interestChange, commits90: null, commitsPrev90: null, devChange: null,
       spike: null, top: null, for80: null, single: null, closeRatio: null, mergeRate: null, backlog6: null, growStreak: null,
       prO: null, prM: null, rel12: null, medGap: null, scripted: null, checks, findings,
       issuesCount: known.filter((c) => c.tone === 'warn' || c.tone === 'bad').length, unknownChecks: checks.length - known.length,
