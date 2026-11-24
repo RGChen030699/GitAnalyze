@@ -39,7 +39,7 @@ def _reaches_share(part: int, total: int) -> bool:
     return part * SHARE_DENOMINATOR >= total * SHARE_NUMERATOR
 
 
-def _people_for_share(commits_per_person: Sequence[int]) -> int:
+def people_for_share(commits_per_person: Sequence[int]) -> int:
     """The fewest people who together made 80% of the commits."""
     total = sum(commits_per_person)
     running = 0
@@ -138,4 +138,4 @@ def maintainer_concentration(commits_per_person: Sequence[int] | None) -> BriefA
     total = sum(commits_per_person)
     if _reaches_share(max(commits_per_person), total):
         return BriefAnswer("warn", "Depends on one person")
-    return BriefAnswer("good", f"Shared by {_people_for_share(commits_per_person)} people")
+    return BriefAnswer("good", f"Shared by {people_for_share(commits_per_person)} people")

@@ -237,3 +237,83 @@ test('lastFetched is null when nothing has a fetch time', () => {
   assert.equal(D.lastFetched({ provenance: { stars: null }, star_history: [] }), null);
   assert.equal(D.lastFetched({}), null);
 });
+
+/* F2 health data from the API (commit activity, contributors, releases, license). */
+const weekSec = (weeksAgo) => Math.floor((NOW - weeksAgo * WEEK) / 1000);
+const healthy = {
+  ...detail,
+  commit_activity: { status: 'ok', note: null, weeks: Array.from({ length: 52 }, (_, i) => {
+    const total = 51 - i < 13 ? 4 : 2; return { week: weekSec(51 - i), total, days: [0, total, 0, 0, 0, 0, 0] }; }) },
+  top_contributors: [{ login: 'alice', commits: 90 }, { login: 'bob', commits: 10 }],
+  contributors_last_year: 2, commits_last_year: 100, people_for_80: 1, single_maintainer: 'alice', contributors: 412,
+  releases: [10, 40, 70, 100].reverse().map((d, i) => ({ tag: 'v1.' + i, published_at: new Date(NOW - d * DAY).toISOString(), prerelease: false })),
+  last_release: { tag: 'v1.3', published_at: new Date(NOW - 10 * DAY).toISOString(), kind: 'release', prerelease: false, note: null },
+  releases_12m: 4,
+  license: { spdx_id: 'MIT', display: 'MIT', warning: null },
+  created_at: '2010-04-06T11:11:59Z',
+};
+
+test('F2 reportModel maps weekly commits and the 13-week windows', () => {
+  const { D: data, A } = D.reportModel(healthy, NOW);
+  assert.equal(data.commits.length, 52);
+  assert.deepEqual(data.commits[51], { t: weekSec(0) * 1000, total: 4, days: [0, 4, 0, 0, 0, 0, 0] });
+  assert.equal(A.commits90, 52);
+  assert.equal(A.commitsPrev90, 26);
+  assert.equal(A.devChange, 1);
+});
+
+test('F2 C1 pending commit activity keeps the chart null and says so', () => {
+  const { D: data, A } = D.reportModel({ ...healthy, commit_activity: { status: 'pending', weeks: [], note: 'x' } }, NOW);
+  assert.equal(data.commits, null);
+  assert.equal(A.commits90, null);
+  assert.equal(A.pending.commits, true);
+  assert.equal(D.reportModel(detail, NOW).A.pending.commits, false);
+});
+
+test('F2 reportModel maps contributor shares and the maintainer check', () => {
+  const { P, D: data, A } = D.reportModel(healthy, NOW);
+  assert.deepEqual(data.contrib, [{ login: 'alice', share: 0.9 }, { login: 'bob', share: 0.1 }]);
+  assert.equal(P.contribOther, 2);
+  assert.equal(A.top, 0.9);
+  assert.equal(A.for80, 1);
+  assert.equal(A.single, true);
+  assert.deepEqual(A.checks[1], { tone: 'warn', t: 'Mostly one person', d: 'alice made 90% of last year’s commits.', k: 'maintainers' });
+  const shared = D.reportModel({ ...healthy, single_maintainer: null, people_for_80: 3 }, NOW).A;
+  assert.equal(shared.single, false);
+  assert.equal(shared.checks[1].t, 'Shared maintenance');
+  assert.equal(shared.checks[1].d, '3 people made 80% of last year’s commits.');
+});
+
+test('F2 M5 pending contributor stats keep the maintainer check N/A', () => {
+  const { A } = D.reportModel({ ...healthy, single_maintainer: 'pending', top_contributors: null }, NOW);
+  assert.equal(A.checks[1].na, true);
+  assert.equal(A.pending.contrib, true);
+});
+
+test('F2 reportModel maps releases, the 12-month count and the usual gap', () => {
+  const { D: data, A } = D.reportModel(healthy, NOW);
+  assert.deepEqual(data.releases.map((r) => r.tag), ['v1.0', 'v1.1', 'v1.2', 'v1.3']);
+  assert.equal(A.rel12, 4);
+  assert.equal(A.medGap, 30);
+  assert.equal(Math.round(A.relDays), 10);
+});
+
+test('F2 L1–L3 license checks', () => {
+  const check = (license) => D.reportModel({ ...healthy, license }, NOW).A.checks[2];
+  assert.deepEqual(check({ spdx_id: 'MIT', display: 'MIT', warning: null }), { tone: 'good', t: 'MIT license', d: 'Others may reuse the code under its terms.', k: 'license' });
+  const none = check({ spdx_id: null, display: 'No license', warning: 'No license: others may not legally reuse this code.' });
+  assert.equal(none.tone, 'warn');
+  assert.equal(none.d, 'No license: others may not legally reuse this code.');
+  assert.equal(check({ spdx_id: 'NOASSERTION', display: 'Custom or unrecognized license', warning: null }).tone, 'neutral');
+  assert.equal(D.reportModel(healthy, NOW).P.license, 'MIT');
+  assert.equal(D.reportModel({ ...healthy, license: { spdx_id: null, display: 'No license', warning: 'w' } }, NOW).P.license, '');
+});
+
+test('F2 risky maintainer and missing license add watch-out lines', () => {
+  const { A } = D.reportModel({ ...healthy, license: { spdx_id: null, display: 'No license', warning: 'w' } }, NOW);
+  assert.deepEqual(A.watch, [
+    'You plan to reuse or ship the code: it has no license.',
+    'You need it supported for years: one person made most of last year’s commits.',
+  ]);
+  assert.equal(A.issuesCount, 2);
+});

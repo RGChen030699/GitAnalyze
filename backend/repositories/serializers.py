@@ -20,6 +20,7 @@ from repositories.brief import (
     issue_response,
     maintainer_concentration,
     maintenance,
+    people_for_share,
     relative_change,
     release_pace,
 )
@@ -50,7 +51,13 @@ COMMIT_WINDOW_WEEKS = 13  # brief "maintenance": 13 weeks against the 13 before
 
 Origin = dict[str, Any] | None
 Part = dict[str, Any] | None
-CONTRIBUTOR_FIELDS = ("single_maintainer", "top_contributors", "contributors_last_year")
+CONTRIBUTOR_FIELDS = (
+    "single_maintainer",
+    "top_contributors",
+    "contributors_last_year",
+    "commits_last_year",
+    "people_for_80",
+)
 
 
 def _star_week(week: StarWeek) -> dict[str, Any]:
@@ -155,6 +162,8 @@ def _contributor_values(part: Part) -> dict[str, Any]:
         "single_maintainer": maintainer_of(commits),
         "top_contributors": [{"login": login, "commits": n} for login, n in ranked],
         "contributors_last_year": len(commits),
+        "commits_last_year": sum(commits.values()),
+        "people_for_80": people_for_share(list(commits.values())) if commits else None,
     }
 
 

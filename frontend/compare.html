@@ -337,7 +337,8 @@ footer .wrap{display:flex;flex-wrap:wrap;justify-content:space-between;gap:8px 2
 const { $, DAY, fDay, fDayY, n0, compact, signed, pct, sum, esc, niceTicks, ICON, toneIcon, frame, yAxis, xLabels, hover } = window.GA;
 const NOW = Date.now();
 const CALC = 'GitHub is still calculating this. Check back in a minute.';
-const calc = (el) => { el.innerHTML = `<p class="note">${CALC}</p>`; };
+/* "Still calculating" only when GitHub said so (F2 C1); otherwise plain N/A. */
+const calc = (el, pending = false) => { el.innerHTML = `<p class="note">${pending ? CALC : 'N/A: not collected for these repositories yet.'}</p>`; };
 let tt; function toast(msg){ const t = $('#toast'); t.textContent = msg; t.classList.add('show'); clearTimeout(tt); tt = setTimeout(() => t.classList.remove('show'), 3200); }
 const SERIES = [{ c:'var(--c1)', dash:'' }, { c:'var(--c2)', dash:'9 6' }, { c:'var(--c3)', dash:'2 6' }];
 const lineSwatch = (i, w = 34) => `<svg class="ls" width="${w}" height="8" aria-hidden="true"><line x1="1" x2="${w-1}" y1="4" y2="4" style="stroke:${SERIES[i].c}" stroke-width="3" stroke-dasharray="${SERIES[i].dash}" stroke-linecap="round"/></svg>`;
@@ -403,7 +404,7 @@ const ROWS = [
   { g:'People and trust' },
   { l:'Contributors', k:'contributors', v: it => it.rec.contributors, best:'high', fmt: n0 },
   { l:'Top contributor’s share', k:'maintainers', v: it => it.A.top === null ? null : Math.round(it.A.top*100), best:'low', fmt: x => x + '%', warn: it => it.A.single },
-  { l:'License', k:'license', v: it => it.P.license === null ? null : it.P.license === 'NOASSERTION' ? 'Custom or unrecognized' : it.P.license || 'No license', warn: it => it.P.license !== null && (it.P.license === 'NOASSERTION' || !it.P.license), txt:true },
+  { l:'License', k:'license', v: it => it.P.license === null ? null : it.P.license === 'NOASSERTION' ? 'Custom or unrecognized' : it.P.license || 'No license', warn: it => it.P.license === '', txt:true },
   { l:'Publisher', v: it => `${GAData.show(it.rec.ownerType)}: ${it.rec.owner}`, txt:true },
   { g:'Issues and pull requests' },
   { l:'Open issues', k:'open_issues', v: it => it.P.openIssues, fmt: n0, sub: () => 'Issues and pull requests together' },
@@ -485,7 +486,7 @@ function overlay(el, series, opts){
 function drawCharts(){
   if (items.length < 2) return;
   if (items.some(it => it.D.weeks.length < 2)) calc($('#cStars')); else drawStars();
-  if (items.some(it => !it.D.commits)) { calc($('#cCommits')); return; }
+  if (items.some(it => !it.D.commits)) { calc($('#cCommits'), items.some(it => it.A.pending.commits)); return; }
   const comS = items.map(it => ({ name: it.full, pts: it.D.commits.map((c, i, a) => ({ t: c.t, v: sum(a.slice(Math.max(0, i-3), i+1).map(x => x.total)) / Math.min(4, i+1) })) }));
   overlay($('#cCommits'), comS, { zero: true, label: 'Commits per week, 4-week average, for ' + items.map(i => i.full).join(', ') });
 }

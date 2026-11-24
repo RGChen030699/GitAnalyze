@@ -481,18 +481,22 @@ footer .wrap{display:flex;flex-wrap:wrap;justify-content:space-between;gap:8px 2
 const { $, DAY, MON, d, fDay, fDayY, fMonY, n0, compact, signed, pct, sum, ago, esc, niceMax, niceTicks, ICON, toneIcon, frame, yAxis, xLabels, hover } = window.GA;
 const NOW = Date.now();
 const CALC = 'GitHub is still calculating this. Check back in a minute.';
-const calc = (el) => { el.innerHTML = `<p class="note">${CALC}</p>`; };
+const NOT_COLLECTED = 'N/A: not collected for this repository yet.';
+/* "Still calculating" only when GitHub said so (F2 C1); otherwise plain N/A. */
+const calc = (el, pending = false) => { el.innerHTML = `<p class="note">${pending ? CALC : NOT_COLLECTED}</p>`; };
 const show = GAData.show;
 
 /* ---------- state ---------- */
 let P, D, A, DETAIL, REC;
 const ui = { range:'1y', view:'gained' };
 
+/* F2: "Created" shown as age, e.g. "4 years old". */
+function ageLabel(t){ const y = (NOW - t) / (365.25*DAY); return y >= 1 ? `${Math.floor(y)} year${Math.floor(y) === 1 ? '' : 's'} old` : `${Math.max(1, Math.floor(y*12))} month${Math.floor(y*12) > 1 ? 's' : ''} old`; }
 /* ---------- render: head + verdict + brief + KPIs ---------- */
 function renderHead(){
   $('#repoTitle').innerHTML = `<span class="own">${esc(P.owner)} /</span> ${esc(P.name)}`;
   $('#repoDesc').textContent = P.desc;
-  const chips = [`<span class="chip">${esc(show(P.ownerType))}</span>`, `<span class="chip">${esc(show(P.lang))}</span>`, '<span class="chip">Age N/A</span>'];
+  const chips = [`<span class="chip">${esc(show(P.ownerType))}</span>`, `<span class="chip">${esc(show(P.lang))}</span>`, `<span class="chip">${P.created === null ? 'Age N/A' : esc(ageLabel(P.created))}</span>`];
   if (P.trending) chips.push(`<span class="chip warn">From GitHub Trending · #${P.trending}</span>`);
   if (P.skills && P.skills.length) chips.push(`<span class="chip accent">${P.skills.length} AI skills</span>`);
   $('#repoChips').innerHTML = chips.join('');
@@ -542,7 +546,7 @@ function renderKpis(){
 
 /* ---------- render: charts ---------- */
 function renderPulse(){
-  if (!D.commits) { calc($('#pulse')); return; }
+  if (!D.commits) { calc($('#pulse'), A.pending.commits); return; }
   const el = $('#pulse'), w = Math.max(200, el.clientWidth), h = 30, v = D.commits.map(c => c.total), mx = Math.max(1, ...v);
   const pts = v.map((x, i) => `${(i/(v.length-1)*w).toFixed(1)},${(h - 3 - x/mx*(h-8)).toFixed(1)}`).join(' ');
   const tone = { good:'var(--good)', warn:'var(--warn)', bad:'var(--bad)', neutral:'var(--ink-2)' }[A.statusTone];
@@ -597,7 +601,7 @@ function renderStarText(){
   $('#spikeAlert').innerHTML = A.spike ? `<div class="alert warn" role="alert">${ICON.warn}<span>Unusual spike: lots of new stars but little other activity. ${n0(D.weeks.slice(-2).reduce((s,w)=>s+w.gained,0))} stars in 2 weeks, against a usual ${n0(A.base12)} a week, while only ${n0(A.commits90)} commits were made in 13 weeks.</span></div>` : '';
 }
 function renderCommits(){
-  if (!D.commits) { calc($('#commitChart')); const m0 = A.findings[1][1]; $('#maintTake').innerHTML = `<span class="t-${m0.tone}">${toneIcon(m0.tone)}</span><span>${esc(m0.v)}</span>`; return; }
+  if (!D.commits) { calc($('#commitChart'), A.pending.commits); const m0 = A.findings[1][1]; $('#maintTake').innerHTML = `<span class="t-${m0.tone}">${toneIcon(m0.tone)}</span><span>${esc(m0.v)}</span>`; return; }
   const el = $('#commitChart'), C = D.commits, F = frame(el, { l:40, r:10, t:12, b:28 });
   const hi = niceMax(Math.max(4, ...C.map(c => c.total)) * 1.1), ticks = niceTicks(0, hi);
   const top = ticks[ticks.length-1], bw = (F.x1 - F.x0)/C.length, sx = (i) => F.x0 + bw*(i+0.5), sy = (v) => F.y1 - v/top*(F.y1 - F.y0);
@@ -614,7 +618,7 @@ function renderCommits(){
   $('#maintTake').innerHTML = `<span class="t-${m.tone}">${toneIcon(m.tone)}</span><span>${A.commits90 === 0 ? `No commits in the last 13 weeks. The last one was ${ago(A.lastCommit)}.` : `${n0(A.commits90)} commits in the last 13 weeks${A.devChange === null ? '' : `, ${pct(A.devChange)} on the 13 weeks before`}.`}</span>`;
 }
 function renderHeat(){
-  if (!D.commits) { calc($('#heat')); $('#heatLegend').innerHTML = '';
+  if (!D.commits) { calc($('#heat'), A.pending.commits); $('#heatLegend').innerHTML = '';
     $('#maintFacts').innerHTML = [['Last commit', A.lastCommit === null ? 'N/A' : `${ago(A.lastCommit)}<small>${fDayY(A.lastCommit)}</small>`], ['Weeks with any commit', 'N/A'], ['Work on weekdays', 'N/A']].map(([a, b]) => `<div><dt>${a}</dt><dd>${b}</dd></div>`).join(''); return; }
   const el = $('#heat'), C = D.commits, w = Math.max(240, el.clientWidth), cols = 52, gap = 2;
   const cell = Math.max(3, Math.min(14, (w - 30 - gap*cols)/cols)), h = 7*(cell+gap) + 18;
@@ -638,7 +642,7 @@ function renderHeat(){
   ].map(([a, b]) => `<div><dt>${a}</dt><dd>${b}</dd></div>`).join('');
 }
 function renderPareto(){
-  if (!D.contrib) { calc($('#pareto')); const m0 = A.findings[4][1]; $('#peopleTake').innerHTML = `<span class="t-${m0.tone}">${toneIcon(m0.tone)}</span><span>${esc(m0.v)}</span>`;
+  if (!D.contrib) { calc($('#pareto'), A.pending.contrib); const m0 = A.findings[4][1]; $('#peopleTake').innerHTML = `<span class="t-${m0.tone}">${toneIcon(m0.tone)}</span><span>${esc(m0.v)}</span>`;
     $('#peopleFacts').innerHTML = [['People who committed last year', 'N/A'], ['Top contributor', 'N/A'], ['People behind 80% of commits', 'N/A'], ['Maintainer check', 'N/A'], ['Owner', `${esc(show(P.ownerType))}<small class="mono">${esc(P.owner)}</small>`]].map(([a, b]) => `<div><dt>${a}</dt><dd>${b}</dd></div>`).join(''); return; }
   const el = $('#pareto'), Cn = D.contrib.slice(0, 10), F = frame(el, { l:40, r:40, t:14, b:46 });
   const other = 1 - sum(Cn.map(c => c.share));
