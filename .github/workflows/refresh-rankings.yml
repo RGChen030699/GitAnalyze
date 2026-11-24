@@ -4,13 +4,18 @@ name: Refresh rankings
 # Secrets: DATABASE_URL (Neon connection URL) and GH_API_TOKEN (a GitHub token for API reads).
 # GitHub does not allow secret names that start with GITHUB_, so GH_API_TOKEN is passed in as
 # GITHUB_TOKEN, the name the app reads.
+#
+# 10:00 UTC is the main run. 12:00 UTC is a backup: it refreshes only if no run of this workflow
+# has succeeded yet today (UTC), in case GitHub skipped or the main run failed.
 on:
   schedule:
-    - cron: "0 11 * * *" # 11:00 UTC: 06:00 EST, 07:00 during daylight saving time
+    - cron: "0 10 * * *" # main daily run, 10:00 UTC (05:00 EST, 06:00 during daylight saving time)
+    - cron: "0 12 * * *" # backup check, 12:00 UTC (07:00 EST, 08:00 during daylight saving time)
   workflow_dispatch: {}
 
 permissions:
   contents: read
+  actions: read
 
 concurrency:
   group: refresh-rankings
@@ -21,13 +26,33 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
+      - name: Skip the backup if today's refresh already succeeded
+        id: check
+        if: github.event.schedule == '0 12 * * *'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          today=$(date -u +%F)
+          done_runs=$(gh run list --repo "$GITHUB_REPOSITORY" --workflow refresh-rankings.yml \
+            --status success --created ">=$today" --json databaseId --jq length)
+          if [ "$done_runs" -gt 0 ]; then
+            echo "Today's refresh already succeeded; nothing to do."
+            echo "done=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "No successful refresh yet today; running the backup."
+            echo "done=false" >> "$GITHUB_OUTPUT"
+          fi
       - uses: actions/checkout@v4
+        if: steps.check.outputs.done != 'true'
       - uses: actions/setup-python@v5
+        if: steps.check.outputs.done != 'true'
         with:
           python-version: "3.12"
           cache: pip
       - run: pip install -r requirements.txt
+        if: steps.check.outputs.done != 'true'
       - name: Refresh rankings
+        if: steps.check.outputs.done != 'true'
         run: python backend/manage.py refresh_rankings --limit 800
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
