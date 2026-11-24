@@ -198,11 +198,13 @@ table.rank{width:100%;border-collapse:separate;border-spacing:0;font-size:14px}
 .pop .src{font-family:var(--mono);font-size:12px;overflow-wrap:anywhere}
 .toast{position:fixed;left:50%;bottom:90px;transform:translateX(-50%) translateY(12px);opacity:0;z-index:70;background:var(--ink);color:var(--bg);padding:12px 18px;border-radius:12px;font-size:14px;font-weight:500;transition:opacity .2s,transform .2s;pointer-events:none;max-width:calc(100% - 32px)}
 .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
-.tray{position:fixed;left:50%;transform:translateX(-50%);bottom:16px;z-index:30;display:flex;flex-wrap:wrap;align-items:center;gap:10px 12px;padding:8px 8px 8px 18px;border-radius:16px;background:var(--ink);color:var(--bg);box-shadow:0 10px 30px rgba(0,0,0,.25);max-width:calc(100% - 32px)}
+.tray{position:fixed;left:50%;transform:translateX(-50%);bottom:16px;z-index:30;display:flex;flex-wrap:wrap;align-items:center;gap:10px 12px;padding:8px 8px 8px 18px;border-radius:16px;background:var(--accent);color:var(--accent-ink);box-shadow:0 10px 30px rgba(0,0,0,.25);max-width:calc(100% - 32px)}
 .tray[hidden]{display:none}
-.tray .chip{background:rgba(255,255,255,.14);color:var(--bg);font-family:var(--mono);font-size:12px}
+.tray .chip{background:color-mix(in srgb,var(--accent-ink) 18%,transparent);color:var(--accent-ink);font-family:var(--mono);font-size:12px}
 .tray .chip button{border:none;background:transparent;color:inherit;cursor:pointer;width:26px;height:26px;margin:-4px -8px -4px 0;display:grid;place-items:center;border-radius:50%}
-.tray .btn.primary{background:var(--bg);color:var(--ink);border-color:var(--bg)}
+.tray .btn.primary{background:var(--accent-ink);color:var(--accent);border-color:var(--accent-ink)}
+.tray .btn.primary[disabled]{opacity:.7}
+.tray .chip button:hover{background:color-mix(in srgb,var(--accent-ink) 22%,transparent)}
 .modal-back{position:fixed;inset:0;background:rgba(10,12,10,.45);z-index:80;display:none;align-items:center;justify-content:center;padding:20px}
 .modal-back.open{display:flex}
 .modal{background:var(--surface);border-radius:18px;padding:24px;width:min(640px,100%);max-height:85vh;overflow:auto;display:grid;gap:14px}
@@ -221,6 +223,7 @@ footer .wrap{display:flex;flex-wrap:wrap;gap:8px 24px}
     </a>
     <nav class="nav" aria-label="Main">
       <a href="/" aria-current="page">Main</a>
+      <a href="/compare" data-nav="compare">Compare <span class="count nav-count" hidden>0</span></a>
       <a href="/about">How it works</a>
     </nav>
     <div class="tools">

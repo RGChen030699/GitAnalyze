@@ -135,6 +135,7 @@ footer .wrap{display:flex;flex-wrap:wrap;justify-content:space-between;gap:8px 2
     </a>
     <nav class="nav" aria-label="Main">
       <a href="/">Main</a>
+      <a href="/compare" data-nav="compare">Compare <span class="count nav-count" hidden>0</span></a>
       <a href="/about" aria-current="page">How it works</a>
     </nav>
     <div class="tools">
@@ -187,7 +188,7 @@ footer .wrap{display:flex;flex-wrap:wrap;justify-content:space-between;gap:8px 2
             <li>Every number has an info button that says what it means, how it’s worked out, where it comes from and what it can’t tell you.</li>
           </ul></li>
         <li><h3>Compare options</h3>
-          <p>Press the plus button on up to three rows in the table. They collect in the compare bar at the bottom of the screen. Press Compare to line them up together in the table.</p></li>
+          <p>Press the plus button on up to three rows in the table. They collect in the compare bar at the bottom of the screen. Press Compare there, or open Compare in the top menu, to see them side by side.</p></li>
         <li><h3>Share what you found</h3>
           <ul>
             <li><b>Copy brief</b> puts a short summary, with the source and date, on your clipboard for a slide, doc or message.</li>
@@ -308,6 +309,7 @@ footer .wrap{display:flex;flex-wrap:wrap;justify-content:space-between;gap:8px 2
 </div></footer>
 
 <script src="/metrics.js"></script>
+<script src="/compare-list.js"></script>
 <script>
 (() => {
 'use strict';

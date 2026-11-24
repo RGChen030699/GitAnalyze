@@ -299,6 +299,7 @@ footer .wrap{display:flex;flex-wrap:wrap;justify-content:space-between;gap:8px 2
     </a>
     <nav class="nav" aria-label="Main">
       <a href="/">Main</a>
+      <a href="/compare" data-nav="compare" aria-current="page">Compare <span class="count nav-count" hidden>0</span></a>
       <a href="/about">How it works</a>
     </nav>
     <div class="tools">
@@ -434,8 +435,8 @@ function render(){
 function renderEmpty(){
   const have = new Set(fulls.map(f => f.toLowerCase()));
   const S = ['lumen-labs/agent-kit', 'newwave/hype-agent', 'oldframe/tablekit'];
-  $('#body').innerHTML = `<div class="panel empty"><h2>${fulls.length ? 'Add one more repository to compare' : 'Pick repositories to compare'}</h2>
-    <p class="note" style="font-size:15px">${fulls.length ? `You have <span class="mono">${esc(fulls[0])}</span>. ` : ''}Press the plus button next to any repository in the rankings, or add one of these.</p>
+  $('#body').innerHTML = `<div class="panel empty"><h2>${fulls.length ? 'Add one more repository to compare' : 'There are no repositories to compare yet'}</h2>
+    <p class="note" style="font-size:15px">${fulls.length ? `You have <span class="mono">${esc(fulls[0])}</span>. ` : ''}${fulls.length ? '' : 'Add at least two. '}Press the plus button next to any repository in the rankings, or add one of these.</p>
     <div class="sugg">${S.map(f => `<button type="button" data-add="${f}" ${have.has(f) ? 'disabled' : ''}>+ ${f}</button>`).join('')}</div>
     <a class="btn primary" href="/">Go to the rankings</a></div>`;
 }
