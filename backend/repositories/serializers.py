@@ -3,6 +3,14 @@
 from datetime import datetime
 from typing import Any
 
+from repositories.brief import (
+    BriefAnswer,
+    interest,
+    issue_response,
+    maintainer_concentration,
+    maintenance,
+    release_pace,
+)
 from repositories.models import Repository, StarWeek
 
 REPOSITORY_FIELDS = (
@@ -56,7 +64,24 @@ def _provenance(values: dict[str, Any], origins: dict[str, Origin]) -> dict[str,
     return {field: None if values[field] is None else origin for field, origin in origins.items()}
 
 
-def serialize_detail(repo: Repository) -> dict[str, Any]:
+def serialize_brief_answer(answer: BriefAnswer | None) -> dict[str, str] | None:
+    return None if answer is None else {"tone": answer.tone, "value": answer.value}
+
+
+def _brief(repo: Repository, now: datetime) -> dict[str, dict[str, str] | None]:
+    """Inputs we don't store yet are passed as None, so those answers stay null."""
+    answers = {
+        # The previous 30 days and the star-spike check (F8 G7) are not computed yet.
+        "interest": interest(repo.stars_gained_30d, None, repo.stargazers_count, None),
+        "maintenance": maintenance(None, None),
+        "issue_response": issue_response(None, None),
+        "release_pace": release_pace(None, now),
+        "maintainer_concentration": maintainer_concentration(None),
+    }
+    return {question: serialize_brief_answer(answer) for question, answer in answers.items()}
+
+
+def serialize_detail(repo: Repository, now: datetime) -> dict[str, Any]:
     """Keep missing values as null so the page can show N/A, never 0."""
     owner, name = repo.full_name.split("/", 1)
     weeks = list(repo.star_weeks.order_by("week_start"))
@@ -84,4 +109,5 @@ def serialize_detail(repo: Repository) -> dict[str, Any]:
         **values,
         "star_history": [_star_week(week) for week in weeks],
         "provenance": _provenance(values, origins),
+        "brief": _brief(repo, now),
     }

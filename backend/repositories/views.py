@@ -18,8 +18,9 @@ class RepositoryDetailView(APIView):
 
     def get(self, request: Request, owner: str, name: str) -> Response:
         client = GitHubClient(clock=timezone.now, wait_for_rate_limit=False)
+        now = timezone.now()
         try:
-            repo = get_or_fetch(client, owner, name, timezone.now())
+            repo = get_or_fetch(client, owner, name, now)
         except RepoNotFound as error:
             return Response({"detail": str(error)}, status=status.HTTP_404_NOT_FOUND)
-        return Response(serialize_detail(repo))
+        return Response(serialize_detail(repo, now))
