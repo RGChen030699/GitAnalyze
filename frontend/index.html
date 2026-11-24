@@ -66,12 +66,6 @@ button,input,select{font:inherit;color:inherit}
 .tools{display:flex;align-items:center;gap:6px}
 .icon-btn{display:inline-grid;place-items:center;width:44px;height:44px;border-radius:10px;border:1px solid transparent;background:transparent;color:var(--ink-2);cursor:pointer}
 .icon-btn:hover{background:var(--surface-2);color:var(--ink)}
-.demo{position:relative}
-.demo>button{display:inline-flex;align-items:center;gap:8px;min-height:44px;padding:0 12px;border-radius:10px;border:1px dashed var(--line);background:transparent;cursor:pointer;color:var(--ink-2);font-weight:500;font-size:14px}
-.demo-panel{position:absolute;right:0;top:calc(100% + 8px);width:300px;background:var(--surface);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow);padding:16px;display:none;z-index:40}
-.demo-panel.open{display:block}
-.switch{display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:44px;font-size:14px;cursor:pointer}
-.switch input{width:20px;height:20px;accent-color:var(--accent)}
 
 /* buttons, chips, segmented */
 .btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:44px;padding:0 18px;border-radius:10px;border:1px solid var(--line);background:var(--surface);color:var(--ink);font-weight:500;text-decoration:none;cursor:pointer;white-space:nowrap}
@@ -232,18 +226,6 @@ footer .wrap{display:flex;flex-wrap:wrap;gap:8px 24px}
       <a href="#" data-soon>How it works</a>
     </nav>
     <div class="tools">
-      <div class="demo">
-        <button type="button" id="demoBtn" aria-expanded="false" aria-controls="demoPanel">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 6h10M18 6h2M4 12h4M12 12h8M4 18h12"></path><circle cx="16" cy="6" r="2"></circle><circle cx="10" cy="12" r="2"></circle><circle cx="18" cy="18" r="2"></circle></svg>
-          Demo
-        </button>
-        <div class="demo-panel" id="demoPanel" role="dialog" aria-label="Demo scenarios">
-          <p class="note" style="margin-bottom:10px">This prototype runs on sample repositories and numbers. Switch scenarios to see how the page handles them.</p>
-          <label class="switch">GitHub rate limit reached<input type="checkbox" id="demoBusy"></label>
-          <label class="switch">Rankings not built yet<input type="checkbox" id="demoEmpty"></label>
-          <button type="button" class="btn small" id="demoReset" style="width:100%;margin-top:6px">Reset demo</button>
-        </div>
-      </div>
       <button type="button" class="icon-btn" id="themeBtn" aria-label="Switch colour theme">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="8.5"></circle><path d="M12 3.5a8.5 8.5 0 0 1 0 17z" fill="currentColor"></path></svg>
       </button>
@@ -763,7 +745,6 @@ document.addEventListener('click', (e) => {
   const t = e.target;
   const info = t.closest('[data-info]'); if (info) { e.stopPropagation(); openInfo(info.dataset.info, info); return; }
   if (pop.classList.contains('open') && !pop.contains(t)) closePop();
-  if (!t.closest('.demo')) { $('#demoPanel').classList.remove('open'); $('#demoBtn').setAttribute('aria-expanded', 'false'); }
   if (!t.closest('#lookup')) closeSuggest();
   const s = t.closest('[data-sort]'); if (s) { const k = s.dataset.sort; if (state.sort === k) state.dir = state.dir === 'desc' ? 'asc' : 'desc'; else { state.sort = k; state.dir = k === 'name' ? 'asc' : 'desc'; } state.pages = 1; renderTable(); const b = $('[data-sort="' + k + '"]'); if (b) b.focus(); return; }
   const add = t.closest('[data-add]'); if (add) { toggleCompare(add.dataset.add); return; }
@@ -781,10 +762,6 @@ document.addEventListener('click', (e) => {
   if (t.closest('#copyCsv')) { copyCsv(); return; }
   if (t.id === 'modalBack' || t.closest('[data-close]')) closeModal();
 });
-$('#demoBtn').addEventListener('click', (e) => { e.stopPropagation(); const p = $('#demoPanel'); const o = !p.classList.contains('open'); p.classList.toggle('open', o); $('#demoBtn').setAttribute('aria-expanded', String(o)); });
-$('#demoBusy').addEventListener('change', (e) => { state.busy = e.target.checked; toast(state.busy ? 'GitHub rate limit simulated. Try looking up a repository we don’t have.' : 'Rate limit cleared.'); });
-$('#demoEmpty').addEventListener('change', (e) => { state.empty = e.target.checked; renderTable(); });
-$('#demoReset').addEventListener('click', () => { Object.assign(state, DEFAULTS, { compare: [], recent: ['lumen-labs/agent-kit'], busy: false, empty: false }); $('#demoBusy').checked = false; $('#demoEmpty').checked = false; $('#lookupInput').value = ''; setStatus(''); renderAll(); toast('Demo reset.'); });
 $('#fLang').addEventListener('change', (e) => { state.lang = e.target.value; state.pages = 1; renderTable(); });
 $('#fStatus').addEventListener('change', (e) => { state.status = e.target.value; if (e.target.value === 'Archived') { state.hideArch = false; $('#fArch').checked = false; } state.pages = 1; renderTable(); });
 $('#fAi').addEventListener('change', (e) => { state.aiOnly = e.target.checked; state.pages = 1; renderTable(); });
@@ -796,7 +773,7 @@ $('#lookupInput').addEventListener('keydown', (e) => {
   if (e.key === 'Enter' && active >= 0 && opts[active]) { e.preventDefault(); opts[active].click(); }
 });
 $('#lookupForm').addEventListener('submit', submitLookup);
-document.addEventListener('keydown', (e) => { if (e.key === 'Escape') { closePop(); closeModal(); closeSuggest(); $('#demoPanel').classList.remove('open'); } });
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape') { closePop(); closeModal(); closeSuggest(); } });
 const root = document.documentElement;
 try { const th = localStorage.getItem('ga-theme'); if (th) root.dataset.theme = th; } catch (err) {}
 $('#themeBtn').addEventListener('click', () => {
