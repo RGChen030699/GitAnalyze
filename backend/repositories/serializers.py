@@ -4,6 +4,7 @@ from datetime import UTC, datetime
 from typing import Any
 
 from repositories.brief import (
+    INTEREST_WINDOW_DAYS,
     BriefAnswer,
     interest,
     issue_response,
@@ -12,7 +13,12 @@ from repositories.brief import (
     release_pace,
 )
 from repositories.models import Repository, StarWeek
-from repositories.services import StarPoint, is_star_spike, stars_gained_previous
+from repositories.services import (
+    StarPoint,
+    is_star_spike,
+    stars_gained,
+    stars_gained_previous,
+)
 
 REPOSITORY_FIELDS = (
     "description",
@@ -69,36 +75,35 @@ def serialize_brief_answer(answer: BriefAnswer | None) -> dict[str, str] | None:
     return None if answer is None else {"tone": answer.tone, "value": answer.value}
 
 
-def _gained_prev_30d(repo: Repository, weeks: list[StarWeek]) -> int | None:
-    """Same as_of as stars_gained_30d: the day the star history was fetched."""
+def _interest(repo: Repository, weeks: list[StarWeek]) -> dict[str, Any] | None:
+    """Stars in the last 15 days against the 15 before, from the day history was fetched."""
     if repo.star_history_fetched_at is None:
         return None
     as_of = repo.star_history_fetched_at.astimezone(UTC).date()
     points = [StarPoint(week.week_start, week.days) for week in weeks]
-    return stars_gained_previous(points, as_of, 30)
-
-
-def _interest(repo: Repository, weeks: list[StarWeek]) -> BriefAnswer | None:
     spike = is_star_spike(
         repo.stars_gained_7d, repo.forks_count, repo.open_issues_count, repo.stargazers_count
     )
-    return interest(
-        repo.stars_gained_30d, _gained_prev_30d(repo, weeks), repo.stargazers_count, spike
+    answer = interest(
+        stars_gained(points, as_of, INTEREST_WINDOW_DAYS),
+        stars_gained_previous(points, as_of, INTEREST_WINDOW_DAYS),
+        repo.stargazers_count,
+        spike,
     )
+    serialized = serialize_brief_answer(answer)
+    return None if serialized is None else {**serialized, "window_days": INTEREST_WINDOW_DAYS}
 
 
-def _brief(
-    repo: Repository, weeks: list[StarWeek], now: datetime
-) -> dict[str, dict[str, str] | None]:
+def _brief(repo: Repository, weeks: list[StarWeek], now: datetime) -> dict[str, Any]:
     """Inputs we don't store yet are passed as None, so those answers stay null."""
     answers = {
-        "interest": _interest(repo, weeks),
         "maintenance": maintenance(None, None),
         "issue_response": issue_response(None, None),
         "release_pace": release_pace(None, now),
         "maintainer_concentration": maintainer_concentration(None),
     }
-    return {question: serialize_brief_answer(answer) for question, answer in answers.items()}
+    serialized = {question: serialize_brief_answer(answer) for question, answer in answers.items()}
+    return {"interest": _interest(repo, weeks), **serialized}
 
 
 def serialize_detail(repo: Repository, now: datetime) -> dict[str, Any]:

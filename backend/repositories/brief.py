@@ -10,7 +10,8 @@ from typing import Literal
 
 Tone = Literal["good", "warn", "bad", "neutral"]
 
-FLAT_SHARE_OF_TOTAL = 0.002
+INTEREST_WINDOW_DAYS = 15
+FLAT_SHARE_OF_TOTAL = 0.001  # of total stars in 15 days: 0.2% in 30 days at the same rate
 INTEREST_CHANGE = 0.1
 COMMITS_DROP = 0.4
 COMMITS_RISE = 0.1
@@ -58,21 +59,21 @@ def _days_between(dates: Sequence[datetime]) -> list[float]:
 
 
 def interest(
-    gained_30d: int | None,
-    gained_prev_30d: int | None,
+    gained_15d: int | None,
+    gained_prev_15d: int | None,
     total_stars: int | None,
     spike: bool | None,
 ) -> BriefAnswer | None:
-    """Is interest real and growing? Stars in the last 30 days against the 30 days before."""
-    if gained_30d is None or gained_prev_30d is None or total_stars is None or spike is None:
+    """Is interest real and growing? Stars in the last 15 days against the 15 days before."""
+    if gained_15d is None or gained_prev_15d is None or total_stars is None or spike is None:
         return None
     if spike:
         return BriefAnswer("warn", "Spiky")
-    if gained_30d <= 0:
+    if gained_15d <= 0:
         return BriefAnswer("neutral", "Fading")
-    if gained_30d < FLAT_SHARE_OF_TOTAL * total_stars:
+    if gained_15d < FLAT_SHARE_OF_TOTAL * total_stars:
         return BriefAnswer("neutral", "Flat")
-    change = _change(gained_30d, gained_prev_30d)
+    change = _change(gained_15d, gained_prev_15d)
     if change is not None and change > INTEREST_CHANGE:
         return BriefAnswer("good", "Growing")
     if change is not None and change < -INTEREST_CHANGE:
