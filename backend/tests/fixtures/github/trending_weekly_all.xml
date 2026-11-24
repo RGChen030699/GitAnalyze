@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Recorded from https://mshibanami.github.io/GitHubTrendingRSS/weekly/all.xml on 2026-11-24.
+     Trimmed to the first 5 of 13 items; descriptions shortened. -->
+<rss version="2.0" xmlns:media="http://search.yahoo.com/mrss/">
+  <channel>
+    <title>GitHub Weekly Trending Repositories</title>
+    <description>Weekly Trending Repositories on GitHub</description>
+    <pubDate>Tue, 24 Nov 2026 10:35:01 GMT</pubDate>
+    <link>https://mshibanami.github.io/GitHubTrendingRSS</link>
+    <item>
+      <title>backnotprop/plannotator</title>
+      <link>https://github.com/backnotprop/plannotator</link>
+      <description>&lt;p&gt;Trimmed for the test fixture.&lt;/p&gt;</description>
+      <media:content url="https://opengraph.githubassets.com/x/backnotprop/plannotator" medium="image" />
+    </item>
+    <item>
+      <title>google-labs-code/stitch-skills</title>
+      <link>https://github.com/google-labs-code/stitch-skills</link>
+      <description>&lt;p&gt;Trimmed for the test fixture.&lt;/p&gt;</description>
+      <media:content url="https://opengraph.githubassets.com/x/google-labs-code/stitch-skills" medium="image" />
+    </item>
+    <item>
+      <title>GoogleChrome/modern-web-guidance-src</title>
+      <link>https://github.com/GoogleChrome/modern-web-guidance-src</link>
+      <description>&lt;p&gt;Trimmed for the test fixture.&lt;/p&gt;</description>
+      <media:content url="https://opengraph.githubassets.com/x/GoogleChrome/modern-web-guidance-src" medium="image" />
+    </item>
+    <item>
+      <title>alibaba/open-code-review</title>
+      <link>https://github.com/alibaba/open-code-review</link>
+      <description>&lt;p&gt;Trimmed for the test fixture.&lt;/p&gt;</description>
+      <media:content url="https://opengraph.githubassets.com/x/alibaba/open-code-review" medium="image" />
+    </item>
+    <item>
+      <title>mvanhorn/last30days-skill</title>
+      <link>https://github.com/mvanhorn/last30days-skill</link>
+      <description>&lt;p&gt;Trimmed for the test fixture.&lt;/p&gt;</description>
+      <media:content url="https://opengraph.githubassets.com/x/mvanhorn/last30days-skill" medium="image" />
+    </item>
+  </channel>
+</rss>

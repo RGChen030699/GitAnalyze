@@ -296,3 +296,17 @@ def test_brief_answer_serializes_tone_and_value() -> None:
         "value": "Steady",
     }
     assert serialize_brief_answer(None) is None
+
+
+@pytest.mark.django_db
+def test_G5_detail_carries_the_weekly_trending_rank(client: Client) -> None:
+    make_repo(trending={"all": 3, "Python": 1})
+
+    assert client.get("/api/repos/pallets/flask").json()["trending"] == 3
+
+
+@pytest.mark.django_db
+def test_G5_detail_trending_is_null_when_not_on_trending(client: Client) -> None:
+    make_repo()
+
+    assert client.get("/api/repos/pallets/flask").json()["trending"] is None

@@ -189,3 +189,11 @@ def test_H11_hosting_files_hold_no_secrets(path: Path) -> None:
 
     for marker in ("postgres://", "postgresql://", "ghp_", "github_pat_", "npg_"):
         assert marker not in text, marker
+
+
+def test_W3_daily_workflow_reads_trending_after_the_rankings() -> None:
+    text = WORKFLOW.read_text()
+
+    rankings = text.index("python backend/manage.py refresh_rankings")
+    trending = text.index("python backend/manage.py refresh_trending")
+    assert rankings < trending
