@@ -10,7 +10,7 @@
 
 **Spec:** `docs/prd/F7-top-repositories.md`, with `F0`, `F1` (L1–L4), `F2` (R1–R4, S1–S5), `F3` §2 and `F8` §2.
 
-**Status:** Steps 1, 2, 3, 3a, 4 and 6a are done. Step 5 is committed (`a3c892b`–`5fa4648`) but its checkboxes below were not ticked. Steps 6, 7 and 8 have not been implemented. `refresh_rankings` has been tested only with recorded fixtures on in-memory SQLite. It has not run against live GitHub or a real Postgres database.
+**Status:** Steps 1, 2, 3, 3a, 4, 6a and 6b are done. Step 5 is committed (`a3c892b`–`5fa4648`) but its checkboxes below were not ticked. Steps 6, 7 and 8 have not been implemented. `refresh_rankings` has been tested only with recorded fixtures on in-memory SQLite. It has not run against live GitHub or a real Postgres database.
 
 ## Global Constraints
 
@@ -322,6 +322,70 @@ Run on 2026-11-23 against `pallets/flask`.
 - [x] Checks run before each green commit: `python -m pytest`, ruff on the changed files, `mypy backend`.
 
 **Not covered in 6a:** a rate limit or other GitHub error while fetching still gives a 500, and the client never sleeps because `wait_for_rate_limit=False`. Step 7's stale-cache and 503 rules should apply here too. A renamed repository's old name works, because GitHub redirects and the row is matched on `github_id`, but there is no test for it yet and every request for the old name refetches.
+
+---
+
+### Step 6b: Decision brief rules on the backend (CLAUDE.md decision 6)
+
+The five decision brief answers move from `frontend/sample.js` (`analyse`) to Django, with the thresholds in `sample.js` and in `frontend/about.html` under "Decision brief rules". The frontend only renders the results.
+
+**Files:**
+- Create: `backend/repositories/brief.py`
+- Modify: `backend/repositories/serializers.py`, `backend/repositories/views.py`
+- Test: `backend/tests/test_brief.py` (pure, no DB), `backend/tests/test_repo_detail_api.py`
+
+**Interfaces produced** (`repositories.brief`, pure functions with no database or network; each returns `None` when an input is `None`):
+- `BriefAnswer(tone: "good" | "warn" | "bad" | "neutral", value: str)`, a frozen dataclass.
+- `interest(gained_30d, gained_prev_30d, total_stars, spike) -> BriefAnswer | None`. In order: Spiky (warn) when `spike`, Fading (neutral) at 0 or fewer net stars, Flat (neutral) under 0.2% of total stars, Growing (good) above +10%, Cooling (warn) below −10%, else Steady (neutral). Steady also covers a previous 30 days with no stars.
+- `maintenance(commits_13w, commits_prev_13w) -> BriefAnswer | None`. Stopped (bad) at 0 commits, Slowing down (warn) below −40%, Speeding up (good) above +10%, else Steady (good).
+- `issue_response(opened_6m, closed_6m) -> BriefAnswer | None`. "N/A" (neutral) when no issues were opened, Keeping up (good) at 95% or more, Falling behind (warn) from 60% to under 95%, Not answering (bad) under 60%.
+- `release_pace(releases, now) -> BriefAnswer | None`. `releases` holds the publish dates of non-draft, non-prerelease releases. No releases (neutral) when empty, `None` with only one release, and otherwise the days since the newest release against the median of the last 8 gaps: On its usual pace (good) up to 1.5×, or "Overdue, X.X× its usual gap" (warn).
+- `maintainer_concentration(commits_per_person) -> BriefAnswer | None`. The input is commits per person over the last 365 days, with bots already removed (F2 M2). `None` with no commits (F2 M4). Depends on one person (warn) when the top person made 80% or more. Otherwise "Shared by N people" (good), where N is the fewest people who together made 80%. Integer comparisons keep the 80% boundary exact.
+- `repositories.serializers.serialize_brief_answer(answer) -> {tone, value} | None`.
+- `serialize_detail(repo, now)` now takes `now`, which the view passes from `timezone.now()`, so release pace can measure days since the last release.
+
+**Response:** `GET /api/repos/{owner}/{name}` adds `brief: {interest, maintenance, issue_response, release_pace, maintainer_concentration}`, each `{tone, value}` or `null`. All five are `null` for now. Interest needs the previous 30 days' stars and the F8 G7 spike check. The other four need commit, issue, release-list and contributor data that is not stored yet.
+
+**Differences from `sample.js`:**
+- **One release:** `sample.js` shows "On its usual pace" through JavaScript's `null <= 1.5` coercion. With no gap to compare against, the backend returns `None`.
+- **Unknown spike check:** interest is `None` when `spike` is unknown. It is not treated as "no spike".
+- **Only prereleases:** the input excludes prereleases, so a repository with only prereleases gives "No releases". `sample.js` would use the newest prerelease.
+
+| Test | Assertion |
+|---|---|
+| `test_brief_interest_none_when_inputs_null` | Any `None` input gives `None` |
+| `test_brief_interest_spiky_when_star_pattern_check_fires` | warn, Spiky |
+| `test_brief_interest_fading_when_no_net_stars_in_30_days` | 0 and negative give neutral, Fading |
+| `test_brief_interest_flat_when_gain_under_0_2_percent_of_total` | 19 of 10,000 is Flat, 20 is not |
+| `test_brief_interest_growing_when_up_more_than_10_percent` | +11% is Growing, +10% is not |
+| `test_brief_interest_cooling_when_down_more_than_10_percent` | −11% is Cooling, −10% is not |
+| `test_brief_interest_steady_within_10_percent_or_without_prior_stars` | ±10% and a previous 0 give neutral, Steady |
+| `test_brief_maintenance_none_when_inputs_null` | Any `None` input gives `None` |
+| `test_brief_maintenance_stopped_when_no_commits_in_13_weeks` | bad, Stopped |
+| `test_brief_maintenance_slowing_down_when_down_more_than_40_percent` | −41% is Slowing down, −40% is not |
+| `test_brief_maintenance_speeding_up_when_up_more_than_10_percent` | +11% is Speeding up, +10% is not |
+| `test_brief_maintenance_steady_otherwise` | good, Steady, including a previous 0 |
+| `test_brief_issue_response_none_when_inputs_null` | Any `None` input gives `None` |
+| `test_brief_issue_response_na_when_no_issues_opened_in_6_months` | neutral, N/A |
+| `test_brief_issue_response_keeping_up_at_95_percent_or_more` | 95% and above give Keeping up, 94% does not |
+| `test_brief_issue_response_falling_behind_from_60_to_95_percent` | 60% and 94% give Falling behind, 59% does not |
+| `test_brief_issue_response_not_answering_under_60_percent` | bad, Not answering |
+| `test_brief_release_pace_none_when_releases_unknown` | `None` input gives `None` |
+| `test_brief_release_pace_no_releases_when_none_published` | neutral, No releases |
+| `test_brief_release_pace_on_usual_pace_up_to_1_5x_its_gap` | Exactly 1.5× is on pace |
+| `test_brief_release_pace_overdue_beyond_1_5x_its_gap` | "Overdue, 2.0× its usual gap" |
+| `test_brief_release_pace_usual_gap_is_median_of_last_8_gaps` | Older gaps are ignored |
+| `test_brief_release_pace_none_with_a_single_release` | One release gives `None` |
+| `test_brief_maintainer_concentration_none_without_commits` | `None`, empty and all-zero give `None` |
+| `test_brief_maintainer_concentration_depends_on_one_person_at_80_percent_or_more` | Exactly 80% is one person, 79% is not |
+| `test_brief_maintainer_concentration_shared_by_people_who_made_80_percent` | Counts the fewest people who reach 80% |
+| `test_detail_brief_has_five_answers_null_until_inputs_are_stored` | API `brief` has five keys, all `null` |
+| `test_brief_answer_serializes_tone_and_value` | `{tone, value}`, or `null` |
+
+- [x] One red/green pair per rule, `3b1e040`–`6f00b8d`.
+- [x] Checks run before each green commit: `python -m pytest`, ruff on the changed files, `mypy backend`. Commit `148a0fa` slipped through with an unused import in `test_brief.py`, which the next commit fixed.
+
+**Follow-ups:** compute the previous 30 days of stars from `star_week` and add the F8 G7 spike check so interest can be answered. Store commit activity, issue counts, the release list and contributor counts, then pass them into the other four rules. Replace `analyse` in `sample.js` with the API's `brief` in Step 8.
 
 ---
 
