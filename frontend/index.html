@@ -308,6 +308,7 @@ footer .wrap{display:flex;flex-wrap:wrap;gap:8px 24px}
 
 <script src="/metrics.js"></script>
 <script src="/export.js"></script>
+<script src="/compare-list.js"></script>
 <script>
 (function () {
 'use strict';
@@ -423,7 +424,7 @@ const BY_ID = Object.fromEntries(REPOS.map((r) => [r.id, r]));
 
 /* ---------- state ---------- */
 const DEFAULTS = { view: 'stars', lang: 'Any', status: 'any', win: '7d', limit: 25, pages: 1, aiOnly: false, hideArch: true, sort: 'stars', dir: 'desc', focus: null, focusLabel: '', query: '' };
-const state = Object.assign({}, DEFAULTS, { compare: [], recent: ['lumen-labs/agent-kit'], busy: false, empty: false });
+const state = Object.assign({}, DEFAULTS, { compare: GACompare.ids().filter((x) => BY_ID[x]), recent: ['lumen-labs/agent-kit'], busy: false, empty: false });
 const WIN = { '7d': ['gain7', 'last 7 days', 'This week'], '30d': ['gain30', 'last 30 days', 'This month'], '1y': ['gainYear', 'last 12 months', 'This year'] };
 const gained = (r) => r[WIN[state.win][0]];
 
@@ -674,21 +675,22 @@ function submitLookup(e) {
   if (ids.length === 1) {
     location.href = reportUrl(BY_ID[ids[0]]);
   } else {
-    state.compare = ids.slice(0, 3); renderTray();
-    focusRepos(ids, 'Comparing ' + ids.length + ' repositories');
-    toast('Added ' + ids.length + ' repositories to compare.');
+    state.compare = ids.slice(0, 3); saveCompare();
+    location.href = GACompare.url(state.compare.map((x) => BY_ID[x]));
   }
   setStatus('');
 }
 
-/* ---------- compare ---------- */
+/* ---------- compare (kept in this browser so it follows you to reports and /compare) ---------- */
+window.addEventListener('pageshow', () => { state.compare = GACompare.ids().filter((x) => BY_ID[x]); renderTable(); renderTray(); });
+function saveCompare() { GACompare.set(state.compare.map((x) => BY_ID[x])); }
 function toggleCompare(id) {
   const i = state.compare.indexOf(id);
   if (i >= 0) { state.compare.splice(i, 1); toast('Removed ' + BY_ID[id].full + ' from compare.'); }
   else if (state.compare.length >= 3) { toast('Compare up to 3 repositories at a time.'); return; }
   else { state.compare.push(id); toast('Added ' + BY_ID[id].full + ' to compare.'); }
   $$('[data-add="' + CSS.escape(id) + '"]').forEach((b) => { const on = state.compare.includes(id); b.setAttribute('aria-pressed', on); b.innerHTML = on ? I.check : I.plus; b.setAttribute('aria-label', (on ? 'Remove ' : 'Add ') + BY_ID[id].full + (on ? ' from compare' : ' to compare')); });
-  renderTray();
+  saveCompare(); renderTray();
 }
 
 /* ---------- download (CSV or Excel) ---------- */
@@ -742,7 +744,7 @@ document.addEventListener('click', (e) => {
   if (t.closest('#moreBtn')) { loadMore(); return; }
   if (t.closest('#clearFocus')) { Object.assign(state, { focus: null, focusLabel: '', query: '', pages: 1 }); $('#lookupInput').value = ''; onLookupInput(); renderTable(); return; }
   if (t.closest('#resetFilters')) { Object.assign(state, { lang: 'Any', status: 'any', aiOnly: false, hideArch: true, focus: null, query: '', pages: 1 }); renderControls(); renderTable(); return; }
-  if (t.closest('#trayGo')) { focusRepos(state.compare.slice(), 'Comparing ' + state.compare.length + ' repositories'); return; }
+  if (t.closest('#trayGo')) { location.href = GACompare.url(state.compare.map((x) => BY_ID[x])); return; }
   if (t.id === 'modalBack' || t.closest('[data-close]')) closeModal();
 });
 $('#fLang').addEventListener('change', (e) => { state.lang = e.target.value; state.pages = 1; renderTable(); });
