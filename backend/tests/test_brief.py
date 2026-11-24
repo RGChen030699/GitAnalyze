@@ -1,6 +1,14 @@
 """Decision brief rules (about.html "Decision brief rules"). Pure functions: no DB, no network."""
 
-from repositories.brief import BriefAnswer, interest, issue_response, maintenance
+from datetime import UTC, datetime, timedelta
+
+from repositories.brief import BriefAnswer, interest, issue_response, maintenance, release_pace
+
+NOW = datetime(2026, 11, 23, 12, 0, tzinfo=UTC)
+
+
+def days_ago(*days: int) -> list[datetime]:
+    return [NOW - timedelta(days=day) for day in days]
 
 
 def test_brief_interest_none_when_inputs_null() -> None:
@@ -91,3 +99,7 @@ def test_brief_issue_response_falling_behind_from_60_to_95_percent() -> None:
 def test_brief_issue_response_not_answering_under_60_percent() -> None:
     assert issue_response(100, 59) == BriefAnswer("bad", "Not answering")
     assert issue_response(40, 0) == BriefAnswer("bad", "Not answering")
+
+
+def test_brief_release_pace_none_when_releases_unknown() -> None:
+    assert release_pace(None, NOW) is None
