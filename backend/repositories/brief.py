@@ -58,4 +58,4 @@ def maintenance(commits_13w: int | None, commits_prev_13w: int | None) -> BriefA
         return BriefAnswer("warn", "Slowing down")
     if change is not None and change > COMMITS_RISE:
         return BriefAnswer("good", "Speeding up")
-    return None
+    return BriefAnswer("good", "Steady")
