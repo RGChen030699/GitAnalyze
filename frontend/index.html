@@ -279,7 +279,7 @@ footer .wrap{display:flex;flex-wrap:wrap;gap:8px 24px}
         <option value="any">Any status</option><option>Active</option><option>Slowing</option><option>Quiet</option><option>Archived</option>
       </select></label>
       <div class="field"><span id="viewL">Rank by</span><div class="seg" role="group" aria-labelledby="viewL" id="fView"></div></div>
-      <div class="field" id="winField" hidden><span id="winL">Gained over</span><div class="seg" role="group" aria-labelledby="winL" id="fWin"></div></div>
+      <div class="field" id="winField"><span id="winL">Gained over</span><div class="seg" role="group" aria-labelledby="winL" id="fWin"></div></div>
       <div class="field"><span id="limL">Show</span><div class="seg" role="group" aria-labelledby="limL" id="fLimit"></div></div>
       <label class="toggle"><input type="checkbox" id="fAi">Has AI capabilities</label>
       <label class="toggle"><input type="checkbox" id="fArch" checked>Hide archived</label>
@@ -385,9 +385,12 @@ const recFor = (id) => { const [owner, name] = id.split('/'); return BY_ID[id] |
 const fullOf = (id) => { const r = recFor(id); return r.full || r.owner + '/' + r.name; };
 
 /* ---------- state ---------- */
-const DEFAULTS = { view: 'stars', lang: 'Any', status: 'any', win: '7d', limit: 20, pages: 1, aiOnly: false, hideArch: true, sort: 'stars', dir: 'desc', focus: null, focusLabel: '', query: '' };
+const DEFAULTS = { view: 'stars', lang: 'Any', status: 'any', win: '7d', period: 'weekly', limit: 20, pages: 1, aiOnly: false, hideArch: true, sort: 'stars', dir: 'desc', focus: null, focusLabel: '', query: '' };
 const state = Object.assign({}, DEFAULTS, { compare: GACompare.ids(), recent: [], empty: false, loading: true });
 const WIN = { '7d': ['gain7', 'last 7 days', 'This week'], '30d': ['gain30', 'last 30 days', 'This month'], '1y': ['gainYear', 'last 12 months', 'This year'] };
+/* F8 G4: GitHub Trending has daily, weekly and monthly lists (no yearly one). Each also sets the
+   Gained column to the closest window. */
+const PERIOD = { daily: ['Today', '7d'], weekly: ['This week', '7d'], monthly: ['This month', '30d'] };
 const gained = (r) => r[WIN[state.win][0]];
 
 /* ---------- parsing (mirrors backend/lookup/parsing.py, F1 L1–L3) ---------- */
@@ -589,8 +592,11 @@ function renderControls() {
   $('#fStatus').value = state.status;
   const VIEWS = [['stars', 'Total stars'], ['gaining', 'Gaining stars'], ['trending', 'Trending']];
   $('#fView').innerHTML = VIEWS.map(([k, l]) => '<button type="button" data-view="' + k + '" aria-pressed="' + (state.view === k) + '">' + l + '</button>').join('');
-  $('#winField').hidden = state.view !== 'gaining';
-  $('#fWin').innerHTML = Object.entries(WIN).map(([k, v]) => '<button type="button" data-win="' + k + '" aria-pressed="' + (state.win === k) + '">' + v[2] + '</button>').join('');
+  const onTrending = state.view === 'trending';
+  $('#winL').textContent = onTrending ? 'Trending' : 'Gained over';
+  $('#fWin').innerHTML = onTrending
+    ? Object.entries(PERIOD).map(([k, v]) => '<button type="button" data-period="' + k + '" aria-pressed="' + (state.period === k) + '">' + v[0] + '</button>').join('')
+    : Object.entries(WIN).map(([k, v]) => '<button type="button" data-win="' + k + '" aria-pressed="' + (state.win === k) + '">' + v[2] + '</button>').join('');
   $('#fLimit').innerHTML = [20, 50, 100].map((n) => '<button type="button" data-limit="' + n + '" aria-pressed="' + (state.limit === n) + '">' + n + '</button>').join('');
   $('#fAi').checked = state.aiOnly; $('#fArch').checked = state.hideArch;
   $('#fAi').disabled = !REPOS.some((r) => r.ai !== null && r.ai !== undefined); // AI data is not collected yet
@@ -723,6 +729,7 @@ document.addEventListener('click', (e) => {
   const rec = t.closest('[data-recent]'); if (rec) { location.href = reportUrl(recFor(rec.dataset.recent)); return; }
   const v = t.closest('[data-view]'); if (v) { state.view = v.dataset.view; state.sort = state.view === 'gaining' ? 'gained' : state.view === 'trending' ? 'trending' : 'stars'; state.dir = 'desc'; state.pages = 1; renderControls(); loadRankings(); return; }
   const w = t.closest('[data-win]'); if (w) { state.win = w.dataset.win; state.pages = 1; renderControls(); loadRankings(); return; }
+  const p = t.closest('[data-period]'); if (p) { state.period = p.dataset.period; state.win = PERIOD[state.period][1]; state.pages = 1; renderControls(); loadRankings(); return; }
   const l = t.closest('[data-limit]'); if (l) { const n = +l.dataset.limit; if (n === state.limit && state.pages === 1) return; state.limit = n; state.pages = 1; renderControls(); renderTable(); return; }
   if (t.closest('#moreBtn')) { loadMore(); return; }
   if (t.closest('#clearFocus')) { Object.assign(state, { focus: null, focusLabel: '', query: '', pages: 1 }); $('#lookupInput').value = ''; onLookupInput(); renderTable(); return; }

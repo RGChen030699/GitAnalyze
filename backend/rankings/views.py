@@ -22,7 +22,7 @@ class RankingsView(APIView):
             return Response({"detail": str(error)}, status=status.HTTP_400_BAD_REQUEST)
         repositories = ordered_repositories(params)
         start = (params.page - 1) * params.limit
-        key = trending_key(params)
+        key = trending_key(params) if params.sort == "trending" else None
         rows = [serialize_row(repo, key) for repo in repositories[start : start + params.limit]]
         return Response(
             {

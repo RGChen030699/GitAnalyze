@@ -6,7 +6,7 @@ from django.db.models import Count, F, IntegerField, Max, QuerySet
 from django.db.models.fields.json import KT
 from django.db.models.functions import Cast, Lower
 from repositories.models import Repository
-from repositories.trending import ALL_KEY
+from repositories.trending import rank_key
 
 from rankings.params import RankingParams
 
@@ -30,8 +30,8 @@ def coverage() -> dict[str, Any]:
 
 
 def trending_key(params: RankingParams) -> str:
-    """Which weekly Trending feed applies: the chosen language's, or the overall one (F8 G4)."""
-    return params.lang or ALL_KEY
+    """The Trending list for the chosen period, in the chosen language or overall (F8 G4)."""
+    return rank_key(params.period, params.lang)
 
 
 def language_counts() -> list[dict[str, Any]]:

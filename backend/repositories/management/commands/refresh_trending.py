@@ -1,4 +1,4 @@
-"""Add GitHub Trending repositories to the watch list and store their weekly ranks (F0 W3, F8 G4).
+"""Add GitHub Trending repositories to the watch list and store their ranks (F0 W3, F8 G4).
 
 Runs daily after refresh_rankings. A repository that refresh_rankings already refreshed costs
 nothing here; a new one costs about 4 GitHub requests.
@@ -13,11 +13,17 @@ from django.core.management.base import BaseCommand
 from django.db import IntegrityError
 from django.utils import timezone
 from github_client import GitHubClient, GitHubError
-from github_client.trending import TrendingFeed, TrendingFeedError, feed_url, fetch_trending
+from github_client.trending import (
+    PERIODS,
+    TrendingFeed,
+    TrendingFeedError,
+    feed_url,
+    fetch_trending,
+)
 
 from repositories.ingest import refresh_details, upsert_repository
 from repositories.models import Repository
-from repositories.trending import ALL_KEY, apply_weekly_ranks
+from repositories.trending import apply_ranks, rank_key
 
 FRESH_FOR = timedelta(hours=20)  # refreshed by today's refresh_rankings run
 REPOSITORY_ERRORS = (GitHubError, IntegrityError, KeyError, TypeError, ValueError)
@@ -27,8 +33,8 @@ Feeds = dict[FeedKey, TrendingFeed]
 
 
 def _feed_keys(languages: tuple[str, ...]) -> list[FeedKey]:
-    alls: list[FeedKey] = [("daily", None), ("weekly", None), ("monthly", None)]
-    return alls + [("weekly", language) for language in languages]
+    """Today, this week and this month, overall and for each ranked language."""
+    return [(period, language) for period in PERIODS for language in (None, *languages)]
 
 
 def _unique_names(feeds: Feeds) -> list[str]:
@@ -39,19 +45,17 @@ def _unique_names(feeds: Feeds) -> list[str]:
     return list(seen.values())
 
 
-def _weekly_ranks(feeds: Feeds, ids: dict[str, int]) -> dict[str, dict[int, int]]:
+def _ranks(feeds: Feeds, ids: dict[str, int]) -> dict[str, dict[int, int]]:
     """GitHub's order, gaps included: a listed repository we couldn't fetch keeps its place."""
     ranks: dict[str, dict[int, int]] = {}
     for (period, language), feed in feeds.items():
-        if period != "weekly":
-            continue
         listed = [(rank, name.lower()) for rank, name in enumerate(feed.names, start=1)]
-        ranks[language or ALL_KEY] = {ids[name]: rank for rank, name in listed if name in ids}
+        ranks[rank_key(period, language)] = {ids[n]: rank for rank, n in listed if n in ids}
     return ranks
 
 
 class Command(BaseCommand):
-    help = "Add GitHub Trending repositories to the watch list and store their weekly ranks."
+    help = "Add GitHub Trending repositories to the watch list and store their ranks."
 
     def handle(self, *args: Any, **options: Any) -> None:
         client = GitHubClient(clock=timezone.now)
@@ -66,7 +70,7 @@ class Command(BaseCommand):
                 ids[name.lower()] = repo.id
             refreshed += fetched
             failures += failed
-        apply_weekly_ranks(_weekly_ranks(feeds, ids), now)
+        apply_ranks(_ranks(feeds, ids), now)
         unreachable = len(_feed_keys(tuple(settings.RANKINGS_LANGUAGES))) - len(feeds)
         self.stdout.write(
             f"Trending: {len(names)} repositories from {len(feeds)} feeds, "

@@ -32,9 +32,11 @@ class Repository(models.Model):
     # F2 parts fetched when a report opens: each holds its data, source and fetched_at.
     health = models.JSONField(null=True, blank=True)
     health_fetched_at = models.DateTimeField(null=True, blank=True)
-    # F8 G4: rank in each weekly Trending feed, e.g. {"all": 3, "Python": 1}; null when on none.
+    # F8 G4: rank in each Trending list, e.g. {"weekly:all": 3, "daily:Python": 1}; null on none.
     trending = models.JSONField(null=True, blank=True)
-    trending_at = models.DateTimeField(null=True, blank=True)  # last read of the weekly "all" feed
+    trending_at = models.DateTimeField(
+        null=True, blank=True
+    )  # last read of the weekly overall list
 
     class Meta:
         db_table = "repository"

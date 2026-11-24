@@ -7,6 +7,7 @@ from health.services import ACTIVE, ARCHIVED, QUIET, SLOWING
 
 SORTS = ("stars", "gained", "pushed", "trending")
 WINDOWS = ("7d", "30d", "1y")
+PERIODS = ("daily", "weekly", "monthly")  # GitHub Trending lists (F8 G4)
 FLAGS = ("0", "1")
 LIMITS = ("10", "25", "50", "100")
 MAX_PAGE_DIGITS = 7
@@ -21,6 +22,7 @@ class InvalidRankingParams(Exception):
 class RankingParams:
     sort: str = "stars"
     window: str = "7d"
+    period: str = "weekly"
     trending_only: bool = False
     lang: str | None = None
     status: str | None = None
@@ -53,6 +55,7 @@ def parse_params(query: Mapping[str, str]) -> RankingParams:
     return RankingParams(
         sort=_choice(query, "sort", SORTS, "stars"),
         window=_choice(query, "window", WINDOWS, "7d"),
+        period=_choice(query, "period", PERIODS, "weekly"),
         trending_only=_choice(query, "trending", FLAGS, "0") == "1",
         lang=query.get("lang") or None,
         status=_optional_choice(query, "status", STATUSES),

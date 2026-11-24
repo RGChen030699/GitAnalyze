@@ -31,7 +31,7 @@ test('rankingsQuery maps Rank by, window and filters to API parameters', () => {
   const base = { view: 'stars', win: '7d', lang: 'Any', status: 'any', hideArch: false };
   assert.equal(D.rankingsQuery(base, 1), 'sort=stars&limit=100&page=1');
   assert.equal(D.rankingsQuery({ ...base, view: 'gaining', win: '30d' }, 2), 'sort=gained&window=30d&limit=100&page=2');
-  assert.equal(D.rankingsQuery({ ...base, view: 'trending' }, 1), 'sort=trending&trending=1&limit=100&page=1');
+  assert.equal(D.rankingsQuery({ ...base, view: 'trending' }, 1), 'sort=trending&trending=1&period=weekly&limit=100&page=1');
   assert.equal(D.rankingsQuery({ ...base, lang: 'Jupyter Notebook', status: 'Active', hideArch: true }, 1),
     'sort=stars&lang=Jupyter+Notebook&status=Active&archived=0&limit=100&page=1');
 });

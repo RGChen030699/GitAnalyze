@@ -3,16 +3,16 @@
 from typing import Any
 
 from repositories.models import Repository
-from repositories.trending import ALL_KEY
+from repositories.trending import WEEKLY_ALL
 
 
-def trending_rank(repo: Repository, key: str = ALL_KEY) -> int | None:
-    """Rank in the given weekly Trending feed, else in the overall one (F8 G5 badge)."""
+def trending_rank(repo: Repository, key: str | None = None) -> int | None:
+    """Rank in the Trending list being viewed; elsewhere, the weekly overall rank (F8 G5 badge)."""
     ranks: dict[str, int] = repo.trending or {}
-    return ranks.get(key, ranks.get(ALL_KEY))
+    return ranks.get(key) if key is not None else ranks.get(WEEKLY_ALL)
 
 
-def serialize_row(repo: Repository, trending_key: str = ALL_KEY) -> dict[str, Any]:
+def serialize_row(repo: Repository, trending_key: str | None = None) -> dict[str, Any]:
     """Keep missing values as null so the page can show N/A, never 0."""
     owner, name = repo.full_name.split("/", 1)
     return {

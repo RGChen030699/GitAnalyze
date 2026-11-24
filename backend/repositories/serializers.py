@@ -32,6 +32,7 @@ from repositories.services import (
     stars_gained,
     stars_gained_previous,
 )
+from repositories.trending import WEEKLY_ALL
 
 REPOSITORY_FIELDS = (
     "description",
@@ -266,7 +267,7 @@ def serialize_detail(repo: Repository, now: datetime) -> dict[str, Any]:
         "stars_gained_7d": repo.stars_gained_7d,
         "stars_gained_30d": repo.stars_gained_30d,
         "stars_gained_year": repo.stars_gained_year,
-        "trending": (repo.trending or {}).get("all"),  # F8 G5: weekly overall Trending rank
+        "trending": (repo.trending or {}).get(WEEKLY_ALL),  # F8 G5: weekly overall Trending rank
         **_health_values(repo, now),
         **dict.fromkeys(UNSTORED_FIELDS, None),
     }

@@ -36,7 +36,7 @@
   function rankingsQuery(state, page) {
     const q = new URLSearchParams();
     if (state.view === 'gaining') { q.set('sort', 'gained'); q.set('window', state.win); }
-    else if (state.view === 'trending') { q.set('sort', 'trending'); q.set('trending', '1'); }
+    else if (state.view === 'trending') { q.set('sort', 'trending'); q.set('trending', '1'); q.set('period', state.period || 'weekly'); }
     else q.set('sort', 'stars');
     if (state.lang && state.lang !== 'Any') q.set('lang', state.lang);
     if (state.status && state.status !== 'any') q.set('status', state.status);

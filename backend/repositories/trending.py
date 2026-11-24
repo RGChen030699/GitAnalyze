@@ -8,9 +8,25 @@ from django.db.models import Q
 
 from repositories.models import Repository
 
-ALL_KEY = "all"
+PERIODS = ("daily", "weekly", "monthly")
+DEFAULT_PERIOD = "weekly"
+WEEKLY_ALL = "weekly:all"  # the overall weekly list: badges, detail page, "last updated"
 
-Ranks = Mapping[str, Mapping[int, int]]  # feed key ("all" or a language) -> repository id -> rank
+Ranks = Mapping[str, Mapping[int, int]]  # feed key, e.g. "weekly:all" -> repository id -> rank
+
+
+def rank_key(period: str, language: str | None) -> str:
+    """Key for one Trending list: GitHub's period plus a language, or "all"."""
+    return f"{period}:{language or 'all'}"
+
+
+def with_period_keys(ranks: dict[str, int] | None) -> dict[str, int] | None:
+    """Ranks stored before periods existed were all weekly: "all" becomes "weekly:all"."""
+    if ranks is None:
+        return None
+    return {
+        (key if ":" in key else rank_key(DEFAULT_PERIOD, key)): rank for key, rank in ranks.items()
+    }
 
 
 def _merged(current: dict[str, int] | None, repo_id: int, ranks: Ranks) -> dict[str, int] | None:
@@ -22,13 +38,13 @@ def _merged(current: dict[str, int] | None, repo_id: int, ranks: Ranks) -> dict[
     return kept or None
 
 
-def apply_weekly_ranks(ranks: Ranks, now: datetime) -> None:
+def apply_ranks(ranks: Ranks, now: datetime) -> None:
     """Pass only the feeds that were read: an unreachable feed keeps yesterday's ranks."""
     listed_ids = {repo_id for listed in ranks.values() for repo_id in listed}
     candidates = Repository.objects.filter(Q(trending__isnull=False) | Q(id__in=listed_ids))
     with transaction.atomic():
         for repo in candidates:
             repo.trending = _merged(repo.trending, repo.id, ranks)
-            if repo.id in ranks.get(ALL_KEY, {}):
+            if repo.id in ranks.get(WEEKLY_ALL, {}):
                 repo.trending_at = now
             repo.save(update_fields=["trending", "trending_at"])
