@@ -53,6 +53,11 @@ button,input,select{font:inherit;color:inherit}
 .note{font-size:13px;color:var(--ink-3);margin:0}
 .muted{color:var(--ink-3)}
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+/* Loading state: a cobalt ring that spins while the rankings load (static under reduced motion). */
+.loading{display:flex;flex-direction:column;align-items:center;gap:14px;padding:56px 16px;color:var(--ink-2);font-size:14px;font-weight:500}
+.spinner{width:40px;height:40px;border-radius:50%;border:4px solid var(--accent-soft);border-top-color:var(--accent);animation:ga-spin .8s linear infinite}
+@keyframes ga-spin{to{transform:rotate(360deg)}}
+.rank tr.loading-row:hover td{background:transparent}
 
 /* header */
 .top{position:sticky;top:0;z-index:20;background:var(--surface);border-bottom:1px solid var(--line)}
@@ -530,7 +535,11 @@ function renderTable() {
   renderHead();
   renderSummary(list);
   $('#trackedN').textContent = show(META.tracked, fmtN);
-  if (state.loading) { $('#tbody').innerHTML = ''; $('#moreWrap').innerHTML = ''; $('#showing').textContent = ''; return; }
+  if (state.loading) {
+    $('#tbody').innerHTML = '<tr class="loading-row"><td colspan="' + activeCols().length + '"><div class="loading" role="status" aria-live="polite">' +
+      '<span class="spinner" aria-hidden="true"></span><span>Loading rankings</span></div></td></tr>';
+    $('#moreWrap').innerHTML = ''; $('#showing').textContent = 'Loading…'; return;
+  }
   if (state.empty && loadErr && (loadErr.status === 429 || loadErr.status === 503)) {
     $('#tbody').innerHTML = '<tr><td colspan="' + activeCols().length + '"><div class="empty"><h2>GitHub is busy. Try again in ' + (loadErr.mins || 'a few') + ' minutes.</h2><p class="muted" style="margin:0">Repositories we already have still open normally.</p></div></td></tr>';
     $('#moreWrap').innerHTML = ''; $('#showing').textContent = ''; $('#focusNote').innerHTML = '';
