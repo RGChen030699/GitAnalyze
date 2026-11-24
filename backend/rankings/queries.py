@@ -28,8 +28,16 @@ def _filtered(params: RankingParams) -> QuerySet[Repository]:
     return repositories
 
 
+def _sort_field(params: RankingParams) -> str:
+    if params.sort == "gained":
+        return GAIN_FIELDS[params.window]
+    if params.sort == "pushed":
+        return "pushed_at"
+    return "stargazers_count"
+
+
 def ordered_repositories(params: RankingParams) -> QuerySet[Repository]:
     if params.sort == "trending" or params.trending_only:
         return Repository.objects.none()  # F8: no trending data is stored yet
-    field = GAIN_FIELDS[params.window] if params.sort == "gained" else "stargazers_count"
+    field = _sort_field(params)
     return _filtered(params).order_by(F(field).desc(nulls_last=True), Lower("full_name"))

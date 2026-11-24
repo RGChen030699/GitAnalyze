@@ -5,7 +5,7 @@ from dataclasses import dataclass
 
 from health.services import ACTIVE, ARCHIVED, QUIET, SLOWING
 
-SORTS = ("stars", "gained", "trending")
+SORTS = ("stars", "gained", "pushed", "trending")
 WINDOWS = ("7d", "30d", "1y")
 FLAGS = ("0", "1")
 STATUSES = (ACTIVE, SLOWING, QUIET, ARCHIVED)
