@@ -5,13 +5,13 @@ name: Refresh rankings
 # GitHub does not allow secret names that start with GITHUB_, so GH_API_TOKEN is passed in as
 # GITHUB_TOKEN, the name the app reads.
 #
-# 10:00 AM UTC is the main run. 10:20 and 10:50 AM UTC are backup checks: each refreshes only if no
+# 12:00 PM UTC is the main run. 12:25 and 12:50 PM UTC are backup checks: each refreshes only if no
 # run of this workflow has succeeded yet today (UTC), in case GitHub skipped or the main run failed.
 on:
   schedule:
-    - cron: "0 10 * * *" # main daily run, 10:00 AM UTC (5:00 AM EST, 6:00 AM during daylight saving)
-    - cron: "20 10 * * *" # first backup check, 10:20 AM UTC
-    - cron: "50 10 * * *" # second backup check, 10:50 AM UTC
+    - cron: "0 12 * * *" # main daily run, 12:00 PM UTC (7:00 AM EST, 8:00 AM during daylight saving)
+    - cron: "25 12 * * *" # first backup check, 12:25 PM UTC
+    - cron: "50 12 * * *" # second backup check, 12:50 PM UTC
   workflow_dispatch: {}
 
 permissions:
@@ -29,7 +29,7 @@ jobs:
     steps:
       - name: Skip a backup check if today's refresh already succeeded
         id: check
-        if: github.event.schedule == '20 10 * * *' || github.event.schedule == '50 10 * * *'
+        if: github.event.schedule == '25 12 * * *' || github.event.schedule == '50 12 * * *'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
