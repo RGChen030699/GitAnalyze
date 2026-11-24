@@ -18,9 +18,9 @@ VERCELIGNORE = REPO_ROOT / ".vercelignore"
 HOSTING_ENV = (
     "VERCEL",
     "VERCEL_URL",
-    "DJANGO_DEBUG",
+    "DEBUG",
     "DJANGO_SECRET_KEY",
-    "DJANGO_ALLOWED_HOSTS",
+    "ALLOWED_HOSTS",
     "FRONTEND_ORIGIN",
     "DATABASE_URL",
     "POSTGRES_DB",
@@ -55,29 +55,32 @@ def test_H1_debug_defaults_off_on_vercel(env: pytest.MonkeyPatch) -> None:
     assert load_settings()["DEBUG"] is False
 
 
-@pytest.mark.parametrize(("value", "expected"), [("0", False), ("1", True)])
+@pytest.mark.parametrize(
+    ("value", "expected"),
+    [("0", False), ("1", True), ("true", True), ("False", False), ("", False)],
+)
 def test_H1_debug_comes_from_env(env: pytest.MonkeyPatch, value: str, expected: bool) -> None:
-    env.setenv("DJANGO_DEBUG", value)
+    env.setenv("DEBUG", value)
     env.setenv("DJANGO_SECRET_KEY", "test-only-key")
 
     assert load_settings()["DEBUG"] is expected
 
 
 def test_H2_secret_key_required_when_debug_is_off(env: pytest.MonkeyPatch) -> None:
-    env.setenv("DJANGO_DEBUG", "0")
+    env.setenv("DEBUG", "0")
 
     with pytest.raises(ImproperlyConfigured, match="DJANGO_SECRET_KEY"):
         load_settings()
 
 
 def test_H3_allowed_hosts_come_from_env_trimmed(env: pytest.MonkeyPatch) -> None:
-    env.setenv("DJANGO_ALLOWED_HOSTS", " api.example.test, ,other.example.test ")
+    env.setenv("ALLOWED_HOSTS", " api.example.test, ,other.example.test ")
 
     assert load_settings()["ALLOWED_HOSTS"] == ["api.example.test", "other.example.test"]
 
 
 def test_H3_allowed_hosts_include_the_vercel_deployment_host(env: pytest.MonkeyPatch) -> None:
-    env.setenv("DJANGO_ALLOWED_HOSTS", "api.example.test")
+    env.setenv("ALLOWED_HOSTS", "api.example.test")
     env.setenv("VERCEL_URL", "gitanalyze-api-abc123.vercel.app")
 
     assert load_settings()["ALLOWED_HOSTS"] == [
@@ -126,7 +129,7 @@ def test_H8_frontend_forwards_api_to_the_backend_and_keeps_page_routes() -> None
 
     assert rewrites[0] == {
         "source": "/api/:path*",
-        "destination": "https://BACKEND_URL_PLACEHOLDER/api/:path*",
+        "destination": "https://gitanalyze-backend.vercel.app/api/:path*",
     }
     assert rewrites[1:] == PAGE_REWRITES
 
