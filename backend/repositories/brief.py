@@ -25,4 +25,6 @@ def interest(
         return None
     if spike:
         return BriefAnswer("warn", "Spiky")
+    if gained_30d <= 0:
+        return BriefAnswer("neutral", "Fading")
     return None
