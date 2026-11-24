@@ -17,6 +17,7 @@ COMMITS_RISE = 0.1
 KEEPING_UP_RATIO = 0.95
 FALLING_BEHIND_RATIO = 0.6
 ON_PACE_RATIO = 1.5
+USUAL_GAP_WINDOW = 8
 SECONDS_PER_DAY = 86_400
 
 
@@ -100,7 +101,7 @@ def release_pace(releases: Sequence[datetime] | None, now: datetime) -> BriefAns
     if not releases:
         return BriefAnswer("neutral", "No releases")
     dates = sorted(releases)
-    usual_gap = median(_days_between(dates))
+    usual_gap = median(_days_between(dates)[-USUAL_GAP_WINDOW:])
     ratio = _days(now - dates[-1]) / usual_gap
     if ratio <= ON_PACE_RATIO:
         return BriefAnswer("good", "On its usual pace")
