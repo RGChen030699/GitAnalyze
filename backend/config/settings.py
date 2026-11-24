@@ -5,16 +5,29 @@ from pathlib import Path
 from typing import Any
 
 import dj_database_url
+from django.core.exceptions import ImproperlyConfigured
 
 from config.languages import parse_rankings_languages
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-SECRET_KEY = os.environ.get("DJANGO_SECRET_KEY", "dev-only-insecure-key-change-me")
-DEBUG = os.environ.get("DJANGO_DEBUG", "1") == "1"
-ALLOWED_HOSTS = [
-    h for h in os.environ.get("DJANGO_ALLOWED_HOSTS", "localhost,127.0.0.1").split(",") if h
-]
+# Vercel sets VERCEL=1 and VERCEL_URL (this deployment's host) in its functions.
+ON_VERCEL = bool(os.environ.get("VERCEL"))
+DEBUG = os.environ.get("DJANGO_DEBUG", "0" if ON_VERCEL else "1") == "1"
+
+DEV_SECRET_KEY = "dev-only-insecure-key-change-me"
+SECRET_KEY = os.environ.get("DJANGO_SECRET_KEY", "" if not DEBUG else DEV_SECRET_KEY)
+if not SECRET_KEY:
+    raise ImproperlyConfigured("Set DJANGO_SECRET_KEY when DJANGO_DEBUG is off")
+
+
+def _host_list(value: str) -> list[str]:
+    return [host.strip() for host in value.split(",") if host.strip()]
+
+
+ALLOWED_HOSTS = _host_list(os.environ.get("DJANGO_ALLOWED_HOSTS", "localhost,127.0.0.1"))
+if os.environ.get("VERCEL_URL"):
+    ALLOWED_HOSTS.append(os.environ["VERCEL_URL"])
 
 INSTALLED_APPS = [
     "django.contrib.admin",
@@ -61,7 +74,8 @@ SECURE_SSL_MODES = {"require", "verify-ca", "verify-full"}
 
 
 def _database_from_url(url: str) -> dict[str, Any]:
-    database: dict[str, Any] = dict(dj_database_url.parse(url))
+    # Serverless: no persistent connections between requests, and SSL always on.
+    database: dict[str, Any] = dict(dj_database_url.parse(url, conn_max_age=0))
     options = database.setdefault("OPTIONS", {})
     if options.get("sslmode") not in SECURE_SSL_MODES:
         options["sslmode"] = "require"
@@ -114,5 +128,6 @@ REST_FRAMEWORK = {
 GITHUB_TOKEN = os.environ.get("GITHUB_TOKEN", "")
 
 FRONTEND_ORIGIN = os.environ.get("FRONTEND_ORIGIN", "http://localhost:8080").rstrip("/")
+CSRF_TRUSTED_ORIGINS = [FRONTEND_ORIGIN]
 
 RANKINGS_LANGUAGES = parse_rankings_languages(os.environ.get("RANKINGS_LANGUAGES"))

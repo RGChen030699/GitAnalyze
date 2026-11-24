@@ -1,6 +1,10 @@
 {
   "rewrites": [
     {
+      "source": "/api/:path*",
+      "destination": "https://BACKEND_URL_PLACEHOLDER/api/:path*"
+    },
+    {
       "source": "/repo/:owner/:name",
       "destination": "/repo.html"
     },
