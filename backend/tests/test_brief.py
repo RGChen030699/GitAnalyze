@@ -1,6 +1,6 @@
 """Decision brief rules (about.html "Decision brief rules"). Pure functions: no DB, no network."""
 
-from repositories.brief import BriefAnswer, interest, maintenance
+from repositories.brief import BriefAnswer, interest, issue_response, maintenance
 
 
 def test_brief_interest_none_when_inputs_null() -> None:
@@ -64,3 +64,8 @@ def test_brief_maintenance_steady_otherwise() -> None:
     assert maintenance(110, 100) == BriefAnswer("good", "Steady")
     assert maintenance(60, 100) == BriefAnswer("good", "Steady")
     assert maintenance(12, 0) == BriefAnswer("good", "Steady")
+
+
+def test_brief_issue_response_none_when_inputs_null() -> None:
+    assert issue_response(None, 10) is None
+    assert issue_response(10, None) is None
