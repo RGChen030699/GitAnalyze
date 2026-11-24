@@ -301,7 +301,14 @@ def test_T5_count_uses_filters(client: Client) -> None:
 @pytest.mark.django_db
 @pytest.mark.parametrize(
     "params",
-    [{"limit": "7"}, {"limit": "abc"}, {"page": "0"}, {"page": "-1"}, {"page": "abc"}],
+    [
+        {"limit": "7"},
+        {"limit": "abc"},
+        {"page": "0"},
+        {"page": "-1"},
+        {"page": "abc"},
+        {"page": "9" * 40},
+    ],
 )
 def test_T4_invalid_paging_returns_400(client: Client, params: dict[str, str]) -> None:
     response = client.get(URL, params)
