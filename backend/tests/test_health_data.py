@@ -140,6 +140,8 @@ def test_F2_report_open_fetches_health_once_then_serves_cache(client: Client) ->
         {"login": "bob", "commits": 10},
     ]
     assert body["contributors_last_year"] == 2
+    assert body["commits_last_year"] == 100
+    assert body["people_for_80"] == 1
     assert Repository.objects.get().health_fetched_at == NOW
 
     responses.calls.reset()
