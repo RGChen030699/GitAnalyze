@@ -2,7 +2,9 @@
 brief rules"). Pure functions with no database or network. Each returns None when an input is
 missing, so the page shows N/A instead of guessing."""
 
+from collections.abc import Sequence
 from dataclasses import dataclass
+from datetime import datetime
 from typing import Literal
 
 Tone = Literal["good", "warn", "bad", "neutral"]
@@ -75,3 +77,13 @@ def issue_response(opened_6m: int | None, closed_6m: int | None) -> BriefAnswer 
     if close_ratio >= FALLING_BEHIND_RATIO:
         return BriefAnswer("warn", "Falling behind")
     return BriefAnswer("bad", "Not answering")
+
+
+def release_pace(releases: Sequence[datetime] | None, now: datetime) -> BriefAnswer | None:
+    """Does it ship on a rhythm? Days since the last release against its usual gap.
+
+    ``releases`` holds the publish dates of non-draft, non-prerelease releases.
+    """
+    if releases is None:
+        return None
+    return None
