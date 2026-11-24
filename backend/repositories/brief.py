@@ -59,3 +59,10 @@ def maintenance(commits_13w: int | None, commits_prev_13w: int | None) -> BriefA
     if change is not None and change > COMMITS_RISE:
         return BriefAnswer("good", "Speeding up")
     return BriefAnswer("good", "Steady")
+
+
+def issue_response(opened_6m: int | None, closed_6m: int | None) -> BriefAnswer | None:
+    """Will my bug reports get answered? Issues closed for every issue opened, last 6 months."""
+    if opened_6m is None or closed_6m is None:
+        return None
+    return None
