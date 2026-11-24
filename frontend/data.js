@@ -112,8 +112,68 @@
     return isFinite(seconds) ? Math.max(1, Math.ceil(seconds / 60)) : null;
   }
 
+  /** Same wording as the report pages' sample helper it replaces. */
+  function agoLabel(t, now) {
+    if (missing(t)) return 'N/A';
+    const days = Math.round((now - t) / DAY);
+    if (days <= 0) return 'today';
+    if (days === 1) return '1 day ago';
+    if (days < 60) return days + ' days ago';
+    if (days < 730) return Math.round(days / 30.4) + ' months ago';
+    return (days / 365).toFixed(1).replace(/\.0$/, '') + ' years ago';
+  }
+  const naCheck = (k, label) => ({ tone: 'neutral', t: label + ': N/A', d: '', k, na: true });
+  function maintenanceCheck(status, lastCommit, lastRel, relDays, now) {
+    const commit = agoLabel(lastCommit, now);
+    if (status === 'Active') return { tone: 'good', t: 'Actively maintained', d: 'Last commit ' + commit + ', last release ' + (lastRel ? agoLabel(lastRel.t, now) : 'N/A') + '.', k: 'maintenance' };
+    if (status === 'Slowing') return { tone: 'warn', t: 'Maintenance is slowing', d: 'Last commit ' + commit + ', but no release in ' + show(relDays, Math.round) + ' days.', k: 'maintenance' };
+    if (status === 'Archived') return { tone: 'bad', t: 'Archived by its owner', d: 'Read-only. No one will fix bugs or answer issues.', k: 'maintenance' };
+    if (status === 'Quiet') return { tone: 'bad', t: 'No recent work', d: 'Last commit ' + commit + '.', k: 'maintenance' };
+    return naCheck('maintenance', 'Maintenance');
+  }
+  /** Good-fit and watch-out lines, from results the API gives (status, brief tones, publisher). */
+  function fitAndWatch(status, findings, ownerType, owner, lastCommit, now) {
+    const [momentum, , support, shipping] = findings.map(([, f]) => f);
+    const fit = [], watch = [];
+    if (status === 'Active') fit.push('You need something that is maintained today and should be for the next year.');
+    if (momentum.tone === 'good') fit.push('You want a growing community, which usually means more answers and examples online.');
+    if (ownerType === 'Organization') fit.push('It is published by an organization (' + owner + '), not one personal account.');
+    if (status === 'Quiet') fit.push('You only need the current version as it is and can fix problems yourself.');
+    if (support.tone === 'warn' || support.tone === 'bad') watch.push('You expect quick help: issues are being opened faster than they are closed.');
+    if (shipping.tone === 'warn') watch.push('You need regular fixes: the next release is well past its usual date.');
+    if (status === 'Quiet') watch.push('You need security fixes or new features: the last commit was ' + agoLabel(lastCommit, now) + '.');
+    if (!watch.length) watch.push('Nothing stood out in the data we have.');
+    if (!fit.length) fit.push('You are only evaluating it, and will check again later.');
+    return { fit, watch };
+  }
+  /** The P (profile), D (series) and A (results) shapes the report and compare pages render. */
+  function reportModel(det, now) {
+    const P = { owner: det.owner, name: det.name, desc: det.description || '', lang: det.language, ownerType: det.owner_type,
+      archived: det.archived, openIssues: det.open_issues, openPrs: null, license: null, skills: null, peers: null, trending: null };
+    // Commit activity, releases, issues and contributors are not stored yet, so their charts stay null.
+    const D = { weeks: weeksFromHistory(det.star_history, det.stars), days: daysFromHistory(det.star_history, det.stars, now),
+      commits: null, releases: null, months: null, contrib: null };
+    const lastCommit = det.pushed_at ? Date.parse(det.pushed_at) : null;
+    const lastRel = det.newest_release_at ? { t: Date.parse(det.newest_release_at), pre: false } : null;
+    const relDays = lastRel ? (now - lastRel.t) / DAY : null;
+    const findings = briefFindings(det.brief);
+    const checks = [maintenanceCheck(det.status, lastCommit, lastRel, relDays, now),
+      naCheck('maintainers', 'Maintainers'), naCheck('license', 'License'), naCheck('star_pattern', 'Star pattern')];
+    const known = checks.filter((c) => !c.na);
+    const A = {
+      status: det.status || 'N/A', statusTone: statusTone(det.status), lastCommit, lastRel, relDays,
+      g7: det.stars_gained_7d, g30: det.stars_gained_30d, momChange: null, commits90: null, commitsPrev90: null, devChange: null,
+      spike: null, top: null, for80: null, single: null, closeRatio: null, mergeRate: null, backlog6: null, growStreak: null,
+      prO: null, prM: null, rel12: null, medGap: null, scripted: null, checks, findings,
+      issuesCount: known.filter((c) => c.tone === 'warn' || c.tone === 'bad').length, unknownChecks: checks.length - known.length,
+      ...fitAndWatch(det.status, findings, det.owner_type, det.owner, lastCommit, now),
+    };
+    return { P, D, A };
+  }
+
   return {
     DAY, WEEK, missing, show, compareNullable, sumKnown, daysAgo, statusTone, rankingsQuery, toRow,
     weeksFromHistory, daysFromHistory, briefFindings, compareRecord, utcStamp, updatedLabel, busyMinutes,
+    agoLabel, reportModel,
   };
 });
