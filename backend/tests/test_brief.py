@@ -12,3 +12,8 @@ def test_brief_interest_none_when_inputs_null() -> None:
 
 def test_brief_interest_spiky_when_star_pattern_check_fires() -> None:
     assert interest(5_000, 100, 10_000, True) == BriefAnswer("warn", "Spiky")
+
+
+def test_brief_interest_fading_when_no_net_stars_in_30_days() -> None:
+    assert interest(0, 100, 10_000, False) == BriefAnswer("neutral", "Fading")
+    assert interest(-5, 100, 10_000, False) == BriefAnswer("neutral", "Fading")
