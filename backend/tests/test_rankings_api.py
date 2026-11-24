@@ -398,9 +398,9 @@ def test_T4_invalid_paging_returns_400(client: Client, params: dict[str, str]) -
 
 @pytest.mark.django_db
 def test_G4_trending_sort_follows_the_weekly_feed_order(client: Client) -> None:
-    make_repo("a/third", stars=999, trending={"all": 3})
-    make_repo("b/first", stars=1, trending={"all": 1})
-    make_repo("c/second", stars=50, trending={"all": 2, "Python": 1})
+    make_repo("a/third", stars=999, trending={"weekly:all": 3})
+    make_repo("b/first", stars=1, trending={"weekly:all": 1})
+    make_repo("c/second", stars=50, trending={"weekly:all": 2, "weekly:Python": 1})
     make_repo("d/none", stars=5000)
 
     assert names(client, sort="trending", trending="1") == ["b/first", "c/second", "a/third"]
@@ -408,9 +408,9 @@ def test_G4_trending_sort_follows_the_weekly_feed_order(client: Client) -> None:
 
 @pytest.mark.django_db
 def test_G4_trending_with_language_uses_that_language_feed(client: Client) -> None:
-    make_repo("a/py2", language="Python", trending={"all": 1, "Python": 2})
-    make_repo("b/py1", language="Python", trending={"Python": 1})
-    make_repo("c/js", language="JavaScript", trending={"all": 2})
+    make_repo("a/py2", language="Python", trending={"weekly:all": 1, "weekly:Python": 2})
+    make_repo("b/py1", language="Python", trending={"weekly:Python": 1})
+    make_repo("c/js", language="JavaScript", trending={"weekly:all": 2})
 
     response = client.get(URL, {"sort": "trending", "trending": "1", "lang": "Python"})
 
@@ -420,7 +420,7 @@ def test_G4_trending_with_language_uses_that_language_feed(client: Client) -> No
 
 @pytest.mark.django_db
 def test_G5_rows_carry_their_weekly_trending_rank(client: Client) -> None:
-    make_repo("a/one", stars=10, trending={"all": 4})
+    make_repo("a/one", stars=10, trending={"weekly:all": 4})
     make_repo("b/two", stars=5)
 
     rows = client.get(URL).json()["results"]
@@ -430,7 +430,7 @@ def test_G5_rows_carry_their_weekly_trending_rank(client: Client) -> None:
 
 @pytest.mark.django_db
 def test_G4_trending_updated_at_is_the_last_successful_feed_read(client: Client) -> None:
-    make_repo("a/one", trending={"all": 1}, trending_at=NOW)
+    make_repo("a/one", trending={"weekly:all": 1}, trending_at=NOW)
     make_repo("b/two")
 
     assert client.get(URL).json()["trending_updated_at"] == "2026-11-23T12:00:00Z"
@@ -441,3 +441,49 @@ def test_G4_trending_updated_at_is_null_before_any_feed_read(client: Client) -> 
     make_repo("a/one")
 
     assert client.get(URL).json()["trending_updated_at"] is None
+
+
+@pytest.mark.django_db
+@pytest.mark.parametrize(
+    ("period", "expected"),
+    [("daily", ["c/day1", "a/day2"]), ("monthly", ["b/month1"]), ("weekly", ["a/day2"])],
+)
+def test_G4_trending_period_picks_githubs_daily_weekly_or_monthly_list(
+    client: Client, period: str, expected: list[str]
+) -> None:
+    make_repo("a/day2", trending={"daily:all": 2, "weekly:all": 1})
+    make_repo("b/month1", trending={"monthly:all": 1})
+    make_repo("c/day1", trending={"daily:all": 1})
+
+    assert names(client, sort="trending", trending="1", period=period) == expected
+
+
+@pytest.mark.django_db
+def test_G4_trending_period_with_language_uses_that_language_list(client: Client) -> None:
+    make_repo("a/py", language="Python", trending={"monthly:Python": 1, "monthly:all": 9})
+    make_repo("b/js", language="JavaScript", trending={"monthly:all": 1})
+
+    rows = client.get(
+        URL, {"sort": "trending", "trending": "1", "period": "monthly", "lang": "Python"}
+    ).json()["results"]
+
+    assert [(r["full_name"], r["trending"]) for r in rows] == [("a/py", 1)]
+
+
+@pytest.mark.django_db
+def test_G4_trending_period_defaults_to_weekly_and_rejects_others(client: Client) -> None:
+    make_repo("a/one", trending={"weekly:all": 1, "daily:all": 5})
+
+    assert (
+        client.get(URL, {"sort": "trending", "trending": "1"}).json()["results"][0]["trending"] == 1
+    )
+    bad = client.get(URL, {"sort": "trending", "period": "yearly"})
+    assert bad.status_code == 400
+    assert bad.json() == {"detail": "period must be one of: daily, weekly, monthly"}
+
+
+@pytest.mark.django_db
+def test_G5_badge_outside_trending_shows_the_weekly_rank(client: Client) -> None:
+    make_repo("a/one", trending={"daily:all": 3, "weekly:all": 7})
+
+    assert client.get(URL, {"period": "daily"}).json()["results"][0]["trending"] == 7

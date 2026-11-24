@@ -322,3 +322,9 @@ test('F8 G5 reportModel takes the weekly Trending rank from the API', () => {
   assert.equal(D.reportModel({ ...detail, trending: 3 }, NOW).P.trending, 3);
   assert.equal(D.reportModel(detail, NOW).P.trending, null);
 });
+
+test('F8 G4 rankingsQuery sends the Trending period', () => {
+  const base = { view: 'trending', win: '7d', period: 'daily', lang: 'Any', status: 'any', hideArch: false };
+  assert.equal(D.rankingsQuery(base, 1), 'sort=trending&trending=1&period=daily&limit=100&page=1');
+  assert.equal(D.rankingsQuery({ ...base, period: 'monthly' }, 1), 'sort=trending&trending=1&period=monthly&limit=100&page=1');
+});

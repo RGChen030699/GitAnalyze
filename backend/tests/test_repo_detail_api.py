@@ -300,7 +300,7 @@ def test_brief_answer_serializes_tone_and_value() -> None:
 
 @pytest.mark.django_db
 def test_G5_detail_carries_the_weekly_trending_rank(client: Client) -> None:
-    make_repo(trending={"all": 3, "Python": 1})
+    make_repo(trending={"weekly:all": 3, "weekly:Python": 1, "daily:all": 1})
 
     assert client.get("/api/repos/pallets/flask").json()["trending"] == 3
 

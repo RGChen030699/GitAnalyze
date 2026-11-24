@@ -47,13 +47,20 @@ Feed = list[str] | str | None
 
 
 def mock_feeds(
-    weekly: Feed = None, python: Feed = None, daily: Feed = None, monthly: Feed = None
+    weekly: Feed = None,
+    python: Feed = None,
+    daily: Feed = None,
+    monthly: Feed = None,
+    daily_python: Feed = None,
+    monthly_python: Feed = None,
 ) -> None:
     """Each feed lists names, is DOWN, or (None) answers with no items."""
     mock_feed("weekly/all", weekly or [])
     mock_feed("weekly/python", python or [])
     mock_feed("daily/all", daily or [])
     mock_feed("monthly/all", monthly or [])
+    mock_feed("daily/python", daily_python or [])
+    mock_feed("monthly/python", monthly_python or [])
 
 
 def mock_new_repo(full_name: str) -> None:
@@ -114,7 +121,7 @@ def test_W3_new_trending_repo_is_added_ranked_with_star_history() -> None:
     assert repo.ranked_at == NOW
     assert repo.star_weeks.count() > 0
     assert repo.stars_gained_7d is not None
-    assert repo.trending == {"all": 1}
+    assert repo.trending == {"weekly:all": 1}
     assert repo.trending_at == NOW
 
 
@@ -127,8 +134,8 @@ def test_G4_weekly_ranks_follow_feed_order_per_language() -> None:
 
     run()
 
-    assert trending("a/one") == {"all": 1}
-    assert trending("b/two") == {"all": 2, "Python": 1}
+    assert trending("a/one") == {"weekly:all": 1}
+    assert trending("b/two") == {"weekly:all": 2, "weekly:Python": 1}
 
 
 @responses.activate
@@ -158,42 +165,46 @@ def test_W3_repo_not_refreshed_today_is_refreshed_and_ranked() -> None:
 
 @responses.activate
 @pytest.mark.django_db
-def test_W3_daily_and_monthly_repos_join_the_watch_list_without_a_weekly_rank() -> None:
-    mock_feeds(daily=["d/one"], monthly=["m/one"])
+def test_G4_daily_and_monthly_lists_are_ranked_too() -> None:
+    mock_feeds(daily=["d/one"], monthly=["m/one", "d/one"], monthly_python=["m/one"])
     mock_new_repo("d/one")
     mock_new_repo("m/one")
 
     run()
 
-    assert trending("d/one") is None
-    assert trending("m/one") is None
+    assert trending("d/one") == {"daily:all": 1, "monthly:all": 2}
+    assert trending("m/one") == {"monthly:all": 1, "monthly:Python": 1}
     assert Repository.objects.filter(ranked_at=NOW).count() == 2
 
 
 @responses.activate
 @pytest.mark.django_db
 def test_G4_repo_dropped_from_the_feeds_loses_its_rank() -> None:
-    make_repo("c/old", trending={"all": 1, "Python": 3}, trending_at=NOW - timedelta(days=1))
+    make_repo(
+        "c/old",
+        trending={"weekly:all": 1, "weekly:Python": 3},
+        trending_at=NOW - timedelta(days=1),
+    )
     make_repo("a/one")
     mock_feeds(weekly=["a/one"], python=[])
 
     run()
 
     assert trending("c/old") is None
-    assert trending("a/one") == {"all": 1}
+    assert trending("a/one") == {"weekly:all": 1}
 
 
 @responses.activate
 @pytest.mark.django_db
 def test_G4_unreachable_feed_keeps_yesterdays_ranks_and_the_job_succeeds() -> None:
     yesterday = NOW - timedelta(days=1)
-    make_repo("c/old", trending={"all": 1, "Python": 2}, trending_at=yesterday)
+    make_repo("c/old", trending={"weekly:all": 1, "weekly:Python": 2}, trending_at=yesterday)
     mock_feeds(weekly=DOWN, python=[])
 
     out, err = run()
 
     repo = Repository.objects.get(full_name="c/old")
-    assert repo.trending == {"all": 1}  # Python answered with an empty list; "all" was down
+    assert repo.trending == {"weekly:all": 1}  # weekly Python answered empty; weekly all was down
     assert repo.trending_at == yesterday
     assert f"Trending feed unreachable: {FEED_BASE_URL}/weekly/all.xml" in err
     assert "1 feeds unreachable" in out
@@ -210,7 +221,7 @@ def test_W3_listed_repo_github_cannot_find_is_skipped() -> None:
 
     assert not Repository.objects.filter(full_name="gone/repo").exists()
     assert "gone/repo" in err
-    assert trending("a/one") == {"all": 2}  # GitHub's order is kept, gaps included
+    assert trending("a/one") == {"weekly:all": 2}  # GitHub's order is kept, gaps included
 
 
 @responses.activate
@@ -221,6 +232,14 @@ def test_W3_summary_reports_feeds_added_repositories_and_requests() -> None:
 
     out, err = run()
 
-    assert "Trending: 1 repositories from 4 feeds, 1 added or refreshed" in out
+    assert "Trending: 1 repositories from 6 feeds, 1 added or refreshed" in out
     assert "0 feeds unreachable" in out
     assert err == ""
+
+
+def test_G4_stored_weekly_ranks_move_to_period_keys() -> None:
+    from repositories.trending import with_period_keys
+
+    assert with_period_keys({"all": 1, "Python": 2}) == {"weekly:all": 1, "weekly:Python": 2}
+    assert with_period_keys({"weekly:all": 1, "daily:all": 3}) == {"weekly:all": 1, "daily:all": 3}
+    assert with_period_keys(None) is None
