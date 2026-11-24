@@ -18,6 +18,7 @@ KEEPING_UP_RATIO = 0.95
 FALLING_BEHIND_RATIO = 0.6
 ON_PACE_RATIO = 1.5
 USUAL_GAP_WINDOW = 8
+SHARE_NUMERATOR, SHARE_DENOMINATOR = 4, 5  # 80%: one person, and the "made 80%" group
 SECONDS_PER_DAY = 86_400
 
 
@@ -30,6 +31,11 @@ class BriefAnswer:
 def _change(current: int, previous: int) -> float | None:
     """Relative change, or None when there is nothing to compare against."""
     return (current - previous) / previous if previous > 0 else None
+
+
+def _reaches_share(part: int, total: int) -> bool:
+    """part / total >= 80%, in integers so the boundary is exact."""
+    return part * SHARE_DENOMINATOR >= total * SHARE_NUMERATOR
 
 
 def _days(span: timedelta) -> float:
@@ -117,4 +123,7 @@ def maintainer_concentration(commits_per_person: Sequence[int] | None) -> BriefA
     """
     if commits_per_person is None or sum(commits_per_person) == 0:
         return None
+    total = sum(commits_per_person)
+    if _reaches_share(max(commits_per_person), total):
+        return BriefAnswer("warn", "Depends on one person")
     return None
