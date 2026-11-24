@@ -48,3 +48,8 @@ def test_brief_maintenance_none_when_inputs_null() -> None:
 def test_brief_maintenance_stopped_when_no_commits_in_13_weeks() -> None:
     assert maintenance(0, 40) == BriefAnswer("bad", "Stopped")
     assert maintenance(0, 0) == BriefAnswer("bad", "Stopped")
+
+
+def test_brief_maintenance_slowing_down_when_down_more_than_40_percent() -> None:
+    assert maintenance(59, 100) == BriefAnswer("warn", "Slowing down")
+    assert maintenance(60, 100) != BriefAnswer("warn", "Slowing down")
