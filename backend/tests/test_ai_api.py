@@ -1,4 +1,4 @@
-"""F4 in the API: scanned on report open (cached 24h), served with provenance, flagged in rankings."""
+"""F4 in the API: scanned on report open (cached 24h), with provenance, flagged in rankings."""
 
 from datetime import UTC, datetime, timedelta
 from io import StringIO
