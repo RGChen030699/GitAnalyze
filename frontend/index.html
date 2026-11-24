@@ -550,21 +550,22 @@ function renderTable() {
     $('#tbody').innerHTML = shown.map(rowHtml).join('');
   }
   const rest = list.length - shown.length;
-  const scrolls = state.limit === 100 && rest > 0;
-  $('#moreWrap').innerHTML = scrolls
-    ? '<div class="more" id="moreSentinel"><button class="btn" type="button" id="moreBtn">Show ' + fmtN(Math.min(100, rest)) + ' more</button><span class="note">More load automatically as you scroll.</span></div>'
-    : rest > 0
-      ? '<div class="more"><span class="note">Showing the top ' + fmtN(shown.length) + '. Choose 100 to see more.</span></div>'
-      : (list.length > 25 && shown.length === list.length ? '<div class="more"><span class="note">End of list: all ' + fmtN(list.length) + ' repositories shown.</span></div>' : '');
-  if (scrolls && 'IntersectionObserver' in window) {
-    let armed = false; setTimeout(() => { armed = true; }, 600);
-    observer = new IntersectionObserver((en) => { if (armed && en[0].isIntersecting) loadMore(); }, { rootMargin: '160px' });
-    observer.observe($('#moreSentinel'));
+  $('#moreWrap').innerHTML = rest > 0
+    ? '<div class="more" id="moreSentinel"><button class="btn" type="button" id="moreBtn">Show more</button><span class="note">The next ' + fmtN(Math.min(state.limit, rest)) + ' load as you scroll.</span></div>'
+    : (state.pages > 1 || list.length > state.limit ? '<div class="more"><span class="note">End of list: all ' + fmtN(list.length) + ' repositories shown.</span></div>' : '');
+  if (rest > 0) {
+    /* Load the next batch only when the person scrolls near the end, never on its own after a render. */
+    const onScroll = () => {
+      const el = $('#moreSentinel');
+      if (el && el.getBoundingClientRect().top < window.innerHeight + 160) { window.removeEventListener('scroll', onScroll); loadMore(); }
+    };
+    window.addEventListener('scroll', onScroll, { passive: true });
+    observer = { disconnect: () => window.removeEventListener('scroll', onScroll) };
   }
 }
 function sortLabel() { return { trending: 'GitHub Trending rank', stars: 'stars', gained: 'stars gained, ' + WIN[state.win][1], commit: 'last commit', contributors: 'contributors', name: 'name' }[state.sort] + (state.dir === 'asc' ? ' (ascending)' : ''); }
-/* Show 25 or 50 means exactly that many. Only at 100 does scrolling keep adding rows. */
-function shownCount() { return state.limit < 100 ? state.limit : 100 * state.pages; }
+/* Show 25 / 50 / 100 sets how many rows load at first and per scroll. */
+function shownCount() { return state.limit * state.pages; }
 function loadMore() { const y = window.scrollY; state.pages++; renderTable(); window.scrollTo(0, y); }
 
 /* ---------- render: controls ---------- */
@@ -708,7 +709,7 @@ document.addEventListener('click', (e) => {
   const rec = t.closest('[data-recent]'); if (rec) { location.href = reportUrl(recFor(rec.dataset.recent)); return; }
   const v = t.closest('[data-view]'); if (v) { state.view = v.dataset.view; state.sort = state.view === 'gaining' ? 'gained' : state.view === 'trending' ? 'trending' : 'stars'; state.dir = 'desc'; state.pages = 1; renderControls(); loadRankings(); return; }
   const w = t.closest('[data-win]'); if (w) { state.win = w.dataset.win; state.pages = 1; renderControls(); loadRankings(); return; }
-  const l = t.closest('[data-limit]'); if (l) { state.limit = +l.dataset.limit; state.pages = 1; renderControls(); renderTable(); return; }
+  const l = t.closest('[data-limit]'); if (l) { const n = +l.dataset.limit; if (n === state.limit && state.pages === 1) return; state.limit = n; state.pages = 1; renderControls(); renderTable(); return; }
   if (t.closest('#moreBtn')) { loadMore(); return; }
   if (t.closest('#clearFocus')) { Object.assign(state, { focus: null, focusLabel: '', query: '', pages: 1 }); $('#lookupInput').value = ''; onLookupInput(); renderTable(); return; }
   if (t.closest('#resetFilters')) { Object.assign(state, { lang: 'Any', status: 'any', aiOnly: false, hideArch: true, focus: null, query: '', pages: 1 }); renderControls(); loadRankings(); return; }
