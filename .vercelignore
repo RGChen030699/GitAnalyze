@@ -7,3 +7,5 @@ backend/db.sqlite3
 .superpowers/
 .venv/
 *.html
+# Vercel prefers pyproject.toml over requirements.txt; ours holds only ruff and mypy settings.
+pyproject.toml

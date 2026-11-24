@@ -150,6 +150,15 @@ def test_H10_vercel_deployment_leaves_out_frontend_docs_and_tests() -> None:
         assert entry in ignored, entry
 
 
+def test_H10_vercel_installs_from_requirements_not_pyproject() -> None:
+    # Vercel's Python builder prefers pyproject.toml, which holds only ruff and mypy settings.
+    assert "pyproject.toml" in VERCELIGNORE.read_text().split()
+
+
+def test_H10_python_version_is_pinned_for_vercel() -> None:
+    assert (REPO_ROOT / ".python-version").read_text().strip() == "3.12"
+
+
 @pytest.mark.parametrize("path", [ROOT_VERCEL, FRONTEND_VERCEL, ENTRY_POINT, WORKFLOW])
 def test_H11_hosting_files_hold_no_secrets(path: Path) -> None:
     text = path.read_text()
