@@ -29,7 +29,7 @@ class BriefAnswer:
     value: str
 
 
-def _change(current: int, previous: int) -> float | None:
+def relative_change(current: int, previous: int) -> float | None:
     """Relative change, or None when there is nothing to compare against."""
     return (current - previous) / previous if previous > 0 else None
 
@@ -73,7 +73,7 @@ def interest(
         return BriefAnswer("neutral", "Fading")
     if gained_15d < FLAT_SHARE_OF_TOTAL * total_stars:
         return BriefAnswer("neutral", "Flat")
-    change = _change(gained_15d, gained_prev_15d)
+    change = relative_change(gained_15d, gained_prev_15d)
     if change is not None and change > INTEREST_CHANGE:
         return BriefAnswer("good", "Growing")
     if change is not None and change < -INTEREST_CHANGE:
@@ -87,7 +87,7 @@ def maintenance(commits_13w: int | None, commits_prev_13w: int | None) -> BriefA
         return None
     if commits_13w == 0:
         return BriefAnswer("bad", "Stopped")
-    change = _change(commits_13w, commits_prev_13w)
+    change = relative_change(commits_13w, commits_prev_13w)
     if change is not None and change < -COMMITS_DROP:
         return BriefAnswer("warn", "Slowing down")
     if change is not None and change > COMMITS_RISE:

@@ -10,6 +10,7 @@ from repositories.brief import (
     issue_response,
     maintainer_concentration,
     maintenance,
+    relative_change,
     release_pace,
 )
 from repositories.models import Repository, StarWeek
@@ -84,14 +85,18 @@ def _interest(repo: Repository, weeks: list[StarWeek]) -> dict[str, Any] | None:
     spike = is_star_spike(
         repo.stars_gained_7d, repo.forks_count, repo.open_issues_count, repo.stargazers_count
     )
-    answer = interest(
-        stars_gained(points, as_of, INTEREST_WINDOW_DAYS),
-        stars_gained_previous(points, as_of, INTEREST_WINDOW_DAYS),
-        repo.stargazers_count,
-        spike,
-    )
-    serialized = serialize_brief_answer(answer)
-    return None if serialized is None else {**serialized, "window_days": INTEREST_WINDOW_DAYS}
+    recent = stars_gained(points, as_of, INTEREST_WINDOW_DAYS)
+    previous = stars_gained_previous(points, as_of, INTEREST_WINDOW_DAYS)
+    serialized = serialize_brief_answer(interest(recent, previous, repo.stargazers_count, spike))
+    if serialized is None or previous is None:
+        return None
+    return {
+        **serialized,
+        "window_days": INTEREST_WINDOW_DAYS,
+        "recent": recent,
+        "previous": previous,
+        "change": relative_change(recent, previous),
+    }
 
 
 def _brief(repo: Repository, weeks: list[StarWeek], now: datetime) -> dict[str, Any]:
