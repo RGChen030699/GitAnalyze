@@ -465,7 +465,7 @@ footer .wrap{display:flex;flex-wrap:wrap;justify-content:space-between;gap:8px 2
 </main>
 
 <footer><div class="wrap">
-  <p class="note">Sample data for now. In production, numbers come from the public GitHub API, processed by GitAnalyze (independent, not affiliated with GitHub). Stars are bookmarks, not usage.</p>
+  <p class="note">Numbers come from the public GitHub API, processed by GitAnalyze (independent, not affiliated with GitHub). Stars are bookmarks, not usage.</p>
   <p class="note"><a href="/about">How every number is worked out</a></p>
 </div></footer>
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
@@ -473,35 +473,40 @@ footer .wrap{display:flex;flex-wrap:wrap;justify-content:space-between;gap:8px 2
 <script src="/metrics.js"></script>
 <script src="/export.js"></script>
 <script src="/compare-list.js"></script>
-<script src="/sample.js"></script>
+<script src="/data.js"></script>
+<script src="/report-kit.js"></script>
 <script>
 (() => {
 'use strict';
-const { $, DAY, NOW, LAST_SUN, MON, d, fDay, fDayY, fMonY, n0, compact, signed, pct, sum, median, ago, esc, rng, niceMax, niceTicks, ICON, TONE_ICON, toneIcon, PROFILES, TEMPLATE, hashStr, readRecord, profileFor, build, analyse, css, frame, yAxis, xLabels, tipper, hover } = window.GA;
+const { $, DAY, MON, d, fDay, fDayY, fMonY, n0, compact, signed, pct, sum, ago, esc, niceMax, niceTicks, ICON, toneIcon, frame, yAxis, xLabels, hover } = window.GA;
+const NOW = Date.now();
+const CALC = 'GitHub is still calculating this. Check back in a minute.';
+const calc = (el) => { el.innerHTML = `<p class="note">${CALC}</p>`; };
+const show = GAData.show;
 
 /* ---------- state ---------- */
-let P = profileFor(readRecord()), D, A;
+let P, D, A, DETAIL, REC;
 const ui = { range:'1y', view:'gained' };
 
 /* ---------- render: head + verdict + brief + KPIs ---------- */
 function renderHead(){
   $('#repoTitle').innerHTML = `<span class="own">${esc(P.owner)} /</span> ${esc(P.name)}`;
   $('#repoDesc').textContent = P.desc;
-  const ageYrs = P.ageWeeks/52;
-  const chips = [`<span class="chip">${P.ownerType}</span>`, `<span class="chip">${esc(P.lang)}</span>`, `<span class="chip">${ageYrs < 1 ? Math.round(P.ageWeeks/4.35) + ' months old' : ageYrs.toFixed(0) + (ageYrs < 1.5 ? ' year old' : ' years old')}</span>`];
+  const chips = [`<span class="chip">${esc(show(P.ownerType))}</span>`, `<span class="chip">${esc(show(P.lang))}</span>`, '<span class="chip">Age N/A</span>'];
   if (P.trending) chips.push(`<span class="chip warn">From GitHub Trending · #${P.trending}</span>`);
-  if (P.skills.length) chips.push(`<span class="chip accent">${P.skills.length} AI skills</span>`);
+  if (P.skills && P.skills.length) chips.push(`<span class="chip accent">${P.skills.length} AI skills</span>`);
   $('#repoChips').innerHTML = chips.join('');
   $('#ghLink').href = `https://github.com/${P.owner}/${P.name}`;
-  $('#freshTxt').textContent = 'Data last updated 2 hours ago';
-  document.querySelectorAll('.upd').forEach(e => e.textContent = 'Updated Nov 23, 2026, 12:04 UTC');
+  $('#freshTxt').textContent = 'Data last updated ' + ago(Date.parse(DETAIL.fetched_at));
+  const starsAt = DETAIL.star_history.length ? DETAIL.star_history[DETAIL.star_history.length-1].fetched_at : null;
+  document.querySelectorAll('.upd').forEach(e => { e.textContent = 'Updated ' + (e.closest('#s-momentum') ? GAData.utcStamp(starsAt) : 'N/A'); });
   document.title = `${P.owner}/${P.name} · GitAnalyze`;
 }
 function renderVerdict(){
   const t = A.statusTone;
   $('#vTile').className = 'vtile bg-' + t; $('#vTile').innerHTML = `<span class="t-${t}">${toneIcon(t)}</span>`;
   $('#vWord').className = 't-' + t; $('#vWord').textContent = A.status;
-  $('#vSent').textContent = A.issuesCount === 0 ? 'Nothing stood out. The usual signals look healthy.' : A.issuesCount === 1 ? '1 thing to look at before you adopt it.' : `${A.issuesCount} things to look at before you adopt it.`;
+  $('#vSent').textContent = A.issuesCount === 0 && A.unknownChecks ? 'Nothing stood out in the data we have.' : A.issuesCount === 0 ? 'Nothing stood out. The usual signals look healthy.' : A.issuesCount === 1 ? '1 thing to look at before you adopt it.' : `${A.issuesCount} things to look at before you adopt it.`;
   $('#vChecks').innerHTML = A.checks.map(c => `<li><span class="mark bg-${c.tone} t-${c.tone}">${toneIcon(c.tone)}</span><span class="t">${esc(c.t)}</span><button class="info" type="button" data-info="${c.k}" aria-label="About ${esc(c.t.toLowerCase())}" aria-expanded="false"></button><span class="d">${esc(c.d)}</span></li>`).join('');
 }
 function renderBrief(){
@@ -522,21 +527,22 @@ function delta(change, goodWhenUp = true, label = 'vs previous period'){
   return `<span class="delta t-${tone}">${ic}${pct(change)}<span class="muted" style="font-weight:400">&nbsp;${label}</span></span>`;
 }
 function renderKpis(){
-  const W = D.weeks, total = W[W.length-1].total;
-  const open = P.openIssues;
+  const W = D.weeks, total = DETAIL.stars;
+  const spark = (vals, tone) => vals.length > 1 ? sparkSvg(vals, tone) : '';
   const k = [
-    ['Total stars', 'stars', n0(total), delta(A.g30 / Math.max(1, total - A.g30), true, 'in 30 days'), sparkSvg(W.slice(-52).map(w => w.total))],
-    ['Stars gained, 30 days', 'gained', signed(A.g30), delta(A.momChange, true, 'vs prior 30 days'), sparkSvg(W.slice(-12).map(w => w.gained))],
-    ['Commits, 13 weeks', 'commits_13w', n0(A.commits90), delta(A.devChange, true, 'vs prior 13'), sparkSvg(D.commits.map(c => c.total))],
-    ['Open issues', 'open_issues', n0(open), `<span class="delta t-${A.backlog6 > 0 ? 'warn' : 'good'}">${A.backlog6 > 0 ? ICON.up : ICON.down}${signed(A.backlog6)}<span class="muted" style="font-weight:400">&nbsp;in 6 months</span></span>`, sparkSvg(D.months.map((m, i) => sum(D.months.slice(0, i+1).map(x => x.opened - x.closed))), 'var(--c2)')],
-    ['Pull requests merged', 'prs_merged', A.mergeRate === null ? 'N/A' : Math.round(A.mergeRate*100) + '%', `<small>${n0(A.prM)} of ${n0(A.prO)} in 12 months</small>`, sparkSvg(D.months.map(m => m.pr.merged))],
-    ['Releases, 12 months', 'releases_12m', n0(A.rel12), `<small>${A.lastRel ? 'Last ' + ago(A.lastRel.t) : 'N/A'}</small>`, sparkSvg(D.months.map(m => D.releases.filter(r => !r.pre && r.t >= m.t && r.t < m.t + 31*DAY).length))]
+    ['Total stars', 'stars', n0(total), A.g30 === null ? '<small>N/A in 30 days</small>' : delta(A.g30 / Math.max(1, total - A.g30), true, 'in 30 days'), spark(W.slice(-52).map(w => w.total))],
+    ['Stars gained, 30 days', 'gained', show(A.g30, signed), delta(A.momChange, true, 'vs prior 30 days'), spark(W.slice(-12).map(w => w.gained))],
+    ['Commits, 13 weeks', 'commits_13w', show(A.commits90, n0), delta(A.devChange, true, 'vs prior 13'), ''],
+    ['Open issues', 'open_issues', show(P.openIssues, n0), '<small>Issues and pull requests together</small>', ''],
+    ['Pull requests merged', 'prs_merged', 'N/A', '<small>N/A in 12 months</small>', ''],
+    ['Releases, 12 months', 'releases_12m', show(A.rel12, n0), `<small>${A.lastRel ? 'Last ' + ago(A.lastRel.t) : 'N/A'}</small>`, '']
   ];
   $('#kpis').innerHTML = k.map(([l, key, v, dl, sp]) => `<div class="kpi"><dt>${l}<button class="info" type="button" data-info="${key}" aria-label="About ${l.toLowerCase()}" aria-expanded="false"></button></dt><dd>${v}</dd>${dl}${sp}</div>`).join('');
 }
 
 /* ---------- render: charts ---------- */
 function renderPulse(){
+  if (!D.commits) { calc($('#pulse')); return; }
   const el = $('#pulse'), w = Math.max(200, el.clientWidth), h = 30, v = D.commits.map(c => c.total), mx = Math.max(1, ...v);
   const pts = v.map((x, i) => `${(i/(v.length-1)*w).toFixed(1)},${(h - 3 - x/mx*(h-8)).toFixed(1)}`).join(' ');
   const tone = { good:'var(--good)', warn:'var(--warn)', bad:'var(--bad)', neutral:'var(--ink-2)' }[A.statusTone];
@@ -548,7 +554,9 @@ function starSeries(){
   return D.weeks;
 }
 function renderStars(){
-  const el = $('#starChart'), S = starSeries(), F = frame(el, { l:52, r:12, t:16, b:30 });
+  const el = $('#starChart'), S = starSeries();
+  if (S.length < 2) { calc(el); $('#starLegend').innerHTML = ''; return; }
+  const F = frame(el, { l:52, r:12, t:16, b:30 });
   const gained = ui.view === 'gained';
   const vals = S.map(s => gained ? s.gained : s.total);
   let lo = gained ? Math.min(0, ...vals) : (ui.range === 'all' ? 0 : Math.min(...vals) * 0.97), hi = Math.max(...vals);
@@ -568,7 +576,7 @@ function renderStars(){
     g += `<polygon points="${sx(0).toFixed(1)},${F.y1} ${pts.join(' ')} ${sx(S.length-1).toFixed(1)},${F.y1}" style="fill:var(--c1);opacity:.1"/><polyline points="${pts.join(' ')}" fill="none" style="stroke:var(--c1)" stroke-width="2.2" stroke-linejoin="round"/>`;
   }
   /* release markers */
-  const rel = D.releases.filter(r => !r.pre && r.t >= S[0].t && r.t <= S[S.length-1].t + (S[0].daily ? DAY : 7*DAY));
+  const rel = (D.releases || []).filter(r => !r.pre && r.t >= S[0].t && r.t <= S[S.length-1].t + (S[0].daily ? DAY : 7*DAY));
   const idxOf = (t) => { for (let i = S.length-1; i >= 0; i--) if (t >= S[i].t) return i; return 0; };
   g += rel.map(r => { const x = sx(idxOf(r.t)); return `<path d="M${x.toFixed(1)} ${F.y1} l-4 7 h8 z" style="fill:var(--ink-3)"><title>${esc(r.tag)} released ${fDayY(r.t)}</title></path>`; }).join('');
   g += `<line class="cursor" x1="0" x2="0" y1="${F.y0}" y2="${F.y1}" style="stroke:var(--ink-3);display:none" stroke-dasharray="4 4"/><circle class="cdot" r="4.5" style="fill:var(--c1);stroke:var(--surface);display:none" stroke-width="2"/>`;
@@ -582,13 +590,14 @@ function renderStars(){
     : `<span><i class="ln" style="background:var(--c1)"></i>Total stars</span><span><svg width="10" height="8" style="margin-right:6px" aria-hidden="true"><path d="M5 0l-5 8h10z" style="fill:var(--ink-3)"/></svg>Release</span>`;
 }
 function renderStarText(){
-  const total = D.weeks[D.weeks.length-1].total;
-  $('#starSum').innerHTML = `<span><b>${signed(Math.round(A.g7))}</b>in the last 7 days</span><span><b>${signed(A.g30)}</b>in the last 30 days</span><span><b>${n0(total)}</b>total</span>`;
+  const total = DETAIL.stars;
+  $('#starSum').innerHTML = `<span><b>${show(A.g7, (x) => signed(Math.round(x)))}</b>in the last 7 days</span><span><b>${show(A.g30, signed)}</b>in the last 30 days</span><span><b>${n0(total)}</b>total</span>`;
   const m = A.findings[0][1];
-  $('#momTake').innerHTML = `<span class="t-${m.tone}">${toneIcon(m.tone)}</span><span>${A.spike ? 'Attention jumped suddenly in the last 2 weeks without matching work on the code.' : m.v === 'Growing' ? `Interest is growing: ${pct(A.momChange)} more stars than the 30 days before.` : m.v === 'Fading' ? 'Attention has faded: about as many people remove a star as add one.' : m.v === 'Flat' ? 'Interest has gone flat: very few new stars for a project this size.' : m.v === 'Cooling' ? 'Interest is cooling compared with the 30 days before.' : 'Interest is steady.'}</span>`;
+  $('#momTake').innerHTML = `<span class="t-${m.tone}">${toneIcon(m.tone)}</span><span>${m.v === 'N/A' ? 'N/A' : A.spike ? 'Attention jumped suddenly in the last 2 weeks without matching work on the code.' : m.v === 'Growing' ? (A.momChange === null ? 'Interest is growing.' : `Interest is growing: ${pct(A.momChange)} more stars than the 30 days before.`) : m.v === 'Fading' ? 'Attention has faded: about as many people remove a star as add one.' : m.v === 'Flat' ? 'Interest has gone flat: very few new stars for a project this size.' : m.v === 'Cooling' ? 'Interest is cooling compared with the 30 days before.' : 'Interest is steady.'}</span>`;
   $('#spikeAlert').innerHTML = A.spike ? `<div class="alert warn" role="alert">${ICON.warn}<span>Unusual spike: lots of new stars but little other activity. ${n0(D.weeks.slice(-2).reduce((s,w)=>s+w.gained,0))} stars in 2 weeks, against a usual ${n0(A.base12)} a week, while only ${n0(A.commits90)} commits were made in 13 weeks.</span></div>` : '';
 }
 function renderCommits(){
+  if (!D.commits) { calc($('#commitChart')); const m0 = A.findings[1][1]; $('#maintTake').innerHTML = `<span class="t-${m0.tone}">${toneIcon(m0.tone)}</span><span>${esc(m0.v)}</span>`; return; }
   const el = $('#commitChart'), C = D.commits, F = frame(el, { l:40, r:10, t:12, b:28 });
   const hi = niceMax(Math.max(4, ...C.map(c => c.total)) * 1.1), ticks = niceTicks(0, hi);
   const top = ticks[ticks.length-1], bw = (F.x1 - F.x0)/C.length, sx = (i) => F.x0 + bw*(i+0.5), sy = (v) => F.y1 - v/top*(F.y1 - F.y0);
@@ -605,6 +614,8 @@ function renderCommits(){
   $('#maintTake').innerHTML = `<span class="t-${m.tone}">${toneIcon(m.tone)}</span><span>${A.commits90 === 0 ? `No commits in the last 13 weeks. The last one was ${ago(A.lastCommit)}.` : `${n0(A.commits90)} commits in the last 13 weeks${A.devChange === null ? '' : `, ${pct(A.devChange)} on the 13 weeks before`}.`}</span>`;
 }
 function renderHeat(){
+  if (!D.commits) { calc($('#heat')); $('#heatLegend').innerHTML = '';
+    $('#maintFacts').innerHTML = [['Last commit', A.lastCommit === null ? 'N/A' : `${ago(A.lastCommit)}<small>${fDayY(A.lastCommit)}</small>`], ['Weeks with any commit', 'N/A'], ['Work on weekdays', 'N/A']].map(([a, b]) => `<div><dt>${a}</dt><dd>${b}</dd></div>`).join(''); return; }
   const el = $('#heat'), C = D.commits, w = Math.max(240, el.clientWidth), cols = 52, gap = 2;
   const cell = Math.max(3, Math.min(14, (w - 30 - gap*cols)/cols)), h = 7*(cell+gap) + 18;
   const all = C.flatMap(c => c.days), mx = Math.max(1, ...all);
@@ -627,6 +638,8 @@ function renderHeat(){
   ].map(([a, b]) => `<div><dt>${a}</dt><dd>${b}</dd></div>`).join('');
 }
 function renderPareto(){
+  if (!D.contrib) { calc($('#pareto')); const m0 = A.findings[4][1]; $('#peopleTake').innerHTML = `<span class="t-${m0.tone}">${toneIcon(m0.tone)}</span><span>${esc(m0.v)}</span>`;
+    $('#peopleFacts').innerHTML = [['People who committed last year', 'N/A'], ['Top contributor', 'N/A'], ['People behind 80% of commits', 'N/A'], ['Maintainer check', 'N/A'], ['Owner', `${esc(show(P.ownerType))}<small class="mono">${esc(P.owner)}</small>`]].map(([a, b]) => `<div><dt>${a}</dt><dd>${b}</dd></div>`).join(''); return; }
   const el = $('#pareto'), Cn = D.contrib.slice(0, 10), F = frame(el, { l:40, r:40, t:14, b:46 });
   const other = 1 - sum(Cn.map(c => c.share));
   const rows = other > 0.004 ? [...Cn, { login:`${P.contribOther - 10 > 0 ? P.contribOther - 10 + ' others' : 'Others'}`, share: other, other:true }] : Cn;
@@ -666,6 +679,9 @@ function grouped(el, rows, a, b, nameA, nameB){
   hover(el, F, rows.length, sx, (i) => ({ html:`<b>${fMonY(rows[i].t)}</b><br>${nameA}: ${n0(a(rows[i]))}<br>${nameB}: ${n0(b(rows[i]))}`, y: sy(Math.max(a(rows[i]), b(rows[i]))) }));
 }
 function renderIssues(){
+  if (!D.months) { ['#issChart', '#prChart', '#netChart'].forEach(s => calc($(s))); const s0 = A.findings[2][1];
+    $('#issTake').innerHTML = `<span class="t-${s0.tone}">${toneIcon(s0.tone)}</span><span>${esc(s0.v)}</span>`; $('#prTake').innerHTML = `<span class="t-neutral">${ICON.minus}</span><span>N/A</span>`;
+    $('#issFacts').innerHTML = [['Open issues', 'N/A'], ['Open pull requests', 'N/A'], ['Issues closed per 100 opened, 6 months', 'N/A'], ['Pull requests merged, 12 months', 'N/A']].map(([a, b]) => `<div><dt>${a}</dt><dd>${b}</dd></div>`).join(''); return; }
   const M = D.months;
   grouped($('#issChart'), M, r => r.opened, r => r.closed, 'Opened', 'Closed');
   grouped($('#prChart'), M, r => r.pr.opened, r => r.pr.merged, 'Opened', 'Merged');
@@ -689,6 +705,9 @@ function renderIssues(){
   ].map(([a, b]) => `<div><dt>${a}</dt><dd>${b}</dd></div>`).join('');
 }
 function renderReleases(){
+  if (!D.releases) { calc($('#relChart')); $('#relBullet').innerHTML = '<p class="note">N/A: not enough releases to work out a usual gap.</p>'; const s0 = A.findings[3][1];
+    $('#relTake').innerHTML = `<span class="t-${s0.tone}">${toneIcon(s0.tone)}</span><span>${esc(s0.v)}</span>`;
+    $('#relList').innerHTML = `<div><dt>Newest release</dt><dd>${A.lastRel ? `${ago(A.lastRel.t)}<small>${fDayY(A.lastRel.t)}</small>` : 'N/A'}</dd></div>`; return; }
   const el = $('#relChart'), F = frame(el, { l:12, r:12, t:30, b:28 });
   const t0 = NOW - 730*DAY, sx = (t) => F.x0 + (t - t0)/(NOW - t0)*(F.x1 - F.x0);
   const R = D.releases.filter(r => r.t >= t0), mid = (F.y0 + F.y1)/2;
@@ -717,6 +736,7 @@ function renderReleases(){
   $('#relList').innerHTML = D.releases.slice(-6).reverse().map(r => `<div><dt><span class="mono">${esc(r.tag)}</span> ${r.pre ? '<span class="chip warn">Prerelease</span>' : ''}</dt><dd>${ago(r.t)}<small>${fDayY(r.t)}</small></dd></div>`).join('') || '<p class="note">No releases.</p>';
 }
 function renderPeers(){
+  if (!P.peers) { $('#peerSub').textContent = 'N/A'; $('#peerTake').innerHTML = `<span class="t-neutral">${ICON.minus}</span><span>N/A</span>`; calc($('#peers')); return; }
   const pr = P.peers;
   $('#peerSub').textContent = `Where it sits among the ${n0(pr.n)} ${pr.group} repositories in GitAnalyze rankings.`;
   const live = { 'Total stars': D.weeks[D.weeks.length-1].total, 'Stars gained, last 30 days': A.g30, 'Commits, last 90 days': A.commits90, 'Issues closed per issue opened': A.closeRatio, 'Releases, last 12 months': A.rel12 };
@@ -730,8 +750,9 @@ function renderPeers(){
 const ordinal = (n) => { const s = ['th','st','nd','rd'], v = n % 100; return n + (s[(v-20)%10] || s[v] || s[0]); };
 const listJoin = (a) => a.length < 2 ? a.join('') : a.slice(0, -1).join(', ') + ' and ' + a[a.length-1];
 function renderAI(){
-  $('#aiCount').textContent = P.skills.length || ''; $('#aiCount').hidden = !P.skills.length;
   const card = $('#aiCard');
+  if (!P.skills) { $('#aiCount').hidden = true; card.innerHTML = `<div class="takeaway"><span class="t-neutral">${ICON.minus}</span><span>AI capabilities: N/A</span></div><p class="note"><a href="/about#ai">See the rules</a>.</p>`; return; }
+  $('#aiCount').textContent = P.skills.length || ''; $('#aiCount').hidden = !P.skills.length;
   if (!P.skills.length) { card.innerHTML = `<div class="takeaway"><span class="t-neutral">${ICON.minus}</span><span>No AI capabilities found by our rules.</span></div><p class="note">We looked for skill folders, agent setup files and an MCP server. <a href="/about#ai">See the rules</a>.</p>`; return; }
   card.innerHTML = `
     <div class="ctrls"><span class="chip">Publisher: ${esc(P.owner)} (${P.ownerType.toLowerCase()})</span><span class="chip">Repository updated ${ago(A.lastCommit)}</span><span class="chip ${A.statusTone === 'good' ? 'good' : A.statusTone === 'warn' ? 'warn' : ''}">Health: ${A.status}</span></div>
@@ -740,7 +761,7 @@ function renderAI(){
     <div class="tscroll"><table><thead><tr><th scope="col">Skill</th><th scope="col">What it does</th><th scope="col">Scripts</th></tr></thead><tbody>
     ${P.skills.map(([n, w, s]) => `<tr><td><span class="mono">${esc(n)}</span><br><span class="note mono">skills/${esc(n)}/SKILL.md</span></td><td>${esc(w)}</td><td>${s ? `<span class="chip warn">${s} script${s > 1 ? 's' : ''}</span>` : '<span class="muted">None</span>'}</td></tr>`).join('')}
     </tbody></table></div>
-    <p class="cap">We never show a quality score or a ‘safe’ label. Source <code>GET /repos/{owner}/{repo}/git/trees/{branch}?recursive=1</code> · <span class="upd">Updated Nov 23, 2026, 12:04 UTC</span></p>`;
+    <p class="cap">We never show a quality score or a ‘safe’ label. Source <code>GET /repos/{owner}/{repo}/git/trees/{branch}?recursive=1</code> · <span class="upd">Updated ${GAData.utcStamp(DETAIL.fetched_at)}</span></p>`;
 }
 
 /* ---------- info popover (F6 copy would come from metrics.yaml) ---------- */
@@ -756,7 +777,7 @@ document.addEventListener('click', (e) => {
   if (!def) return;
   const el = document.createElement('div'); el.className = 'popover panel'; el.setAttribute('role', 'dialog');
   el.style.cssText = 'position:absolute;z-index:60;max-width:340px;padding:14px 16px;box-shadow:var(--shadow);font-size:14px';
-  el.innerHTML = `<b style="font-size:15px">${esc(def.label)}</b><p style="margin:4px 0 8px;color:var(--ink-2)">${esc(def.means)}</p><p style="margin:0 0 6px"><b>How</b> ${esc(def.method)}</p><p style="margin:0 0 6px"><b>Source</b> <code class="mono" style="font-size:12px">${esc(def.source)}</code></p><p style="margin:0 0 6px"><b>Updated</b> Nov 23, 2026, 12:04 UTC</p><p class="note" style="margin:0"><b>Can’t tell you</b> ${esc(def.cannot)}</p><p class="note" style="margin:6px 0 0"><a href="/about#dictionary">All definitions</a></p>`;
+  el.innerHTML = `<b style="font-size:15px">${esc(def.label)}</b><p style="margin:4px 0 8px;color:var(--ink-2)">${esc(def.means)}</p><p style="margin:0 0 6px"><b>How</b> ${esc(def.method)}</p><p style="margin:0 0 6px"><b>Source</b> <code class="mono" style="font-size:12px">${esc(def.source)}</code></p><p style="margin:0 0 6px"><b>Updated</b> ${GAData.utcStamp(DETAIL ? DETAIL.fetched_at : null)}</p><p class="note" style="margin:0"><b>Can’t tell you</b> ${esc(def.cannot)}</p><p class="note" style="margin:6px 0 0"><a href="/about#dictionary">All definitions</a></p>`;
   document.body.appendChild(el);
   const r = b.getBoundingClientRect(); const left = Math.min(window.scrollX + r.left, window.scrollX + document.documentElement.clientWidth - el.offsetWidth - 12);
   el.style.left = Math.max(12, left) + 'px'; el.style.top = (window.scrollY + r.bottom + 6) + 'px';
@@ -767,21 +788,21 @@ document.addEventListener('keydown', (e) => { if (e.key === 'Escape') { closePop
 /* ---------- toast, copy, csv ---------- */
 let tt; function toast(msg){ const t = $('#toast'); t.textContent = msg; t.classList.add('show'); clearTimeout(tt); tt = setTimeout(() => t.classList.remove('show'), 3200); }
 $('#copyBrief').onclick = () => {
-  const lines = [`${P.owner}/${P.name}: ${A.status}. ${$('#vSent').textContent}`, '', ...A.findings.map(([q, f]) => `- ${q} ${f.v}. ${f.e}`), '', 'Watch out if:', ...A.watch.map(s => `- ${s}`), '', 'Source: GitHub API via GitAnalyze, updated Nov 23, 2026, 12:04 UTC. Stars are bookmarks, not usage.'];
+  const lines = [`${P.owner}/${P.name}: ${A.status}. ${$('#vSent').textContent}`, '', ...A.findings.map(([q, f]) => `- ${q} ${f.v}. ${f.e}`), '', 'Watch out if:', ...A.watch.map(s => `- ${s}`), '', `Source: GitHub API via GitAnalyze, updated ${GAData.utcStamp(DETAIL.fetched_at)}. Stars are bookmarks, not usage.`];
   const txt = lines.join('\n');
   (navigator.clipboard ? navigator.clipboard.writeText(txt) : Promise.reject()).then(() => toast('Copied the brief with the source and date.'), () => toast('Copy is blocked in this preview. In production a window shows the text to copy.'));
 };
 GAExport.mount($('#dlCsv'), (fmt) => {
-  const C = new Map(D.commits.map(c => [c.t, c.total]));
+  const C = new Map((D.commits || []).map(c => [c.t, c.total]));
   const rows = D.weeks.map(w => [new Date(w.t).toISOString().slice(0,10), w.gained, w.total, C.has(w.t) ? C.get(w.t) : '']);
   GAExport.download({ format: fmt, filename: `${P.owner}-${P.name}-weekly`, sheet: 'Weekly', head: ['Week starting', 'Stars gained', 'Total stars', 'Commits'], rows,
-    source: `Source: GitHub API via GitAnalyze, ${P.owner}/${P.name}, updated Nov 23, 2026, 12:04 UTC. Sample data.` });
+    source: `Source: GitHub API via GitAnalyze, ${P.owner}/${P.name}, updated ${GAData.utcStamp(DETAIL.fetched_at)}.` });
   toast(`Downloaded weekly numbers as ${fmt === 'xlsx' ? 'Excel' : 'CSV'} with the source and date.`);
 });
-const REC = readRecord();
 const PLUS = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>';
-function cmpButton(){ const on = GACompare.has(P.owner + '/' + P.name); $('#addCmp').innerHTML = on ? `${ICON.check}In compare` : `${PLUS}Add to compare`; $('#addCmp').setAttribute('aria-pressed', String(on)); $('#addCmp').querySelector('svg').style.cssText = 'width:16px;height:16px'; }
+function cmpButton(){ if (!P) return; const on = GACompare.has(P.owner + '/' + P.name); $('#addCmp').innerHTML = on ? `${ICON.check}In compare` : `${PLUS}Add to compare`; $('#addCmp').setAttribute('aria-pressed', String(on)); $('#addCmp').querySelector('svg').style.cssText = 'width:16px;height:16px'; }
 $('#addCmp').onclick = () => {
+  if (!P) return;
   const full = P.owner + '/' + P.name;
   if (GACompare.has(full)) { GACompare.remove(full); toast(`Removed ${full} from compare.`); }
   else { const res = GACompare.add(REC); toast(res === 'full' ? 'Compare up to 3 repositories at a time.' : `Added ${full} to compare.`); }
@@ -804,13 +825,39 @@ function spy(){ const line = 130; let on = 0; secs.forEach((sec, i) => { if (sec
 window.addEventListener('scroll', spy, { passive:true }); spy();
 
 function drawCharts(){ renderPulse(); renderStars(); renderCommits(); renderHeat(); renderPareto(); renderIssues(); renderReleases(); }
-function load(){
-  D = build(P); A = analyse(P, D);
+function repoFromPath(){
+  const m = location.pathname.match(/\/repo\/([^/]+)\/([^/?#]+)/);
+  const full = m ? decodeURIComponent(m[1]) + '/' + decodeURIComponent(m[2]) : (new URLSearchParams(location.search).get('repo') || '');
+  return full.split('/');
+}
+function showProblem(owner, name, text){
+  $('#repoTitle').innerHTML = `<span class="own">${esc(owner || '')} /</span> ${esc(name || '')}`;
+  $('#repoDesc').innerHTML = `<span class="alert warn" role="alert">${ICON.warn}<span>${esc(text)}</span></span>`;
+  $('#ghLink').href = `https://github.com/${encodeURIComponent(owner || '')}/${encodeURIComponent(name || '')}`;
+  $('#addCmp').hidden = true; $('#freshTxt').textContent = '';
+  document.querySelectorAll('main > section:not(.rhead), main > nav').forEach(el => { el.hidden = true; });
+}
+async function load(){
+  const [owner, name] = repoFromPath();
+  let res = null;
+  try { res = await fetch('/api/repos/' + encodeURIComponent(owner) + '/' + encodeURIComponent(name)); } catch (_) { res = null; }
+  if (!res || !res.ok) {
+    const body = res ? await res.json().catch(() => ({})) : {};
+    const mins = res ? GAData.busyMinutes(res.headers.get('Retry-After')) : null;
+    showProblem(owner, name, res && res.status === 404 ? (body.detail || `We couldn’t find a public repository at ${owner}/${name}`)
+      : mins ? `GitHub is busy. Try again in ${mins} minutes.` : 'GitHub is busy. Try again in a few minutes.');
+    return;
+  }
+  DETAIL = await res.json();
+  ({ P, D, A } = GAData.reportModel(DETAIL, NOW));
+  REC = GAData.compareRecord(DETAIL, NOW);
+  if (DETAIL.full_name.toLowerCase() !== (owner + '/' + name).toLowerCase()) history.replaceState(null, '', `/repo/${DETAIL.owner}/${DETAIL.name}`);
   renderHead(); renderVerdict(); renderBrief(); renderKpis(); renderStarText(); renderPeers(); renderAI();
   document.querySelectorAll('.info').forEach(b => { if (!b.innerHTML) b.innerHTML = ICON.info; });
   drawCharts();
+  cmpButton();
 }
-let rz; window.addEventListener('resize', () => { clearTimeout(rz); rz = setTimeout(drawCharts, 120); });
+let rz; window.addEventListener('resize', () => { if (!A) return; clearTimeout(rz); rz = setTimeout(drawCharts, 120); });
 load();
 cmpButton();
 })();
