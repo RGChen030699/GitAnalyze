@@ -81,3 +81,17 @@ def test_L4_missing_repo_is_fetched_and_saved(client: Client) -> None:
     assert saved.source == REPO_SOURCE
     assert saved.fetched_at == NOW
     assert responses.calls[0].request.url == REPO_URL
+
+
+@responses.activate
+@pytest.mark.django_db
+def test_L4_repo_fetched_24_hours_ago_is_refetched(client: Client) -> None:
+    make_repo(fetched_at=NOW - timedelta(hours=24), stargazers_count=1)
+    mock_flask()
+
+    response = client.get("/api/repos/pallets/flask")
+
+    assert response.status_code == 200
+    saved = Repository.objects.get()
+    assert saved.fetched_at == NOW
+    assert saved.stargazers_count == load("repo.json")["stargazers_count"]
