@@ -201,3 +201,36 @@ def test_G5_trending_0_does_not_filter(client: Client) -> None:
 @pytest.mark.django_db
 def test_T4_invalid_trending_returns_400(client: Client) -> None:
     assert client.get(URL, {"trending": "yes"}).status_code == 400
+
+
+@pytest.fixture
+def filter_repos() -> None:
+    make_repo("a/python", stars=400, language="Python", status="Active")
+    make_repo("b/go", stars=300, language="Go", status="Slowing")
+    make_repo("c/old", stars=200, language="Python", status="Archived", archived=True)
+    make_repo("d/none", stars=100)
+
+
+@pytest.mark.django_db
+@pytest.mark.parametrize(
+    ("params", "expected"),
+    [
+        ({"lang": "Python"}, ["a/python", "c/old"]),
+        ({"lang": "python"}, ["a/python", "c/old"]),
+        ({"lang": "Rust"}, []),
+        ({"status": "Slowing"}, ["b/go"]),
+        ({"archived": "1"}, ["c/old"]),
+        ({"archived": "0"}, ["a/python", "b/go", "d/none"]),
+        ({"lang": "Python", "archived": "0"}, ["a/python"]),
+        ({"lang": "Python", "status": "Slowing"}, []),
+    ],
+)
+@pytest.mark.usefixtures("filter_repos")
+def test_T2_filters(client: Client, params: dict[str, str], expected: list[str]) -> None:
+    assert names(client, **params) == expected
+
+
+@pytest.mark.django_db
+@pytest.mark.parametrize("params", [{"status": "Dead"}, {"archived": "yes"}])
+def test_T4_invalid_filter_returns_400(client: Client, params: dict[str, str]) -> None:
+    assert client.get(URL, params).status_code == 400
