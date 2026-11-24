@@ -10,7 +10,7 @@
 
 **Spec:** `docs/prd/F7-top-repositories.md`, with `F0`, `F1` (L1–L4), `F2` (R1–R4, S1–S5), `F3` §2 and `F8` §2.
 
-**Status:** Steps 1, 2, 3, 3a and 4 are done. Steps 5–8 have not been implemented. `refresh_rankings` has been tested only with recorded fixtures on in-memory SQLite. It has not run against live GitHub or a real Postgres database.
+**Status:** Steps 1, 2, 3, 3a, 4 and 6a are done. Step 5 is committed (`a3c892b`–`5fa4648`) but its checkboxes below were not ticked. Steps 6, 7 and 8 have not been implemented. `refresh_rankings` has been tested only with recorded fixtures on in-memory SQLite. It has not run against live GitHub or a real Postgres database.
 
 ## Global Constraints
 
@@ -284,6 +284,44 @@ Run on 2026-11-23 against `pallets/flask`.
 - [ ] Write tests one at a time, confirm each new behavior fails for the right reason, commit `test(F1): parser handles incomplete input [red]`.
 - [ ] Fix only `parsing.py`, covering the cases in `docs/plans/f1-followups.md`. The incomplete-link message is "That doesn't look like a GitHub repository. Use owner/repo or a github.com link."
 - [ ] Run the checks, commit `feat(F1): reject incomplete repository input [green]`.
+
+---
+
+### Step 6a: `GET /api/repos/{owner}/{name}` (F1 L4, F0 C8, F6 P1)
+
+**Files:**
+- Create: `backend/repositories/fetch.py`, `serializers.py`, `views.py`
+- Modify: `backend/config/urls.py`, `backend/repositories/ingest.py`
+- Test: `backend/tests/test_repo_detail_api.py`
+
+**Interfaces produced:**
+- `repositories.fetch.get_or_fetch(client, owner, name, now) -> Repository`. Raises `RepoNotFound` on a GitHub 404.
+- `repositories.serializers.serialize_detail(repo) -> dict`
+- `refresh_details(..., ranked: bool = True)`. Lookups pass `ranked=False`, so they never set `ranked_at` and never join the rankings (Step 5 "lookup-only rows").
+
+**Response:** `full_name, owner, name, description, language, owner_type, archived, stars, forks, open_issues, pushed_at, newest_release_at, status, stars_gained_7d, stars_gained_30d, stars_gained_year, commit_activity, contributors, releases, issues, pull_requests, star_history, provenance`.
+- `star_history` is `[{week_start, stars_gained, days, source, fetched_at}]`, oldest first, read from `star_week`.
+- `provenance` maps each value field to `{source, fetched_at}`, or `null` when the value is `null`. Repository fields use the repository's own `source`/`fetched_at`. Gains use the newest star week's `source` and `star_history_fetched_at`. `newest_release_at` uses `/repos/{full_name}/releases` and `status` uses "Computed from pushed_at and releases (F2 status rule)". Both take the repository's `fetched_at`, because releases are read in the same refresh and no separate release timestamp is stored.
+- `commit_activity`, `contributors`, `releases`, `issues` and `pull_requests` are always `null` for now. `open_issues` is GitHub's combined issue and pull request count.
+
+| Test | Assertion |
+|---|---|
+| `test_L4_fresh_repo_served_from_database_without_github_call` | Fetched 2 hours ago: 200, no request |
+| `test_L4_cache_lookup_is_case_insensitive` | `Pallets/FLASK` hits the cached row |
+| `test_L4_missing_repo_is_fetched_and_saved` | `/repos/pallets/flask` called first; row saved with its `source` and `fetched_at` |
+| `test_L4_repo_fetched_24_hours_ago_is_refetched` | Exactly 24 hours old: fetched and updated |
+| `test_lookup_fetch_does_not_mark_repo_ranked` | `ranked_at` stays `None` |
+| `test_lookup_refetch_keeps_existing_ranked_at` | A ranked row keeps its `ranked_at` |
+| `test_F2_detail_returns_repository_fields_status_and_gains` | All value fields, negative gains kept |
+| `test_F3_detail_returns_star_weeks_oldest_first_with_provenance` | Rows oldest first, each with `source` and `fetched_at` |
+| `test_C8_detail_gives_source_and_fetched_at_for_each_value` | Provenance per field; `null` value gives `null` provenance |
+| `test_detail_unstored_data_is_null_not_zero` | Unstored fields and their provenance are `null` |
+| `test_F1_unknown_repo_returns_404_with_message` | 404 with "We couldn't find a public repository at nobody/missing", no row saved |
+
+- [x] One red/green pair per rule, `a2cfd3a`–`f00b334`.
+- [x] Checks run before each green commit: `python -m pytest`, ruff on the changed files, `mypy backend`.
+
+**Not covered in 6a:** a rate limit or other GitHub error while fetching still gives a 500, and the client never sleeps because `wait_for_rate_limit=False`. Step 7's stale-cache and 503 rules should apply here too. A renamed repository's old name works, because GitHub redirects and the row is matched on `github_id`, but there is no test for it yet and every request for the old name refetches.
 
 ---
 
