@@ -95,3 +95,25 @@ def test_L4_repo_fetched_24_hours_ago_is_refetched(client: Client) -> None:
     saved = Repository.objects.get()
     assert saved.fetched_at == NOW
     assert saved.stargazers_count == load("repo.json")["stargazers_count"]
+
+
+@responses.activate
+@pytest.mark.django_db
+def test_lookup_fetch_does_not_mark_repo_ranked(client: Client) -> None:
+    mock_flask()
+
+    client.get("/api/repos/pallets/flask")
+
+    assert Repository.objects.get().ranked_at is None
+
+
+@responses.activate
+@pytest.mark.django_db
+def test_lookup_refetch_keeps_existing_ranked_at(client: Client) -> None:
+    ranked_at = NOW - timedelta(days=1)
+    make_repo(fetched_at=NOW - timedelta(hours=24), ranked_at=ranked_at)
+    mock_flask()
+
+    client.get("/api/repos/pallets/flask")
+
+    assert Repository.objects.get().ranked_at == ranked_at
