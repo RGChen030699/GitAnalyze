@@ -86,3 +86,8 @@ def test_brief_issue_response_falling_behind_from_60_to_95_percent() -> None:
     assert issue_response(100, 60) == BriefAnswer("warn", "Falling behind")
     assert issue_response(100, 94) == BriefAnswer("warn", "Falling behind")
     assert issue_response(100, 59) != BriefAnswer("warn", "Falling behind")
+
+
+def test_brief_issue_response_not_answering_under_60_percent() -> None:
+    assert issue_response(100, 59) == BriefAnswer("bad", "Not answering")
+    assert issue_response(40, 0) == BriefAnswer("bad", "Not answering")
