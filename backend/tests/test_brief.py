@@ -53,3 +53,8 @@ def test_brief_maintenance_stopped_when_no_commits_in_13_weeks() -> None:
 def test_brief_maintenance_slowing_down_when_down_more_than_40_percent() -> None:
     assert maintenance(59, 100) == BriefAnswer("warn", "Slowing down")
     assert maintenance(60, 100) != BriefAnswer("warn", "Slowing down")
+
+
+def test_brief_maintenance_speeding_up_when_up_more_than_10_percent() -> None:
+    assert maintenance(111, 100) == BriefAnswer("good", "Speeding up")
+    assert maintenance(110, 100) != BriefAnswer("good", "Speeding up")
