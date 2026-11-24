@@ -231,7 +231,15 @@ Run on 2026-11-23 against `pallets/flask`.
 - Modify: `backend/config/urls.py`, `backend/config/settings.py`
 - Test: `backend/tests/test_rankings_api.py`, `test_cors.py`
 
-**Interfaces produced:** `rankings.serializers.serialize_row(repo: Repository) -> dict`. Setting `FRONTEND_ORIGIN`, default `http://localhost:8080`. Sort values: `stars` (default), `gained_7d`, `gained_30d`, `gained_year`, `pushed`.
+**Interfaces produced:** `rankings.serializers.serialize_row(repo: Repository) -> dict`. Setting `FRONTEND_ORIGIN`, default `http://localhost:8080`.
+
+**Query parameters:**
+- `sort=stars` is the default: total lifetime stars descending, ties by `full_name`. Stars gained is never the default.
+- `sort=gained&window=7d|30d|1y` powers "Gaining stars". `window` defaults to `7d`. Missing gains sort last.
+- `sort=pushed` is "Recently active" (T3). Missing dates sort last.
+- `sort=trending` orders by trending rank ascending, and `trending=1` keeps only trending repositories. Both return an empty list until trending data exists.
+- Filters: `lang` (case-insensitive), `status` (`Active`, `Slowing`, `Quiet`, `Archived`), `archived=0|1`.
+- Paging: `limit=10|25|50|100` (default 25) and `page` (default 1). Invalid values return 400 with `{detail}`.
 
 | Test | Assertion |
 |---|---|
@@ -352,5 +360,6 @@ Run on 2026-11-23 against `pallets/flask`.
 ## Follow-ups (not in this plan)
 
 - Contributors, AI capabilities, Trending and spike warnings stay "N/A" or hidden until their data is collected.
+- **Trending (F8):** the `trending` field is `null` on every row for now, so `sort=trending` and `trending=1` return an empty list. A later step fills it from the GitHubTrendingRSS feed, pending the team's OK on that feed (F0 W3).
 - Repository names do not link anywhere until the F1 repository page exists (T6).
 - `/api/lookup` spends our token's quota and has no per-client throttle. Add one before deployment.
