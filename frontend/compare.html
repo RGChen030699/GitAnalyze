@@ -283,10 +283,7 @@ footer .wrap{display:flex;flex-wrap:wrap;justify-content:space-between;gap:8px 2
 .tone svg{width:15px;height:15px;flex:none}
 .empty{display:grid;gap:12px;justify-items:start;padding:28px}
 .empty h2{margin:0;font-family:var(--display);font-weight:650;font-size:24px}
-.sugg{display:flex;flex-wrap:wrap;gap:8px}
-.sugg button{display:inline-flex;align-items:center;gap:8px;min-height:44px;padding:0 14px;border-radius:10px;border:1px solid var(--line);background:var(--surface);cursor:pointer;font-family:var(--mono);font-size:13px;color:var(--ink)}
-.sugg button:hover{border-color:var(--ink-3)}
-.sugg button[disabled]{opacity:.55;cursor:default}
+#cmpSearch:focus-within{border-color:var(--accent)!important}
 @media (max-width:760px){ .ctable{table-layout:auto;min-width:640px} .ctable tbody th{width:150px} }
 </style>
 </head>
@@ -433,12 +430,15 @@ function render(){
   drawCharts();
 }
 function renderEmpty(){
-  const have = new Set(fulls.map(f => f.toLowerCase()));
-  const S = ['lumen-labs/agent-kit', 'newwave/hype-agent', 'oldframe/tablekit'];
   $('#body').innerHTML = `<div class="panel empty"><h2>${fulls.length ? 'Add one more repository to compare' : 'There are no repositories to compare yet'}</h2>
-    <p class="note" style="font-size:15px">${fulls.length ? `You have <span class="mono">${esc(fulls[0])}</span>. ` : ''}${fulls.length ? '' : 'Add at least two. '}Press the plus button next to any repository in the rankings, or add one of these.</p>
-    <div class="sugg">${S.map(f => `<button type="button" data-add="${f}" ${have.has(f) ? 'disabled' : ''}>+ ${f}</button>`).join('')}</div>
-    <a class="btn primary" href="/">Go to the rankings</a></div>`;
+    <p class="note" style="font-size:15px">${fulls.length ? `You have <span class="mono">${esc(fulls[0])}</span>. ` : 'Add at least two. '}Search for one, or press the plus button next to any repository in the rankings.</p>
+    <form class="lookup-box" id="cmpSearch" role="search" style="display:flex;flex-wrap:wrap;gap:6px;padding:5px;width:min(100%,640px);background:var(--surface);border:2px solid var(--line);border-radius:14px">
+      <label for="cmpQ" style="position:absolute;left:-9999px">Search repositories</label>
+      <input id="cmpQ" type="text" spellcheck="false" autocomplete="off" placeholder="owner/repo, a GitHub link, or a name" style="flex:1 1 260px;min-height:40px;border:none;background:transparent;padding:0 10px;font-family:var(--mono);font-size:14px;outline:none">
+      <button class="btn primary" type="submit" style="min-height:40px">Search</button>
+    </form>
+    <a class="btn" href="/">Back to rankings</a></div>`;
+  $('#cmpSearch').addEventListener('submit', (e) => { e.preventDefault(); const q = $('#cmpQ').value.trim(); if (q) location.href = '/?q=' + encodeURIComponent(q); });
 }
 
 /* ---------- overlaid charts ---------- */
@@ -469,8 +469,6 @@ function drawCharts(){
 document.addEventListener('click', (e) => {
   const rm = e.target.closest('[data-rm]');
   if (rm) { fulls = fulls.filter(f => f !== rm.dataset.rm); GACompare.set(fulls.map(recOf)); toast(`Removed ${rm.dataset.rm} from compare.`); render(); return; }
-  const add = e.target.closest('.sugg [data-add]');
-  if (add) { if (fulls.length >= 3) { toast('Compare up to 3 repositories at a time.'); return; } fulls.push(add.dataset.add); GACompare.set(fulls.map(recOf)); render(); return; }
 });
 $('#copyLink').onclick = () => { const url = location.href; (navigator.clipboard ? navigator.clipboard.writeText(url) : Promise.reject()).then(() => toast('Copied a link to this comparison.'), () => toast('Copy is blocked here. Copy the link from the address bar.')); };
 GAExport.mount($('#dlCmp'), (fmt) => {

@@ -771,6 +771,8 @@ $('#themeBtn').addEventListener('click', () => {
 });
 
 renderAll();
+/* /?q=… (from the compare page's search) runs that search here */
+(() => { const q = new URLSearchParams(location.search).get('q'); if (!q) return; $('#lookupInput').value = q; onLookupInput(); submitLookup({ preventDefault() {} }); history.replaceState(null, '', '/'); })();
 })();
 </script>
 <script src="/theme.js"></script>
