@@ -328,3 +328,31 @@ test('F8 G4 rankingsQuery sends the Trending period', () => {
   assert.equal(D.rankingsQuery(base, 1), 'sort=trending&trending=1&period=daily&limit=100&page=1');
   assert.equal(D.rankingsQuery({ ...base, period: 'monthly' }, 1), 'sort=trending&trending=1&period=monthly&limit=100&page=1');
 });
+
+/* F4: the AI capabilities panel from the API. */
+const aiPanel = {
+  has_ai: true, partial: false, publisher: 'organization', possible_skills: [], agent_files: [], uses_mcp: [], mcp_server: [], readme_mentions: null,
+  skills: [
+    { name: 'pdf', description: 'PDF work.', folder: 'skills/pdf', path: 'skills/pdf/SKILL.md', other_paths: [], scripts: ['scripts/fill.py'], standard: null, in_manifest: true, rule: 'r' },
+    { name: 'brand', description: 'Brand.', folder: 'skills/brand', path: 'skills/brand/SKILL.md', other_paths: [], scripts: [], standard: null, in_manifest: false, rule: 'r' },
+  ],
+};
+
+test('F4 reportModel passes the AI panel through and counts skills with scripts', () => {
+  const { P, A } = D.reportModel({ ...detail, ai: true, ai_capabilities: aiPanel }, NOW);
+  assert.equal(P.ai, aiPanel);
+  assert.equal(P.skills.length, 2);
+  assert.equal(A.scripted, 1);
+});
+
+test('F4 reportModel keeps AI data null until a scan exists', () => {
+  const { P, A } = D.reportModel(detail, NOW);
+  assert.equal(P.ai, null);
+  assert.equal(P.skills, null);
+  assert.equal(A.scripted, null);
+});
+
+test('F4 rankings rows keep the ai flag, null when not scanned', () => {
+  assert.equal(D.toRow({ ...apiRow, ai: true }, NOW).ai, true);
+  assert.equal(D.toRow({ ...apiRow, ai: null }, NOW).ai, null);
+});

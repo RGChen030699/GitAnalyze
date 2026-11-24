@@ -52,6 +52,9 @@ button,input,select{font:inherit;color:inherit}
 .wrap{max-width:1280px;margin:0 auto;padding:0 24px}
 .note{font-size:13px;color:var(--ink-3);margin:0}
 .muted{color:var(--ink-3)}
+.ai-files{list-style:none;margin:0 0 12px;padding:0;display:grid;gap:2px}
+.ai-files li{display:flex;flex-wrap:wrap;align-items:center;gap:6px}
+.ai-desc{display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
 @media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}*{animation:none!important;transition:none!important}}
 
 /* header (same as dashboard) */
@@ -753,19 +756,35 @@ function renderPeers(){
 }
 const ordinal = (n) => { const s = ['th','st','nd','rd'], v = n % 100; return n + (s[(v-20)%10] || s[v] || s[0]); };
 const listJoin = (a) => a.length < 2 ? a.join('') : a.slice(0, -1).join(', ') + ' and ' + a[a.length-1];
+/* F4: AI capabilities in four levels, with the rule and file behind each finding (info icon). */
+const why = (rule, path) => `<button class="info" type="button" data-rule="${esc(rule)}" data-path="${esc(path)}" aria-label="Why this was found: ${esc(path)}" aria-expanded="false"></button>`;
+const aiList = (items) => `<ul class="ai-files">${items.map((it) => `<li><span class="mono">${esc(it.path)}</span>${why(it.rule, it.path)}</li>`).join('')}</ul>`;
 function renderAI(){
-  const card = $('#aiCard');
-  if (!P.skills) { $('#aiCount').hidden = true; card.innerHTML = `<div class="takeaway"><span class="t-neutral">${ICON.minus}</span><span>AI capabilities: N/A</span></div><p class="note"><a href="/about#ai">See the rules</a>.</p>`; return; }
-  $('#aiCount').textContent = P.skills.length || ''; $('#aiCount').hidden = !P.skills.length;
-  if (!P.skills.length) { card.innerHTML = `<div class="takeaway"><span class="t-neutral">${ICON.minus}</span><span>No AI capabilities found by our rules.</span></div><p class="note">We looked for skill folders, agent setup files and an MCP server. <a href="/about#ai">See the rules</a>.</p>`; return; }
-  card.innerHTML = `
-    <div class="ctrls"><span class="chip">Publisher: ${esc(P.owner)} (${P.ownerType.toLowerCase()})</span><span class="chip">Repository updated ${ago(A.lastCommit)}</span><span class="chip ${A.statusTone === 'good' ? 'good' : A.statusTone === 'warn' ? 'warn' : ''}">Health: ${A.status}</span></div>
-    <h3>Contains ${P.skills.length} AI skills <span class="chip good" style="border-radius:6px;font-weight:600">High confidence</span></h3>
-    ${A.scripted ? `<div class="alert warn" role="alert">${ICON.warn}<span>${A.scripted} of ${P.skills.length} skills include scripts that can run on your computer. Read them before installing.</span></div>` : ''}
-    <div class="tscroll"><table><thead><tr><th scope="col">Skill</th><th scope="col">What it does</th><th scope="col">Scripts</th></tr></thead><tbody>
-    ${P.skills.map(([n, w, s]) => `<tr><td><span class="mono">${esc(n)}</span><br><span class="note mono">skills/${esc(n)}/SKILL.md</span></td><td>${esc(w)}</td><td>${s ? `<span class="chip warn">${s} script${s > 1 ? 's' : ''}</span>` : '<span class="muted">None</span>'}</td></tr>`).join('')}
-    </tbody></table></div>
-    <p class="cap">We never show a quality score or a ‘safe’ label. Source <code>GET /repos/{owner}/{repo}/git/trees/{branch}?recursive=1</code> · <span class="upd">Updated ${GAData.utcStamp(DETAIL.fetched_at)}</span></p>`;
+  const card = $('#aiCard'), ai = P.ai;
+  const rules = '<a href="/about#ai">See the rules</a>';
+  if (!ai) { $('#aiCount').hidden = true; card.innerHTML = `<div class="takeaway"><span class="t-neutral">${ICON.minus}</span><span>AI capabilities: N/A</span></div><p class="note">We haven’t scanned this repository yet. ${rules}.</p>`; return; }
+  $('#aiCount').textContent = ai.skills.length || ''; $('#aiCount').hidden = !ai.skills.length;
+  const parts = [];
+  parts.push(`<div class="ctrls"><span class="chip">${ai.publisher === 'organization' ? 'Published by an organization' : 'Published by a personal account'}</span><span class="chip">Repository last updated ${A.lastCommit === null ? 'N/A' : ago(A.lastCommit)}</span><span class="chip ${A.statusTone === 'good' ? 'good' : A.statusTone === 'warn' ? 'warn' : ''}">Health: ${esc(A.status)}</span></div>`);
+  if (ai.partial) parts.push(`<div class="alert warn" role="status">${ICON.warn}<span>Partial scan: this repository is too large to list every file, so some findings may be missing.</span></div>`);
+  if (!ai.has_ai) parts.push(`<div class="takeaway"><span class="t-neutral">${ICON.minus}</span><span>No AI capabilities found by our rules.</span></div><p class="note">We looked for skill folders, agent setup files and an MCP server. ${rules}.</p>`);
+  if (ai.skills.length) {
+    const scripted = ai.skills.filter((sk) => sk.scripts.length).length;
+    parts.push(`<h3>Contains ${ai.skills.length} AI skill${ai.skills.length > 1 ? 's' : ''}</h3>`);
+    if (scripted) parts.push(`<div class="alert warn" role="note">${ICON.warn}<span>${scripted === ai.skills.length ? (scripted > 1 ? 'All these skills include' : 'This skill includes') : `${scripted} of ${ai.skills.length} skills include`} scripts that can run on your computer. Read them before installing.</span></div>`);
+    parts.push(`<div class="tscroll"><table><thead><tr><th scope="col">Skill</th><th scope="col">What it does</th><th scope="col">Scripts</th><th scope="col">Agent Skills standard</th></tr></thead><tbody>${ai.skills.map((sk) => `<tr>
+      <td><span class="mono">${esc(sk.name)}</span>${why(sk.rule, sk.path)}<br><span class="note mono">${esc(sk.path)}</span>${sk.other_paths.length ? `<br><span class="note">Also copied to ${sk.other_paths.map((p) => `<span class="mono">${esc(p)}</span>`).join(', ')}</span>` : ''}${sk.in_manifest ? '<br><span class="note">Listed in plugin manifest</span>' : ''}</td>
+      <td><span class="ai-desc" title="${esc(sk.description)}">${esc(sk.description)}</span></td>
+      <td>${sk.scripts.length ? `<span class="chip warn" title="${esc(sk.scripts.join(', '))}">${sk.scripts.length} script${sk.scripts.length > 1 ? 's' : ''}</span>` : '<span class="muted">None</span>'}</td>
+      <td>${sk.standard ? `<span class="note">Doesn’t fully follow it: ${esc(sk.standard)}</span>` : '<span class="note">Follows it</span>'}</td></tr>`).join('')}</tbody></table></div>`);
+  }
+  if (ai.agent_files.length) parts.push(`<h3>Set up for AI coding agents</h3>${aiList(ai.agent_files)}`);
+  if (ai.uses_mcp.length) parts.push(`<p class="note">Uses MCP servers (it connects to them; it isn’t one).</p>${aiList(ai.uses_mcp)}`);
+  if (ai.mcp_server.length) parts.push(`<h3>Provides an MCP server: a tool AI apps can connect to</h3>${aiList(ai.mcp_server)}`);
+  if (ai.possible_skills.length) parts.push(`<h3>Possible skills</h3><ul class="ai-files">${ai.possible_skills.map((ps) => `<li><span class="mono">${esc(ps.path)}</span> <span class="note">${esc(ps.reason)}</span>${why(ps.rule, ps.path)}</li>`).join('')}</ul>`);
+  if (ai.readme_mentions) parts.push(`<p class="note">README mentions AI features (a hint, not proof): ${ai.readme_mentions.phrases.map(esc).join(', ')}${why(ai.readme_mentions.rule, ai.readme_mentions.path)}</p>`);
+  parts.push(`<p class="cap">We never show a quality score or a ‘safe’ label. Source <code>${esc(ai.source || 'GET /repos/{owner}/{repo}/git/trees/{branch}?recursive=1')}</code> · <span class="upd">Updated ${GAData.utcStamp(DETAIL.provenance && DETAIL.provenance.ai_capabilities ? DETAIL.provenance.ai_capabilities.fetched_at : null)}</span></p>`);
+  card.innerHTML = parts.join('');
 }
 
 /* ---------- info popover (F6 copy would come from metrics.yaml) ---------- */
@@ -778,10 +797,11 @@ document.addEventListener('click', (e) => {
   if (pop && pop.btn === b) { closePop(); return; }
   closePop();
   const def = DEF[b.dataset.info];
-  if (!def) return;
+  if (!def && !b.dataset.rule) return;
   const el = document.createElement('div'); el.className = 'popover panel'; el.setAttribute('role', 'dialog');
   el.style.cssText = 'position:absolute;z-index:60;max-width:340px;padding:14px 16px;box-shadow:var(--shadow);font-size:14px';
-  el.innerHTML = `<b style="font-size:15px">${esc(def.label)}</b><p style="margin:4px 0 8px;color:var(--ink-2)">${esc(def.means)}</p><p style="margin:0 0 6px"><b>How</b> ${esc(def.method)}</p><p style="margin:0 0 6px"><b>Source</b> <code class="mono" style="font-size:12px">${esc(def.source)}</code></p><p style="margin:0 0 6px"><b>Updated</b> ${GAData.utcStamp(DETAIL ? DETAIL.fetched_at : null)}</p><p class="note" style="margin:0"><b>Can’t tell you</b> ${esc(def.cannot)}</p><p class="note" style="margin:6px 0 0"><a href="/about#dictionary">All definitions</a></p>`;
+  if (b.dataset.rule) el.innerHTML = `<b style="font-size:15px">Why this was found</b><p style="margin:4px 0 6px"><b>Rule</b> ${esc(b.dataset.rule)}</p><p style="margin:0"><b>File</b> <code class="mono" style="font-size:12px">${esc(b.dataset.path)}</code></p><p class="note" style="margin:6px 0 0"><a href="/about#ai">All AI rules</a></p>`;
+  else el.innerHTML = `<b style="font-size:15px">${esc(def.label)}</b><p style="margin:4px 0 8px;color:var(--ink-2)">${esc(def.means)}</p><p style="margin:0 0 6px"><b>How</b> ${esc(def.method)}</p><p style="margin:0 0 6px"><b>Source</b> <code class="mono" style="font-size:12px">${esc(def.source)}</code></p><p style="margin:0 0 6px"><b>Updated</b> ${GAData.utcStamp(DETAIL ? DETAIL.fetched_at : null)}</p><p class="note" style="margin:0"><b>Can’t tell you</b> ${esc(def.cannot)}</p><p class="note" style="margin:6px 0 0"><a href="/about#dictionary">All definitions</a></p>`;
   document.body.appendChild(el);
   const r = b.getBoundingClientRect(); const left = Math.min(window.scrollX + r.left, window.scrollX + document.documentElement.clientWidth - el.offsetWidth - 12);
   el.style.left = Math.max(12, left) + 'px'; el.style.top = (window.scrollY + r.bottom + 6) + 'px';

@@ -211,7 +211,8 @@
       archived: det.archived, openIssues: det.open_issues, openPrs: null,
       license: license ? license.spdx_id || '' : null, created: det.created_at ? Date.parse(det.created_at) : null,
       contribOther: missing(det.contributors_last_year) ? null : det.contributors_last_year,
-      skills: null, peers: null, trending: missing(det.trending) ? null : det.trending };
+      ai: det.ai_capabilities || null, skills: det.ai_capabilities ? det.ai_capabilities.skills : null,
+      peers: null, trending: missing(det.trending) ? null : det.trending };
     const commits = commitSeries(det.commit_activity);
     const contrib = contributorShares(det);
     const releases = releaseSeries(det.releases);
@@ -241,7 +242,8 @@
       commits90: win.recent, commitsPrev90: win.previous, devChange: win.change,
       spike: null, top: contrib ? contrib[0].share : null, for80: missing(det.people_for_80) ? null : det.people_for_80,
       single: contrib ? !!det.single_maintainer : null, closeRatio: null, mergeRate: null, backlog6: null, growStreak: null,
-      prO: null, prM: null, rel12: missing(det.releases_12m) ? null : det.releases_12m, medGap: usualGap(releases), scripted: null,
+      prO: null, prM: null, rel12: missing(det.releases_12m) ? null : det.releases_12m, medGap: usualGap(releases),
+      scripted: P.skills ? P.skills.filter((sk) => sk.scripts.length).length : null,
       pending, checks, findings,
       issuesCount: known.filter((c) => c.tone === 'warn' || c.tone === 'bad').length, unknownChecks: checks.length - known.length,
       ...fw,
