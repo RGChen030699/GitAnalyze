@@ -14,6 +14,24 @@ from tests.test_refresh_rankings import load, mock_details
 NOW = datetime(2026, 11, 23, 12, 0, tzinfo=UTC)
 REPO_SOURCE = "/repos/pallets/flask"
 REPO_URL = f"{API_BASE_URL}{REPO_SOURCE}"
+DETAIL_FIELDS = (
+    "full_name",
+    "owner",
+    "name",
+    "description",
+    "language",
+    "owner_type",
+    "archived",
+    "stars",
+    "forks",
+    "open_issues",
+    "pushed_at",
+    "newest_release_at",
+    "status",
+    "stars_gained_7d",
+    "stars_gained_30d",
+    "stars_gained_year",
+)
 
 
 @pytest.fixture(autouse=True)
@@ -117,3 +135,38 @@ def test_lookup_refetch_keeps_existing_ranked_at(client: Client) -> None:
     client.get("/api/repos/pallets/flask")
 
     assert Repository.objects.get().ranked_at == ranked_at
+
+
+@pytest.mark.django_db
+def test_F2_detail_returns_repository_fields_status_and_gains(client: Client) -> None:
+    make_repo(
+        description="A micro framework",
+        language="Python",
+        pushed_at=NOW - timedelta(days=3),
+        newest_release_at=NOW - timedelta(days=40),
+        status="Active",
+        stars_gained_7d=12,
+        stars_gained_30d=-2,
+        stars_gained_year=400,
+    )
+
+    body = client.get("/api/repos/pallets/flask").json()
+
+    assert {key: body[key] for key in DETAIL_FIELDS} == {
+        "full_name": "pallets/flask",
+        "owner": "pallets",
+        "name": "flask",
+        "description": "A micro framework",
+        "language": "Python",
+        "owner_type": "Organization",
+        "archived": False,
+        "stars": 100,
+        "forks": 10,
+        "open_issues": 5,
+        "pushed_at": "2026-11-20T12:00:00Z",
+        "newest_release_at": "2026-10-14T12:00:00Z",
+        "status": "Active",
+        "stars_gained_7d": 12,
+        "stars_gained_30d": -2,
+        "stars_gained_year": 400,
+    }
