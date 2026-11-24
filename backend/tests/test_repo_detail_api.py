@@ -56,6 +56,7 @@ def make_repo(full_name: str = "pallets/flask", **overrides: Any) -> Repository:
         "open_issues_count": 5,
         "source": REPO_SOURCE,
         "fetched_at": NOW - timedelta(hours=2),
+        "health_fetched_at": NOW - timedelta(hours=2),  # fresh, so opening it calls no one
         "raw": {},
     }
     return Repository.objects.create(**{**fields, **overrides})

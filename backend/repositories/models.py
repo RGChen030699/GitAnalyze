@@ -27,6 +27,11 @@ class Repository(models.Model):
     star_history_fetched_at = models.DateTimeField(null=True, blank=True)
     ranked_at = models.DateTimeField(null=True, blank=True)
     raw = models.JSONField()
+    # Non-draft releases from the newest 100, read in the same refresh as the repository.
+    releases = models.JSONField(null=True, blank=True)
+    # F2 parts fetched when a report opens: each holds its data, source and fetched_at.
+    health = models.JSONField(null=True, blank=True)
+    health_fetched_at = models.DateTimeField(null=True, blank=True)
 
     class Meta:
         db_table = "repository"

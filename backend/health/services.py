@@ -1,7 +1,7 @@
 """Pure repository health rules (F2)."""
 
 import re
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from datetime import datetime, timedelta
 from typing import Any
 
@@ -68,7 +68,11 @@ def single_maintainer(stats: Sequence[dict[str, Any]] | None, now: datetime) -> 
     """The login behind 80% or more of last year's commits, PENDING, or None (M3–M5)."""
     if stats is None:
         return PENDING
-    commits = contributor_commits(stats, now)
+    return maintainer_of(contributor_commits(stats, now))
+
+
+def maintainer_of(commits: Mapping[str, int]) -> str | None:
+    """The login with 80% or more of these commits, or None (M3, M4)."""
     total = sum(commits.values())
     if total == 0:
         return None

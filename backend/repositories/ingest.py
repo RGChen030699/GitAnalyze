@@ -81,13 +81,21 @@ def _fetch_list(client: GitHubClient, path: str, params: dict[str, int]) -> GitH
     return response
 
 
-def _fetch_newest_release(client: GitHubClient, full_name: str) -> datetime | None:
+RELEASE_KEYS = ("tag_name", "published_at", "draft", "prerelease")
+
+
+def _fetch_releases(client: GitHubClient, full_name: str) -> list[dict[str, Any]]:
+    """Non-draft releases, slimmed to the fields the F2 rules read."""
     response = _fetch_list(client, f"/repos/{full_name}/releases", {"per_page": RELEASES_PAGE_SIZE})
-    published = [
-        parse_datetime(release["published_at"])
+    return [
+        {key: release.get(key) for key in RELEASE_KEYS}
         for release in response.data
         if not release.get("draft") and release.get("published_at")
     ]
+
+
+def _newest_release_at(releases: list[dict[str, Any]]) -> datetime | None:
+    published = [parse_datetime(release["published_at"]) for release in releases]
     return max((moment for moment in published if moment is not None), default=None)
 
 
@@ -154,8 +162,10 @@ def refresh_details(
     failed: list[str] = []
     releases_known = True
     newest_release_at = repo.newest_release_at
+    releases = repo.releases
     try:
-        newest_release_at = _fetch_newest_release(client, repo.full_name)
+        releases = _fetch_releases(client, repo.full_name)
+        newest_release_at = _newest_release_at(releases)
     except GitHubError:
         releases_known = False
         failed.append("releases")
@@ -173,6 +183,7 @@ def refresh_details(
         if history is not None:
             _store_history(repo, history, now)
         repo.newest_release_at = newest_release_at
+        repo.releases = releases
         repo.status = compute_status(
             repo.archived, repo.pushed_at, newest_release_at, releases_known, now
         )
