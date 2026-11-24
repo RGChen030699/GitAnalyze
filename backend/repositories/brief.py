@@ -104,4 +104,4 @@ def release_pace(releases: Sequence[datetime] | None, now: datetime) -> BriefAns
     ratio = _days(now - dates[-1]) / usual_gap
     if ratio <= ON_PACE_RATIO:
         return BriefAnswer("good", "On its usual pace")
-    return None
+    return BriefAnswer("warn", f"Overdue, {ratio:.1f}× its usual gap")
