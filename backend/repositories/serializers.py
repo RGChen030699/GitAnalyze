@@ -1,8 +1,24 @@
 """JSON shape of one repository on the repository page."""
 
+from datetime import datetime
 from typing import Any
 
 from repositories.models import Repository, StarWeek
+
+REPOSITORY_FIELDS = (
+    "description",
+    "language",
+    "owner_type",
+    "archived",
+    "stars",
+    "forks",
+    "open_issues",
+    "pushed_at",
+)
+GAIN_FIELDS = ("stars_gained_7d", "stars_gained_30d", "stars_gained_year")
+STATUS_SOURCE = "Computed from pushed_at and releases (F2 status rule)"
+
+Origin = dict[str, Any] | None
 
 
 def _star_week(week: StarWeek) -> dict[str, Any]:
@@ -15,10 +31,33 @@ def _star_week(week: StarWeek) -> dict[str, Any]:
     }
 
 
+def _origin(source: str, fetched_at: datetime | None) -> Origin:
+    return {"source": source, "fetched_at": fetched_at}
+
+
+def _origins(repo: Repository, newest_week: StarWeek | None) -> dict[str, Origin]:
+    """Where each value came from. Releases are read in the same refresh as the repository."""
+    fetched = _origin(repo.source, repo.fetched_at)
+    origins: dict[str, Origin] = dict.fromkeys(REPOSITORY_FIELDS, fetched)
+    origins["newest_release_at"] = _origin(f"/repos/{repo.full_name}/releases", repo.fetched_at)
+    origins["status"] = _origin(STATUS_SOURCE, repo.fetched_at)
+    history = None
+    if newest_week is not None:
+        history = _origin(newest_week.source, repo.star_history_fetched_at)
+    origins.update(dict.fromkeys(GAIN_FIELDS, history))
+    return origins
+
+
+def _provenance(values: dict[str, Any], origins: dict[str, Origin]) -> dict[str, Origin]:
+    """A null value has no source, so its provenance is null too (F6 P1)."""
+    return {field: None if values[field] is None else origin for field, origin in origins.items()}
+
+
 def serialize_detail(repo: Repository) -> dict[str, Any]:
     """Keep missing values as null so the page can show N/A, never 0."""
     owner, name = repo.full_name.split("/", 1)
-    return {
+    weeks = list(repo.star_weeks.order_by("week_start"))
+    values: dict[str, Any] = {
         "full_name": repo.full_name,
         "owner": owner,
         "name": name,
@@ -35,5 +74,10 @@ def serialize_detail(repo: Repository) -> dict[str, Any]:
         "stars_gained_7d": repo.stars_gained_7d,
         "stars_gained_30d": repo.stars_gained_30d,
         "stars_gained_year": repo.stars_gained_year,
-        "star_history": [_star_week(week) for week in repo.star_weeks.order_by("week_start")],
+    }
+    origins = _origins(repo, weeks[-1] if weeks else None)
+    return {
+        **values,
+        "star_history": [_star_week(week) for week in weeks],
+        "provenance": _provenance(values, origins),
     }
