@@ -74,3 +74,9 @@ def test_brief_issue_response_none_when_inputs_null() -> None:
 def test_brief_issue_response_na_when_no_issues_opened_in_6_months() -> None:
     assert issue_response(0, 0) == BriefAnswer("neutral", "N/A")
     assert issue_response(0, 3) == BriefAnswer("neutral", "N/A")
+
+
+def test_brief_issue_response_keeping_up_at_95_percent_or_more() -> None:
+    assert issue_response(100, 95) == BriefAnswer("good", "Keeping up")
+    assert issue_response(100, 120) == BriefAnswer("good", "Keeping up")
+    assert issue_response(100, 94) != BriefAnswer("good", "Keeping up")
