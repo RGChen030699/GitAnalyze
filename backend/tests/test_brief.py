@@ -58,3 +58,9 @@ def test_brief_maintenance_slowing_down_when_down_more_than_40_percent() -> None
 def test_brief_maintenance_speeding_up_when_up_more_than_10_percent() -> None:
     assert maintenance(111, 100) == BriefAnswer("good", "Speeding up")
     assert maintenance(110, 100) != BriefAnswer("good", "Speeding up")
+
+
+def test_brief_maintenance_steady_otherwise() -> None:
+    assert maintenance(110, 100) == BriefAnswer("good", "Steady")
+    assert maintenance(60, 100) == BriefAnswer("good", "Steady")
+    assert maintenance(12, 0) == BriefAnswer("good", "Steady")
