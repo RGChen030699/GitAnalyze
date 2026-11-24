@@ -16,5 +16,5 @@ def get_or_fetch(client: GitHubClient, owner: str, name: str, now: datetime) -> 
         return cached
     response = client.get(f"/repos/{owner}/{name}")
     repo = upsert_repository(response.data, response.source, response.fetched_at)
-    refresh_details(client, repo, now)
+    refresh_details(client, repo, now, ranked=False)
     return repo

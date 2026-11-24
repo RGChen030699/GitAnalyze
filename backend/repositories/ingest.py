@@ -144,8 +144,13 @@ def _store_history(repo: Repository, history: _History, now: datetime) -> None:
     _cap_gains(repo)
 
 
-def refresh_details(client: GitHubClient, repo: Repository, now: datetime) -> list[str]:
-    """Refresh releases and star history, and return the names of the parts that failed."""
+def refresh_details(
+    client: GitHubClient, repo: Repository, now: datetime, ranked: bool = True
+) -> list[str]:
+    """Refresh releases and star history, and return the names of the parts that failed.
+
+    Pass ``ranked=False`` for on-demand lookups, which must not join the rankings.
+    """
     failed: list[str] = []
     releases_known = True
     newest_release_at = repo.newest_release_at
@@ -171,6 +176,7 @@ def refresh_details(client: GitHubClient, repo: Repository, now: datetime) -> li
         repo.status = compute_status(
             repo.archived, repo.pushed_at, newest_release_at, releases_known, now
         )
-        repo.ranked_at = now
+        if ranked:
+            repo.ranked_at = now
         repo.save()
     return failed
