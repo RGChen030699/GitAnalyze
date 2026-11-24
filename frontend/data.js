@@ -76,10 +76,16 @@
     return days;
   }
 
+  /** Evidence line for an answer that names its window (interest: window_days). */
+  function evidence(a) {
+    const w = a.window_days;
+    return w ? `Net stars in ${w} days, change on the ${w} days before` : '';
+  }
+
   function briefFindings(brief) {
     return QUESTIONS.map(([key, question]) => {
       const a = brief && brief[key];
-      return [question, a ? { tone: a.tone, v: a.value, e: '' } : { tone: 'neutral', v: 'N/A', e: '' }];
+      return [question, a ? { tone: a.tone, v: a.value, e: evidence(a) } : { tone: 'neutral', v: 'N/A', e: '' }];
     });
   }
 
