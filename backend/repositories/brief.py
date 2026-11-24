@@ -9,6 +9,7 @@ Tone = Literal["good", "warn", "bad", "neutral"]
 
 FLAT_SHARE_OF_TOTAL = 0.002
 INTEREST_CHANGE = 0.1
+COMMITS_DROP = 0.4
 
 
 @dataclass(frozen=True)
@@ -51,4 +52,7 @@ def maintenance(commits_13w: int | None, commits_prev_13w: int | None) -> BriefA
         return None
     if commits_13w == 0:
         return BriefAnswer("bad", "Stopped")
+    change = _change(commits_13w, commits_prev_13w)
+    if change is not None and change < -COMMITS_DROP:
+        return BriefAnswer("warn", "Slowing down")
     return None
