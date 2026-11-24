@@ -54,8 +54,8 @@ jobs:
         if: steps.check.outputs.done != 'true'
       - name: Refresh rankings
         if: steps.check.outputs.done != 'true'
-        run: python backend/manage.py refresh_rankings --limit 800
+        run: python backend/manage.py refresh_rankings --limit 1000
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           GITHUB_TOKEN: ${{ secrets.GH_API_TOKEN }}
-          RANKINGS_LANGUAGES: TypeScript,Python,JavaScript,Java,C#,PHP,Shell,C++,Go,Rust,Swift,Kotlin
+          RANKINGS_LANGUAGES: TypeScript,Python,JavaScript,Java,C#,PHP,Shell,C++,Go,Rust,Swift,Kotlin,C,Ruby,Dart,Jupyter Notebook,R
