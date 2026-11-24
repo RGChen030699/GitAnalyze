@@ -7,6 +7,8 @@ from typing import Literal
 
 Tone = Literal["good", "warn", "bad", "neutral"]
 
+FLAT_SHARE_OF_TOTAL = 0.002
+
 
 @dataclass(frozen=True)
 class BriefAnswer:
@@ -27,4 +29,6 @@ def interest(
         return BriefAnswer("warn", "Spiky")
     if gained_30d <= 0:
         return BriefAnswer("neutral", "Fading")
+    if gained_30d < FLAT_SHARE_OF_TOTAL * total_stars:
+        return BriefAnswer("neutral", "Flat")
     return None
