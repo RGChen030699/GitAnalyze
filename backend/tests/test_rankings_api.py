@@ -69,3 +69,63 @@ def test_F7_lookup_only_rows_are_not_ranked(client: Client) -> None:
     make_repo("b/lookup", stars=999, ranked_at=None)
 
     assert names(client) == ["a/ranked"]
+
+
+def first_row(client: Client) -> dict[str, Any]:
+    row: dict[str, Any] = client.get(URL).json()["results"][0]
+    return row
+
+
+@pytest.mark.django_db
+def test_nulls_stay_null_in_json(client: Client) -> None:
+    make_repo("a/sparse")
+
+    row = first_row(client)
+
+    missing = (
+        "description",
+        "language",
+        "status",
+        "pushed_at",
+        "stars_gained_7d",
+        "stars_gained_30d",
+        "stars_gained_year",
+        "weeks_12",
+        "contributors",
+        "ai",
+        "spike",
+        "trending",
+    )
+    assert {name: row[name] for name in missing} == dict.fromkeys(missing)
+
+
+@pytest.mark.django_db
+def test_real_zero_gain_stays_zero(client: Client) -> None:
+    make_repo("a/flat", stars_gained_7d=0)
+
+    assert first_row(client)["stars_gained_7d"] == 0
+
+
+@pytest.mark.django_db
+def test_C8_row_includes_fields_and_provenance(client: Client) -> None:
+    make_repo(
+        "pallets/flask",
+        stars=75193,
+        forks_count=17292,
+        open_issues_count=4,
+        language="Python",
+        status="Active",
+        weeks_12=[1] * 12,
+    )
+
+    row = first_row(client)
+
+    assert row["owner"] == "pallets"
+    assert row["name"] == "flask"
+    assert row["owner_type"] == "Organization"
+    assert row["language"] == "Python"
+    assert row["status"] == "Active"
+    assert (row["stars"], row["forks"], row["open_issues"]) == (75193, 17292, 4)
+    assert row["weeks_12"] == [1] * 12
+    assert row["source"] == "/search/repositories?q=stars%3A%3E1000"
+    assert row["fetched_at"] == "2026-11-23T12:00:00Z"
