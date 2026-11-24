@@ -92,10 +92,6 @@ test('briefFindings keeps the five questions in order and shows N/A for a null a
   assert.equal(D.briefFindings(null).every(([, a]) => a.v === 'N/A'), true);
 });
 
-test('briefFindings gives interest evidence from its window_days', () => {
-  const f = D.briefFindings({ interest: { tone: 'neutral', value: 'Steady', window_days: 15 } });
-  assert.deepEqual(f[0][1], { tone: 'neutral', v: 'Steady', e: 'Net stars in 15 days, change on the 15 days before' });
-});
 
 test('statusTone maps status to its tone and null to neutral', () => {
   assert.equal(D.statusTone('Active'), 'good');
@@ -143,6 +139,27 @@ test('agoLabel matches the report wording and gives N/A without a time', () => {
   assert.equal(D.agoLabel(NOW - 3 * DAY, NOW), '3 days ago');
   assert.equal(D.agoLabel(NOW - 90 * DAY, NOW), '3 months ago');
   assert.equal(D.agoLabel(null, NOW), 'N/A');
+});
+
+const GROWING = { tone: 'good', value: 'Growing', window_days: 15, recent: 1200, previous: 600, change: 1 };
+
+test('briefFindings gives interest evidence from recent, previous and change', () => {
+  const f = D.briefFindings({ interest: GROWING });
+  assert.deepEqual(f[0][1], { tone: 'good', v: 'Growing', e: '+1,200 net stars in 15 days, +100% on the 15 days before' });
+});
+
+test('interest evidence shows N/A only for a null change', () => {
+  const steady = { tone: 'neutral', value: 'Steady', window_days: 15, recent: 150, previous: 0, change: null };
+  assert.equal(D.briefFindings({ interest: steady })[0][1].e, '+150 net stars in 15 days, N/A on the 15 days before');
+  const cooling = { ...steady, value: 'Cooling', recent: -40, previous: 200, change: -1.2 };
+  assert.equal(D.briefFindings({ interest: cooling })[0][1].e, '−40 net stars in 15 days, −120% on the 15 days before');
+});
+
+test('reportModel takes the 15-day interest change from the API and keeps the 30-day one null', () => {
+  const { A } = D.reportModel({ ...detail, brief: { ...detail.brief, interest: GROWING } }, NOW);
+  assert.equal(A.interestChange, 1);
+  assert.equal(A.momChange, null);
+  assert.equal(D.reportModel({ ...detail, brief: null }, NOW).A.interestChange, null);
 });
 
 test('reportModel keeps data we do not store as null, never 0', () => {

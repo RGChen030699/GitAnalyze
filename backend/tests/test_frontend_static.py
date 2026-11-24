@@ -86,3 +86,14 @@ def test_compare_interest_row_uses_the_15_days_before() -> None:
     assert "Change on the 15 days before" in compare
     assert "Change on the 30 days before" not in compare
     assert "Stars gained, 30 days" in compare  # 30-day numbers stay
+
+
+def test_compare_interest_row_reads_the_api_change() -> None:
+    assert "{ l:'Change on the 15 days before', v: it => it.A.interestChange," in read("compare.html")
+
+
+def test_report_interest_text_reads_the_api_change() -> None:
+    repo = read("repo.html")
+
+    assert "${pct(A.interestChange)} more stars than the 15 days before." in repo
+    assert "A.momChange === null ? 'Interest is growing.'" not in repo
