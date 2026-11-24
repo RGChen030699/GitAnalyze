@@ -7,7 +7,9 @@ import pytest
 import responses
 from django.test import Client
 from github_client.client import API_BASE_URL
+from repositories.brief import BriefAnswer
 from repositories.models import Repository, StarWeek
+from repositories.serializers import serialize_brief_answer
 
 from tests.test_refresh_rankings import load, mock_details
 
@@ -270,3 +272,26 @@ def test_F1_unknown_repo_returns_404_with_message(client: Client) -> None:
     assert response.status_code == 404
     assert response.json() == {"detail": "We couldn't find a public repository at nobody/missing"}
     assert Repository.objects.count() == 0
+
+
+@pytest.mark.django_db
+def test_detail_brief_has_five_answers_null_until_inputs_are_stored(client: Client) -> None:
+    make_repo(stars_gained_30d=500, stargazers_count=10_000)
+
+    brief = client.get("/api/repos/pallets/flask").json()["brief"]
+
+    assert brief == {
+        "interest": None,
+        "maintenance": None,
+        "issue_response": None,
+        "release_pace": None,
+        "maintainer_concentration": None,
+    }
+
+
+def test_brief_answer_serializes_tone_and_value() -> None:
+    assert serialize_brief_answer(BriefAnswer("good", "Steady")) == {
+        "tone": "good",
+        "value": "Steady",
+    }
+    assert serialize_brief_answer(None) is None
