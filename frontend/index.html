@@ -170,6 +170,8 @@ table.rank{width:100%;border-collapse:separate;border-spacing:0;font-size:14px}
 .rank .r-name{display:flex;flex-wrap:wrap;align-items:center;gap:4px 8px}
 .rank .r-name b{font-family:var(--mono);font-weight:500;overflow-wrap:anywhere}
 .rank .r-name b span{color:var(--ink-3);font-weight:400}
+.r-link{color:var(--ink);text-decoration:none;border-radius:4px}
+.r-link:hover b{color:var(--accent-text);text-decoration:underline;text-underline-offset:3px}
 .rank .r-desc{font-size:13px;color:var(--ink-2);max-width:46ch;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-top:2px}
 .rank .r-spike{font-size:12px;font-weight:500;color:var(--warn);margin-top:2px}
 .rank .c-repo{min-width:280px}
@@ -567,12 +569,17 @@ function spark(r) {
     '<polyline points="' + pts + '" fill="none" stroke="var(--c1)" stroke-width="1.6" stroke-linejoin="round"/>' +
     '<circle cx="' + X(11).toFixed(1) + '" cy="' + Y(w[11]).toFixed(1) + '" r="2.6" fill="var(--c1)"/></svg>';
 }
+function reportUrl(r) {
+  const q = new URLSearchParams({ s: r.status, l: r.lang, st: String(r.stars), p: String(r.pushed), c: String(r.contributors), o: r.ownerType, d: r.desc });
+  if (r.ai) q.set('ai', '1'); if (r.spike) q.set('sp', '1'); if (r.trending) q.set('t', String(r.trending));
+  return '/repo/' + encodeURIComponent(r.owner) + '/' + encodeURIComponent(r.name) + '?' + q.toString();
+}
 function rowHtml(r, i) {
   const g = gained(r); const inC = state.compare.includes(r.id);
   const hl = state.focus && state.focus.length === 1 && state.focus[0] === r.id;
   return '<tr' + (hl ? ' class="hl"' : '') + ' data-id="' + esc(r.id) + '">' +
     '<td class="c-rank num">' + (i + 1) + '</td>' +
-    '<td class="c-repo"><div class="r-name"><b><span>' + esc(r.owner) + '/</span>' + esc(r.name) + '</b>' +
+    '<td class="c-repo"><div class="r-name"><a class="r-link" href="' + esc(reportUrl(r)) + '"><b><span>' + esc(r.owner) + '/</span>' + esc(r.name) + '</b></a>' +
       (r.ai ? '<span class="chip accent">AI</span>' : '') + (r.trending ? '<span class="chip warn">Trending #' + r.trending + '</span>' : '') + '</div>' +
       '<div class="r-desc" title="' + esc(r.desc) + '">' + esc(r.desc) + '</div>' +
       (r.spike ? '<div class="r-spike">Unusual spike: lots of new stars but little other activity.</div>' : '') + '</td>' +
@@ -697,8 +704,7 @@ function submitLookup(e) {
   const ids = a.repos.map((p) => p.id);
   ids.forEach(remember);
   if (ids.length === 1) {
-    focusRepos(ids, 'Showing ' + BY_ID[ids[0]].full);
-    toast('Showing ' + BY_ID[ids[0]].full + '. The full report opens from here in the app.');
+    location.href = reportUrl(BY_ID[ids[0]]);
   } else {
     state.compare = ids.slice(0, 3); renderTray();
     focusRepos(ids, 'Comparing ' + ids.length + ' repositories');
@@ -762,8 +768,8 @@ document.addEventListener('click', (e) => {
   const s = t.closest('[data-sort]'); if (s) { const k = s.dataset.sort; if (state.sort === k) state.dir = state.dir === 'desc' ? 'asc' : 'desc'; else { state.sort = k; state.dir = k === 'name' ? 'asc' : 'desc'; } state.pages = 1; renderTable(); const b = $('[data-sort="' + k + '"]'); if (b) b.focus(); return; }
   const add = t.closest('[data-add]'); if (add) { toggleCompare(add.dataset.add); return; }
   const un = t.closest('[data-untray]'); if (un) { toggleCompare(un.dataset.untray); return; }
-  const pick = t.closest('[data-pick]'); if (pick) { const id = pick.dataset.pick; closeSuggest(); $('#lookupInput').value = BY_ID[id].full; onLookupInput(); remember(id); focusRepos([id], 'Showing ' + BY_ID[id].full); return; }
-  const rec = t.closest('[data-recent]'); if (rec) { focusRepos([rec.dataset.recent], 'Showing ' + BY_ID[rec.dataset.recent].full); return; }
+  const pick = t.closest('[data-pick]'); if (pick) { const id = pick.dataset.pick; closeSuggest(); $('#lookupInput').value = BY_ID[id].full; onLookupInput(); remember(id); location.href = reportUrl(BY_ID[id]); return; }
+  const rec = t.closest('[data-recent]'); if (rec) { location.href = reportUrl(BY_ID[rec.dataset.recent]); return; }
   const v = t.closest('[data-view]'); if (v) { state.view = v.dataset.view; state.sort = state.view === 'gaining' ? 'gained' : state.view === 'trending' ? 'trending' : 'stars'; state.dir = 'desc'; state.pages = 1; renderControls(); renderTable(); return; }
   const w = t.closest('[data-win]'); if (w) { state.win = w.dataset.win; state.pages = 1; renderControls(); renderTable(); return; }
   const l = t.closest('[data-limit]'); if (l) { state.limit = +l.dataset.limit; state.pages = 1; renderControls(); renderTable(); return; }

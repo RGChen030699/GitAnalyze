@@ -1,0 +1,1132 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>GitAnalyze Repository Report</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,650;12..96,750&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+/* Repository report prototype. Answer first (verdict + decision brief), evidence second (charts). Tokens from docs/design.md §3. */
+:root{
+  --bg:#F3F4F0; --surface:#FFFFFF; --surface-2:#ECEEE8; --line:#D8DBD2; --line-2:#E6E8E1;
+  --ink:#181C18; --ink-2:#454B44; --ink-3:#5E645C;
+  --accent:#3048D6; --accent-ink:#FFFFFF; --accent-soft:#E3E6FB; --accent-text:#2A38B0;
+  --good:#1D7550; --good-soft:#DCEFE4; --warn:#955200; --warn-soft:#FAEAD2; --bad:#AE3127; --bad-soft:#F8E0DC;
+  --c1:#3048D6; --c2:#D07A1F; --c3:#5B615A;
+  --shadow:0 1px 2px rgba(24,28,24,.06),0 8px 24px rgba(24,28,24,.06);
+  --display:'Bricolage Grotesque','IBM Plex Sans',system-ui,sans-serif;
+  --sans:'IBM Plex Sans',system-ui,-apple-system,'Segoe UI',sans-serif;
+  --mono:'IBM Plex Mono',ui-monospace,SFMono-Regular,Menlo,monospace;
+  color-scheme:light;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --bg:#121512; --surface:#1A1E1A; --surface-2:#232823; --line:#343A33; --line-2:#2A2F2A;
+    --ink:#ECEEE9; --ink-2:#BCC2B9; --ink-3:#9DA49A;
+    --accent:#8A9BFE; --accent-ink:#0B1029; --accent-soft:#252B54; --accent-text:#B3BCFF;
+    --good:#62CB98; --good-soft:#173628; --warn:#F1AD52; --warn-soft:#3B2B13; --bad:#F2867B; --bad-soft:#3F1E1B;
+    --c1:#8A9BFE; --c2:#F1AD52; --c3:#BCC2B9;
+    --shadow:0 1px 2px rgba(0,0,0,.3),0 8px 24px rgba(0,0,0,.25);
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#121512; --surface:#1A1E1A; --surface-2:#232823; --line:#343A33; --line-2:#2A2F2A;
+  --ink:#ECEEE9; --ink-2:#BCC2B9; --ink-3:#9DA49A;
+  --accent:#8A9BFE; --accent-ink:#0B1029; --accent-soft:#252B54; --accent-text:#B3BCFF;
+  --good:#62CB98; --good-soft:#173628; --warn:#F1AD52; --warn-soft:#3B2B13; --bad:#F2867B; --bad-soft:#3F1E1B;
+  --c1:#8A9BFE; --c2:#F1AD52; --c3:#BCC2B9;
+  --shadow:0 1px 2px rgba(0,0,0,.3),0 8px 24px rgba(0,0,0,.25);
+  color-scheme:dark;
+}
+*,*::before,*::after{box-sizing:border-box}
+[hidden]{display:none!important}
+html{scroll-behavior:smooth;scroll-padding-top:120px}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:15px;line-height:1.5;-webkit-font-smoothing:antialiased;font-variant-numeric:tabular-nums}
+a{color:var(--accent-text)} a:hover{color:var(--ink)}
+button,input,select{font:inherit;color:inherit}
+:focus-visible{outline:3px solid var(--accent);outline-offset:2px;border-radius:6px}
+.mono{font-family:var(--mono)}
+.wrap{max-width:1280px;margin:0 auto;padding:0 24px}
+.note{font-size:13px;color:var(--ink-3);margin:0}
+.muted{color:var(--ink-3)}
+@media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}*{animation:none!important;transition:none!important}}
+
+/* header (same as dashboard) */
+.top{position:sticky;top:0;z-index:20;background:var(--surface);border-bottom:1px solid var(--line)}
+.top .wrap{display:flex;flex-wrap:wrap;align-items:center;gap:6px 16px;min-height:56px}
+.brand{display:flex;align-items:center;gap:10px;text-decoration:none;color:var(--ink);font-family:var(--display);font-weight:750;font-size:19px;letter-spacing:-.01em;margin-right:8px}
+.nav{display:flex;flex-wrap:wrap;gap:2px;flex:1 1 auto}
+.nav a{display:inline-flex;align-items:center;min-height:40px;padding:0 11px;font-size:14px;border-radius:10px;text-decoration:none;color:var(--ink-2);font-weight:500}
+.nav a:hover{background:var(--surface-2);color:var(--ink)}
+.nav a[aria-current="page"]{color:var(--ink);background:var(--surface-2)}
+.tools{display:flex;align-items:center;gap:6px}
+.icon-btn{display:inline-grid;place-items:center;width:44px;height:44px;border-radius:10px;border:1px solid transparent;background:transparent;color:var(--ink-2);cursor:pointer}
+.icon-btn:hover{background:var(--surface-2);color:var(--ink)}
+.demo{position:relative}
+.demo>button{display:inline-flex;align-items:center;gap:8px;min-height:44px;padding:0 12px;border-radius:10px;border:1px dashed var(--line);background:transparent;cursor:pointer;color:var(--ink-2);font-weight:500;font-size:14px}
+.demo-panel{position:absolute;right:0;top:calc(100% + 8px);width:320px;background:var(--surface);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow);padding:16px;display:none;z-index:40}
+.demo-panel.open{display:block}
+.demo-panel .opt{display:block;width:100%;text-align:left;padding:10px 12px;min-height:44px;border-radius:10px;border:1px solid var(--line);background:var(--surface);cursor:pointer;margin-top:6px}
+.demo-panel .opt[aria-current="page"]{border-color:var(--accent);background:var(--accent-soft)}
+.demo-panel .opt b{display:block;font-family:var(--mono);font-weight:500;font-size:13px}
+.demo-panel .opt span{font-size:12px;color:var(--ink-3)}
+
+/* buttons, chips, segmented */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:44px;padding:0 16px;border-radius:10px;border:1px solid var(--line);background:var(--surface);color:var(--ink);font-weight:500;text-decoration:none;cursor:pointer;white-space:nowrap;font-size:14px}
+.btn:hover{border-color:var(--ink-3)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink);font-weight:600}
+.btn.primary:hover{filter:brightness(1.08)}
+.btn.small{min-height:36px;padding:0 12px}
+.btn svg{width:16px;height:16px}
+.chip{display:inline-flex;align-items:center;gap:6px;padding:3px 10px;border-radius:999px;background:var(--surface-2);color:var(--ink-2);font-size:12px;font-weight:500;white-space:nowrap}
+.chip.accent{background:var(--accent-soft);color:var(--accent-text)}
+.chip.warn{background:var(--warn-soft);color:var(--warn)}
+.chip.good{background:var(--good-soft);color:var(--good)}
+.chip.bad{background:var(--bad-soft);color:var(--bad)}
+.seg{display:inline-flex;padding:3px;border-radius:12px;background:var(--surface-2);gap:2px}
+.seg button{min-height:38px;padding:0 11px;border:none;border-radius:9px;background:transparent;color:var(--ink-2);font-weight:500;font-size:14px;cursor:pointer}
+.seg button[aria-pressed="true"]{background:var(--surface);color:var(--ink);box-shadow:0 1px 2px rgba(0,0,0,.12)}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:14px}
+.info{width:30px;height:30px;border-radius:8px;border:none;background:transparent;color:var(--ink-3);cursor:pointer;display:inline-grid;place-items:center;vertical-align:middle;flex:none;padding:0}
+.info:hover{background:var(--surface-2);color:var(--ink)}
+.info svg{width:16px;height:16px}
+
+main.wrap{padding-top:10px;padding-bottom:72px;display:grid;grid-template-columns:minmax(0,1fr);gap:14px}
+.crumb{display:inline-flex;align-items:center;gap:6px;font-size:14px;text-decoration:none;color:var(--ink-2);min-height:36px}
+.crumb:hover{color:var(--ink)}
+
+/* repo head */
+.rhead{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px 24px;align-items:start}
+.rhead h1{margin:0;font-family:var(--display);font-weight:650;font-size:clamp(28px,3.6vw,40px);letter-spacing:-.015em;line-height:1.1;word-break:break-word}
+.rhead h1 .own{color:var(--ink-3);font-weight:500}
+.rhead .desc{margin:4px 0 8px;color:var(--ink-2);font-size:16px;max-width:70ch}
+.rhead .chips{display:flex;flex-wrap:wrap;gap:6px}
+.rhead .acts{display:flex;flex-wrap:wrap;gap:8px;justify-content:flex-end}
+.rhead>div:first-child{grid-row:span 2}
+.rhead .fresh{grid-column:2;align-self:end;justify-self:end;display:flex;align-items:center;gap:8px;font-size:13px;color:var(--ink-3)}
+.fresh .dot{width:8px;height:8px;border-radius:50%;background:var(--good)}
+
+/* verdict band (design.md 7.9) */
+.verdict{background:var(--surface);border:1px solid var(--line);border-radius:20px;box-shadow:var(--shadow);overflow:hidden}
+.verdict .cols{display:grid;grid-template-columns:minmax(240px,300px) minmax(0,1fr)}
+.verdict .status{padding:16px 20px;border-right:1px solid var(--line-2);display:grid;align-content:center;gap:4px}
+.verdict .status .lbl{display:flex;align-items:center;gap:2px;font-size:14px;color:var(--ink-2)}
+.vword{display:flex;align-items:center;gap:12px;margin:2px 0 4px}
+.vtile{width:40px;height:40px;border-radius:12px;display:grid;place-items:center;flex:none}
+.vtile svg{width:22px;height:22px}
+.vword b{font-family:var(--display);font-weight:750;font-size:clamp(32px,3.2vw,40px);letter-spacing:-.03em;line-height:1}
+.verdict .sent{font-size:15px;font-weight:600;margin:0;max-width:34ch}
+.checks{list-style:none;margin:0;padding:6px 20px;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));column-gap:24px;align-content:center}
+.checks li{display:grid;grid-template-columns:24px minmax(0,1fr) auto;gap:0 10px;align-items:center;padding:6px 0;border-top:1px solid var(--line-2)}
+.checks li:nth-child(-n+2){border-top:none}
+.mark{width:24px;height:24px;border-radius:50%;display:grid;place-items:center}
+.mark svg{width:13px;height:13px}
+.checks .t{font-weight:600;font-size:14px}
+.checks .d{grid-column:2/4;font-size:13px;color:var(--ink-2);margin-top:-4px;line-height:1.4}
+.pulse{display:grid;grid-template-columns:auto minmax(0,1fr);gap:16px;align-items:center;padding:6px 20px;border-top:1px solid var(--line-2);background:var(--bg)}
+.pulse span{font-size:13px;color:var(--ink-2);white-space:nowrap}
+.t-good{color:var(--good)} .bg-good{background:var(--good-soft)}
+.t-warn{color:var(--warn)} .bg-warn{background:var(--warn-soft)}
+.t-bad{color:var(--bad)} .bg-bad{background:var(--bad-soft)}
+.t-neutral{color:var(--ink-2)} .bg-neutral{background:var(--surface-2)}
+
+/* decision brief */
+.brief{display:grid;grid-template-columns:minmax(0,1fr);gap:0}
+.brief .main{padding:16px 20px 14px;border-bottom:1px solid var(--line-2)}
+.brief h2,.sec h2{margin:0;font-family:var(--display);font-weight:650;font-size:22px;letter-spacing:-.01em;line-height:1.2}
+.brief .sub{margin:2px 0 10px;font-size:13px;color:var(--ink-2)}
+.findings{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:10px}
+.find{border:1px solid var(--line-2);border-radius:12px;padding:10px 12px;display:grid;gap:2px;align-content:start}
+.find .k{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--ink-2);font-weight:500}
+.find .k svg{width:15px;height:15px}
+.find .v{font-family:var(--display);font-weight:650;font-size:18px;letter-spacing:-.01em;line-height:1.15}
+.find .e{font-size:13px;color:var(--ink-2)}
+.brief .side{padding:14px 20px 16px;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr) auto;gap:10px 28px;align-items:start}
+.brief h3{margin:0 0 6px;font-size:15px;font-weight:600;display:flex;align-items:center;gap:8px}
+.brief h3 svg{width:16px;height:16px}
+.brief ul{margin:0;padding-left:18px;font-size:13px;color:var(--ink-2);display:grid;gap:2px}
+.brief .acts{display:flex;flex-direction:column;gap:8px}
+
+/* KPI band */
+.kpis{display:grid;grid-template-columns:repeat(6,minmax(0,1fr))}
+.kpi{padding:10px 16px;border-left:1px solid var(--line-2);display:grid;gap:2px;min-width:0;align-content:start}
+.kpi:first-child{border-left:none}
+.kpi dt{font-size:13px;color:var(--ink-2);display:flex;align-items:center;gap:2px;min-height:26px}
+.kpi dd{margin:0;font-family:var(--display);font-weight:650;font-size:24px;letter-spacing:-.01em;line-height:1.15}
+.kpi .delta{display:inline-flex;align-items:center;gap:4px;font-size:12px;font-weight:600}
+.kpi .delta svg{width:12px;height:12px}
+.kpi small{font-size:12px;color:var(--ink-3)}
+.kpi svg.spark{display:block;margin-top:4px;width:100%;height:22px}
+
+/* section nav */
+.snav{position:sticky;top:56px;z-index:5;background:var(--bg);border-bottom:1px solid var(--line);margin:-4px -24px 0;padding:0 24px}
+.snav div{display:flex;gap:4px;overflow-x:auto;scrollbar-width:none}
+.snav a{display:inline-flex;align-items:center;gap:6px;min-height:48px;padding:0 12px;font-weight:600;font-size:14px;color:var(--ink-2);text-decoration:none;border-bottom:3px solid transparent;white-space:nowrap}
+.snav a:hover{color:var(--ink)}
+.snav a.on{color:var(--ink);border-bottom-color:var(--accent)}
+.snav .count{display:inline-grid;place-items:center;min-width:20px;height:20px;padding:0 6px;border-radius:999px;background:var(--accent-soft);color:var(--accent-text);font-size:12px}
+
+/* sections */
+.sec{display:grid;gap:10px;margin-top:8px}
+.sec-head{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:end;gap:8px 20px}
+.sec-head p{margin:4px 0 0;color:var(--ink-2);font-size:14px;max-width:72ch}
+.grid2{display:grid;grid-template-columns:minmax(0,1.6fr) minmax(0,1fr);gap:16px}
+.grid2.even{grid-template-columns:repeat(2,minmax(0,1fr))}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:14px 18px;display:grid;gap:8px;align-content:start;min-width:0}
+.card h3{margin:0;font-size:16px;font-weight:600;line-height:1.35}
+.takeaway{display:flex;gap:10px;align-items:flex-start;font-size:15px;font-weight:600;line-height:1.4}
+.takeaway svg{flex:none;width:18px;height:18px;margin-top:2px}
+.ctrls{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+.sumline{display:flex;flex-wrap:wrap;gap:4px 22px;font-size:14px;color:var(--ink-2)}
+.sumline b{font-family:var(--display);font-weight:650;font-size:22px;color:var(--ink);margin-right:4px}
+.cap{font-size:13px;color:var(--ink-3);margin:0;border-top:1px solid var(--line-2);padding-top:8px}
+.cap code{font-family:var(--mono);font-size:12px}
+.chart{position:relative;width:100%}
+.chart svg{display:block;width:100%;overflow:visible}
+.chart:focus-visible{outline-offset:4px}
+.tip{position:absolute;pointer-events:none;background:var(--ink);color:var(--bg);font-size:13px;line-height:1.45;padding:8px 10px;border-radius:10px;white-space:nowrap;z-index:6;transform:translate(-50%,-100%);margin-top:-10px}
+.tip b{font-weight:600}
+.legend{display:flex;flex-wrap:wrap;gap:6px 16px;font-size:13px;color:var(--ink-2)}
+.legend i{display:inline-block;width:12px;height:12px;border-radius:3px;margin-right:6px;vertical-align:-1px}
+.legend i.ln{height:3px;border-radius:2px;vertical-align:3px}
+.alert{display:flex;gap:10px;align-items:flex-start;padding:10px 14px;border-radius:12px;font-weight:500;font-size:14px}
+.alert svg{flex:none;margin-top:2px;width:18px;height:18px}
+.alert.warn{background:var(--warn-soft);color:var(--warn)}
+.alert.bad{background:var(--bad-soft);color:var(--bad)}
+.facts{display:grid;gap:0;margin:0}
+.facts div{display:flex;justify-content:space-between;gap:16px;padding:9px 0;border-top:1px solid var(--line-2);font-size:14px}
+.facts div:first-child{border-top:none}
+.facts dt{color:var(--ink-2)} .facts dd{margin:0;font-weight:600;text-align:right}
+.facts dd small{display:block;font-weight:400;font-size:12px;color:var(--ink-3)}
+
+/* peers */
+.peer{display:grid;grid-template-columns:minmax(150px,1fr) minmax(0,2.2fr) 92px;gap:6px 18px;align-items:center;padding:10px 0;border-top:1px solid var(--line-2)}
+.peer:first-of-type{border-top:none}
+.peer .n{font-size:14px;font-weight:500}
+.peer .n small{display:block;font-size:12px;color:var(--ink-3);font-weight:400}
+.track{position:relative;height:26px}
+.track .base{position:absolute;left:0;right:0;top:11px;height:4px;border-radius:2px;background:var(--surface-2)}
+.track .iqr{position:absolute;top:8px;height:10px;border-radius:3px;background:var(--line)}
+.track .med{position:absolute;top:5px;width:2px;height:16px;background:var(--ink-3)}
+.track .me{position:absolute;top:4px;width:18px;height:18px;border-radius:50%;background:var(--accent);border:3px solid var(--surface);box-shadow:0 0 0 1px var(--accent);transform:translateX(-50%)}
+.peer .p{font-family:var(--display);font-weight:650;font-size:18px;text-align:right}
+.peer .p small{display:block;font-family:var(--sans);font-weight:400;font-size:12px;color:var(--ink-3)}
+.peer-axis{display:grid;grid-template-columns:minmax(150px,1fr) minmax(0,2.2fr) 92px;gap:18px;font-size:12px;color:var(--ink-3)}
+.peer-axis div:nth-child(2){display:flex;justify-content:space-between}
+
+/* AI table */
+table{width:100%;border-collapse:collapse;font-size:14px}
+th{text-align:left;font-weight:600;font-size:13px;color:var(--ink-2);padding:8px 10px;border-bottom:1px solid var(--line)}
+td{padding:10px;border-bottom:1px solid var(--line-2);vertical-align:top}
+tr:last-child td{border-bottom:none}
+td .mono{font-size:13px;color:var(--accent-text)}
+.tscroll{overflow-x:auto}
+
+footer{border-top:1px solid var(--line);padding:22px 0 40px}
+footer .wrap{display:flex;flex-wrap:wrap;justify-content:space-between;gap:8px 24px}
+.toast{position:fixed;left:50%;bottom:24px;transform:translate(-50%,12px);background:var(--ink);color:var(--bg);padding:12px 16px;border-radius:12px;font-size:14px;opacity:0;pointer-events:none;transition:opacity .2s,transform .2s;z-index:70;max-width:calc(100vw - 32px)}
+.toast.show{opacity:1;transform:translate(-50%,0)}
+
+@media (max-width:1080px){
+  .kpis{grid-template-columns:repeat(3,minmax(0,1fr))}
+  .kpi:nth-child(4){border-left:none}
+  .kpi:nth-child(n+4){border-top:1px solid var(--line-2)}
+}
+@media (max-width:900px){
+  .verdict .cols,.brief,.grid2,.grid2.even{grid-template-columns:1fr}
+  .verdict .status{border-right:none;border-bottom:1px solid var(--line-2)}
+  .checks{grid-template-columns:1fr}
+  .checks li:nth-child(2){border-top:1px solid var(--line-2)}
+  .brief .side{grid-template-columns:1fr}
+  .brief .acts{flex-direction:row;flex-wrap:wrap}
+  .rhead{grid-template-columns:1fr}
+  .rhead .acts{justify-content:flex-start}
+  .rhead>div:first-child{grid-row:auto}
+  .rhead .fresh{grid-column:1;justify-self:start}
+  .peer,.peer-axis{grid-template-columns:1fr 70px}
+  .peer .track{grid-column:1/3;grid-row:2}
+  .peer-axis div:first-child{display:none}
+  .peer-axis div:nth-child(2){grid-column:1/3}
+  .peer-axis div:nth-child(3){display:none}
+}
+@media (max-width:600px){
+  .kpis{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .kpi:nth-child(n){border-left:1px solid var(--line-2);border-top:1px solid var(--line-2)}
+  .kpi:nth-child(odd){border-left:none}
+  .kpi:nth-child(-n+2){border-top:none}
+  .pulse{grid-template-columns:1fr;gap:2px}
+}
+</style>
+</head>
+<body>
+<header class="top">
+  <div class="wrap">
+    <a class="brand" href="/" aria-label="GitAnalyze home">
+      <svg width="28" height="28" viewBox="0 0 28 28" aria-hidden="true"><rect x="1" y="1" width="26" height="26" rx="8" style="fill:var(--accent)"></rect><g transform="translate(6 6)" style="fill:var(--accent-ink)"><path d="M6 .278a.77.77 0 0 1 .08.858 7.2 7.2 0 0 0-.878 3.46c0 4.021 3.278 7.277 7.318 7.277q.792-.001 1.533-.16a.79.79 0 0 1 .81.316.73.73 0 0 1-.031.893A8.35 8.35 0 0 1 8.344 16C3.734 16 0 12.286 0 7.71 0 4.266 2.114 1.312 5.124.06A.75.75 0 0 1 6 .278"></path><path d="M10.794 3.148a.217.217 0 0 1 .412 0l.387 1.162c.173.518.579.924 1.097 1.097l1.162.387a.217.217 0 0 1 0 .412l-1.162.387a1.730 1.730 0 0 0-1.097 1.097l-.387 1.162a.217.217 0 0 1-.412 0l-.387-1.162A1.730 1.730 0 0 0 9.310 6.593l-1.162-.387a.217.217 0 0 1 0-.412l1.162-.387a1.730 1.730 0 0 0 1.097-1.097zM13.863.099a.145.145 0 0 1 .274 0l.258.774c.115.346.386.617.732.732l.774.258a.145.145 0 0 1 0 .274l-.774.258a1.160 1.160 0 0 0-.732.732l-.258.774a.145.145 0 0 1-.274 0l-.258-.774a1.160 1.160 0 0 0-.732-.732l-.774-.258a.145.145 0 0 1 0-.274l.774-.258c.346-.115.617-.386.732-.732z"></path></g></svg>
+      GitAnalyze
+    </a>
+    <nav class="nav" aria-label="Main">
+      <a href="/" aria-current="page">Check</a>
+      <a href="#">Explore</a>
+      <a href="#">Compare</a>
+      <a href="#">How it works</a>
+    </nav>
+    <div class="tools">
+      <div class="demo">
+        <button type="button" id="demoBtn" aria-expanded="false" aria-controls="demoPanel">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 6h10M18 6h2M4 12h4M12 12h8M4 18h12"></path><circle cx="16" cy="6" r="2"></circle><circle cx="10" cy="12" r="2"></circle><circle cx="18" cy="18" r="2"></circle></svg>
+          Demo
+        </button>
+        <div class="demo-panel" id="demoPanel" role="dialog" aria-label="Demo repositories">
+          <p class="note">Sample numbers until the GitHub API is connected. Open one of these to see how the report changes its answer.</p>
+          <div id="demoOpts"></div>
+        </div>
+      </div>
+      <button type="button" class="icon-btn" id="themeBtn" aria-label="Switch colour theme">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="8.5"></circle><path d="M12 3.5a8.5 8.5 0 0 1 0 17z" fill="currentColor"></path></svg>
+      </button>
+    </div>
+  </div>
+</header>
+
+<main class="wrap" id="main">
+  <a class="crumb" href="/"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 18l-6-6 6-6"/></svg>Back to rankings</a>
+
+  <section class="rhead" aria-labelledby="repoTitle">
+    <div>
+      <h1 id="repoTitle"></h1>
+      <p class="desc" id="repoDesc"></p>
+      <div class="chips" id="repoChips"></div>
+    </div>
+    <div class="acts">
+      <button class="btn primary" type="button" id="addCmp">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>Add to compare</button>
+      <a class="btn" id="ghLink" href="#" target="_blank" rel="noopener">GitHub
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 17L17 7M9 7h8v8"/></svg></a>
+    </div>
+    <div class="fresh"><span class="dot" aria-hidden="true"></span><span id="freshTxt"></span></div>
+  </section>
+
+  <nav class="snav" aria-label="Report sections"><div id="snav">
+    <a href="#s-summary">Summary</a>
+    <a href="#s-momentum">Momentum</a>
+    <a href="#s-maint">Maintenance</a>
+    <a href="#s-people">People</a>
+    <a href="#s-issues">Issues &amp; pull requests</a>
+    <a href="#s-rel">Releases</a>
+    <a href="#s-peers">Peers</a>
+    <a href="#s-ai">AI &amp; trust <span class="count" id="aiCount"></span></a>
+  </div></nav>
+  <section class="verdict" id="s-summary" aria-labelledby="vLbl">
+    <div class="cols">
+      <div class="status">
+        <div class="lbl" id="vLbl">Status<button class="info" type="button" data-info="status" aria-label="About status" aria-expanded="false"></button></div>
+        <div class="vword"><span class="vtile" id="vTile"></span><b id="vWord"></b></div>
+        <p class="sent" id="vSent"></p>
+        <p class="note">We show evidence, never a score. Each check links to how it’s worked out.</p>
+      </div>
+      <ul class="checks" id="vChecks"></ul>
+    </div>
+    <div class="pulse"><span>Commits, last 52 weeks</span><div class="chart" id="pulse" style="height:30px"></div></div>
+  </section>
+
+  <section class="panel brief" aria-labelledby="briefH">
+    <div class="main">
+      <h2 id="briefH">Decision brief</h2>
+      <p class="sub">Five questions a team usually asks before adopting a dependency, answered from the data below.</p>
+      <div class="findings" id="findings"></div>
+    </div>
+    <div class="side">
+      <div><h3><span class="t-good" id="fitIco"></span>Good fit if</h3><ul id="fitList"></ul></div>
+      <div><h3><span class="t-warn" id="watchIco"></span>Watch out if</h3><ul id="watchList"></ul></div>
+      <div class="acts">
+        <button class="btn" type="button" id="copyBrief">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h8"/></svg>Copy brief</button>
+        <button class="btn" type="button" id="dlCsv">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></svg>Download CSV</button>
+      </div>
+    </div>
+  </section>
+
+  <section class="panel" aria-label="Key numbers">
+    <dl class="kpis" id="kpis"></dl>
+  </section>
+
+
+  <!-- Momentum -->
+  <section class="sec" id="s-momentum" aria-labelledby="h-mom">
+    <div class="sec-head"><div><h2 id="h-mom">Momentum</h2><p>Is attention growing, flat or fading, and does it look organic?</p></div></div>
+    <div class="card">
+      <div class="takeaway" id="momTake"></div>
+      <div class="ctrls">
+        <div class="seg" role="group" aria-label="Range" id="rangeSeg">
+          <button type="button" data-v="1m" aria-pressed="false">1 month</button>
+          <button type="button" data-v="1y" aria-pressed="true">1 year</button>
+          <button type="button" data-v="all" aria-pressed="false">All</button>
+        </div>
+        <div class="seg" role="group" aria-label="Chart type" id="viewSeg">
+          <button type="button" data-v="total" aria-pressed="false">Total</button>
+          <button type="button" data-v="gained" aria-pressed="true">Gained</button>
+        </div>
+        <div class="legend" id="starLegend"></div>
+      </div>
+      <div class="sumline" id="starSum"></div>
+      <div id="spikeAlert"></div>
+      <div class="chart" id="starChart" tabindex="0" style="height:240px"></div>
+      <p class="cap">Net stars: GitHub counts stars added minus stars removed. Stars are bookmarks, not usage. Source <code>GET /repos/{owner}/{repo}/stargazers/history</code> · <span class="upd"></span></p>
+    </div>
+  </section>
+
+  <!-- Maintenance -->
+  <section class="sec" id="s-maint" aria-labelledby="h-maint">
+    <div class="sec-head"><div><h2 id="h-maint">Maintenance</h2><p>How often people actually work on it, and whether that is speeding up or slowing down.</p></div></div>
+    <div class="grid2">
+      <div class="card">
+        <h3>Commits per week, with the 13-week average</h3>
+        <div class="takeaway" id="maintTake"></div>
+        <div class="legend"><span><i style="background:var(--c1);opacity:.85"></i>Commits that week</span><span><i class="ln" style="background:var(--c2)"></i>13-week average</span></div>
+        <div class="chart" id="commitChart" tabindex="0" style="height:200px"></div>
+        <p class="cap">Source <code>GET /repos/{owner}/{repo}/stats/commit_activity</code> · <span class="upd"></span></p>
+      </div>
+      <div class="card">
+        <h3>When work happens</h3>
+        <p class="note" style="margin-top:-4px">Each square is one day in the last 52 weeks. Darker means more commits.</p>
+        <div class="chart" id="heat"></div>
+        <div class="legend" id="heatLegend"></div>
+        <dl class="facts" id="maintFacts"></dl>
+      </div>
+    </div>
+  </section>
+
+  <!-- People -->
+  <section class="sec" id="s-people" aria-labelledby="h-people">
+    <div class="sec-head"><div><h2 id="h-people">People</h2><p>If one person stopped tomorrow, how much of the work would stop with them?</p></div></div>
+    <div class="grid2">
+      <div class="card">
+        <h3>Share of last year’s commits, by contributor</h3>
+        <div class="takeaway" id="peopleTake"></div>
+        <div class="legend"><span><i style="background:var(--c1);opacity:.85"></i>Share of commits</span><span><i class="ln" style="background:var(--c2)"></i>Running total</span><span><i class="ln" style="background:var(--ink-3)"></i>80% line</span></div>
+        <div class="chart" id="pareto" tabindex="0" style="height:230px"></div>
+        <p class="cap">Bot accounts are left out. Source <code>GET /repos/{owner}/{repo}/stats/contributors</code> · <span class="upd"></span></p>
+      </div>
+      <div class="card">
+        <h3>Contributor facts</h3>
+        <dl class="facts" id="peopleFacts"></dl>
+        <p class="note">“Mostly one person” means one account made 80% or more of last year’s commits.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- Issues & PRs -->
+  <section class="sec" id="s-issues" aria-labelledby="h-iss">
+    <div class="sec-head"><div><h2 id="h-iss">Issues &amp; pull requests</h2><p>Are reported problems getting answered, or piling up?</p></div></div>
+    <div class="grid2 even">
+      <div class="card">
+        <h3>Issues opened vs closed, last 12 months</h3>
+        <div class="takeaway" id="issTake"></div>
+        <div class="legend"><span><i style="background:var(--c1)"></i>Opened</span><span><i style="background:var(--c2)"></i>Closed</span></div>
+        <div class="chart" id="issChart" tabindex="0" style="height:200px"></div>
+        <h3 style="margin-top:6px">Change in open issues each month</h3>
+        <div class="legend"><span><i style="background:var(--warn)"></i>Backlog grew</span><span><i style="background:var(--good)"></i>Backlog shrank</span></div>
+        <div class="chart" id="netChart" style="height:120px"></div>
+      </div>
+      <div class="card">
+        <h3>Pull requests opened vs merged, last 12 months</h3>
+        <div class="takeaway" id="prTake"></div>
+        <div class="legend"><span><i style="background:var(--c1)"></i>Opened</span><span><i style="background:var(--c2)"></i>Merged</span></div>
+        <div class="chart" id="prChart" tabindex="0" style="height:200px"></div>
+        <dl class="facts" id="issFacts"></dl>
+        <p class="cap">GitHub counts issues and pull requests together in “open issues”, so we split them with search counts. Refreshed weekly from GitHub search counts. Source <code>GET /search/issues</code> · <span class="upd"></span></p>
+      </div>
+    </div>
+  </section>
+
+  <!-- Releases -->
+  <section class="sec" id="s-rel" aria-labelledby="h-rel">
+    <div class="sec-head"><div><h2 id="h-rel">Releases</h2><p>Does it ship on a predictable rhythm, and is the next release overdue?</p></div></div>
+    <div class="grid2">
+      <div class="card">
+        <h3>Releases, last 24 months</h3>
+        <div class="takeaway" id="relTake"></div>
+        <div class="legend"><span><i style="background:var(--c1);border-radius:50%"></i>Release</span><span><i style="background:transparent;border:2px solid var(--c1);border-radius:50%"></i>Prerelease</span><span><i style="background:var(--surface-2);border:1px solid var(--line)"></i>Time since last release (amber when overdue)</span></div>
+        <div class="chart" id="relChart" tabindex="0" style="height:130px"></div>
+        <h3 style="margin-top:4px">Days since the last release, against its usual gap</h3>
+        <div class="chart" id="relBullet" style="height:64px"></div>
+        <p class="cap">Source <code>GET /repos/{owner}/{repo}/releases</code> · <span class="upd"></span></p>
+      </div>
+      <div class="card">
+        <h3>Latest releases</h3>
+        <dl class="facts" id="relList"></dl>
+      </div>
+    </div>
+  </section>
+
+  <!-- Peers -->
+  <section class="sec" id="s-peers" aria-labelledby="h-peers">
+    <div class="sec-head"><div><h2 id="h-peers">How it compares with its peers</h2><p id="peerSub"></p></div></div>
+    <div class="card">
+      <div class="takeaway" id="peerTake"></div>
+      <div class="peer-axis" aria-hidden="true"><div></div><div><span>Lowest</span><span>Median</span><span>Highest</span></div><div style="text-align:right">Percentile</div></div>
+      <div id="peers"></div>
+      <div class="legend"><span><i style="background:var(--accent);border-radius:50%"></i>This repository</span><span><i style="background:var(--line)"></i>Middle half of peers</span><span><i class="ln" style="background:var(--ink-3);width:3px;height:12px;vertical-align:-1px"></i>Peer median</span></div>
+      <p class="cap">Each row is ranked on its own. We never combine them into one score. Peers are repositories in GitAnalyze rankings with the same main language · <span class="upd"></span></p>
+    </div>
+  </section>
+
+  <!-- AI -->
+  <section class="sec" id="s-ai" aria-labelledby="h-ai">
+    <div class="sec-head"><div><h2 id="h-ai">AI &amp; trust</h2><p>What it can do inside an AI assistant, and what it would run on your computer.</p></div></div>
+    <div class="card" id="aiCard"></div>
+  </section>
+</main>
+
+<footer><div class="wrap">
+  <p class="note">Sample data for now. In production, numbers come from the public GitHub API, processed by GitAnalyze (independent, not affiliated with GitHub). Stars are bookmarks, not usage.</p>
+  <p class="note"><a href="#">How every number is worked out</a></p>
+</div></footer>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script>
+(() => {
+'use strict';
+/* ---------- helpers ---------- */
+const $ = (s, r = document) => r.querySelector(s);
+const DAY = 864e5;
+const NOW = Date.UTC(2026, 10, 23, 14, 0);           // sample "today"
+const LAST_SUN = Date.UTC(2026, 10, 22);
+const MON = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+const d = (t) => new Date(t);
+const fDay = (t) => `${MON[d(t).getUTCMonth()]} ${d(t).getUTCDate()}`;
+const fDayY = (t) => `${fDay(t)}, ${d(t).getUTCFullYear()}`;
+const fMonY = (t) => `${MON[d(t).getUTCMonth()]} ${d(t).getUTCFullYear()}`;
+const n0 = (x) => Math.round(x).toLocaleString('en-US');
+const compact = (x) => { const a = Math.abs(x); return a >= 1e6 ? (x/1e6).toFixed(1).replace(/\.0$/,'')+'M' : a >= 1e4 ? Math.round(x/1e3)+'k' : a >= 1e3 ? (x/1e3).toFixed(1).replace(/\.0$/,'')+'k' : String(Math.round(x)); };
+const signed = (x) => (x > 0 ? '+' : x < 0 ? '−' : '') + n0(Math.abs(x));
+const pct = (x) => (x > 0 ? '+' : x < 0 ? '−' : '') + Math.abs(Math.round(x*100)) + '%';
+const sum = (a) => a.reduce((s, v) => s + v, 0);
+const median = (a) => { if (!a.length) return null; const s = [...a].sort((x,y)=>x-y), m = s.length >> 1; return s.length % 2 ? s[m] : (s[m-1]+s[m])/2; };
+const ago = (t) => { const days = Math.round((NOW - t)/DAY); return days <= 0 ? 'today' : days === 1 ? '1 day ago' : days < 60 ? `${days} days ago` : days < 730 ? `${Math.round(days/30.4)} months ago` : `${(days/365).toFixed(1).replace(/\.0$/,'')} years ago`; };
+const esc = (s) => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+function rng(seed){ return () => { seed |= 0; seed = seed + 0x6D2B79F5 | 0; let t = Math.imul(seed ^ seed >>> 15, 1 | seed); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+function niceMax(v){ if (v <= 0) return 1; const p = Math.pow(10, Math.floor(Math.log10(v))); for (const m of [1,2,2.5,5,10]) if (m*p >= v) return m*p; return 10*p; }
+function niceTicks(lo, hi){ const span = hi - lo || 1; const step0 = span/4, p = Math.pow(10, Math.floor(Math.log10(step0))); let step = p; for (const m of [1,2,2.5,5,10]) { if (m*p >= step0) { step = m*p; break; } } const a = Math.floor(lo/step)*step, out = []; for (let v = a; v <= hi + step*0.001; v += step) out.push(+v.toFixed(6)); if (out[out.length-1] < hi) out.push(out[out.length-1]+step); return out; }
+
+const ICON = {
+  check:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>',
+  warn:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3.5L2.5 20h19z"/><path d="M12 10v4.5M12 17.3v.2"/></svg>',
+  stop:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" aria-hidden="true"><path d="M6.5 6.5l11 11M17.5 6.5l-11 11"/></svg>',
+  minus:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" aria-hidden="true"><path d="M6 12h12"/></svg>',
+  clock:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></svg>',
+  up:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 19V5M6 11l6-6 6 6"/></svg>',
+  down:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M6 13l6 6 6-6"/></svg>',
+  flat:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M14 7l5 5-5 5"/></svg>',
+  info:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 11v5.5M12 7.6v.2"/></svg>'
+};
+const TONE_ICON = { good:'check', warn:'warn', bad:'stop', neutral:'minus' };
+const toneIcon = (tone) => ICON[TONE_ICON[tone]];
+
+/* ---------- sample repositories ---------- */
+const PROFILES = [
+  { id:'agent-kit', owner:'lumen-labs', name:'agent-kit', ownerType:'Organization', lang:'Python', license:'MIT',
+    desc:'Agent skills for document work: PDFs, spreadsheets and slide decks, packaged for AI assistants.',
+    blurb:'Healthy, growing, one thing to check', seed:11, ageWeeks:156, lastCommitDays:2,
+    star:(i, n, r) => (40 + 300*Math.pow(i/n, 1.7)) * (0.8 + 0.4*r()) * (i > n-5 ? 1.4 : 1),
+    commits:(i, r) => Math.max(0, Math.round(24 + 6*Math.sin(i/5) + (i > 38 ? 7 : 0) + 10*r())),
+    releaseEvery:34, lastReleaseDays:12, firstVersion:[1,0,0], prereleaseEvery:4,
+    contrib:[41,14,9,7,5,4,3,3,2,2,2,1.5,1.5,1,1,1,1,0.5,0.5,0.5,0.5], contribOther:26,
+    issues:(m, r) => ({ opened: Math.round(58 + m*3.4 + 8*r()), closed: Math.round(m < 6 ? 60 + m*2 + 8*r() : 66 + 6*r()) }),
+    prs:(m, r) => { const o = Math.round(42 + m*1.2 + 8*r()); return { opened:o, merged:Math.round(o*(0.8 + 0.08*r())) }; },
+    openIssues:214, openPrs:31, spikeWeeks:0,
+    skills:[['pdf-tools','Reads, fills and merges PDF files',2],['sheet-builder','Builds spreadsheets with formulas',1],['deck-maker','Creates slide decks from an outline',0],['doc-review','Reviews a document and suggests edits',0],['table-extract','Pulls tables out of PDFs and images',3],['style-guide','Applies a house writing style',0]],
+    peers:{ group:'Python', n:312, rows:[['Total stars',78,18400,'stars'],['Stars gained, last 30 days',91,2210,'stars'],['Commits, last 90 days',84,412,'commits'],['Active contributors, last 90 days',80,17,'people'],['Issues closed per issue opened',38,0.86,'ratio'],['Releases, last 12 months',72,11,'releases']] } },
+  { id:'hype-agent', owner:'newwave', name:'hype-agent', ownerType:'User', lang:'TypeScript', license:'NOASSERTION',
+    desc:'An autonomous agent that writes, tests and ships your code for you.',
+    blurb:'Sudden star spike, one maintainer', seed:23, ageWeeks:34, lastCommitDays:20,
+    star:(i, n, r) => (i === n-2 ? 1380 : i === n-1 ? 1620 : 12 + 30*r()),
+    commits:(i, r) => i > 44 ? (i === 48 ? 3 : 0) : i < 18 ? 0 : Math.round(2 + 6*r()),
+    releaseEvery:30, lastReleaseDays:208, releaseCount:3, firstVersion:[0,1,0], prereleaseEvery:2,
+    contrib:[92,5,3], contribOther:0,
+    issues:(m, r) => ({ opened: m < 5 ? 0 : Math.round(m === 11 ? 46 : 4 + 6*r()), closed: m < 5 ? 0 : Math.round(1 + 3*r()) }),
+    prs:(m, r) => { const o = m < 5 ? 0 : Math.round(m === 11 ? 18 : 1 + 4*r()); return { opened:o, merged:Math.round(o*0.35) }; },
+    openIssues:71, openPrs:19, spikeWeeks:2,
+    skills:[['auto-ship','Commits and pushes code on your behalf',4],['shell-runner','Runs shell commands it decides on',2],['dep-install','Installs packages it thinks you need',1],['env-reader','Reads environment files for settings',1]],
+    peers:{ group:'TypeScript', n:280, rows:[['Total stars',41,4920,'stars'],['Stars gained, last 30 days',99,3410,'stars'],['Commits, last 90 days',6,3,'commits'],['Active contributors, last 90 days',4,1,'people'],['Issues closed per issue opened',9,0.22,'ratio'],['Releases, last 12 months',14,3,'releases']] } },
+  { id:'tablekit', owner:'oldframe', name:'tablekit', ownerType:'Organization', lang:'JavaScript', license:'Apache-2.0',
+    desc:'A data grid component for the browser with sorting, filtering and virtual scrolling.',
+    blurb:'Famous but quiet for 8 months', seed:37, ageWeeks:400, lastCommitDays:241,
+    star:(i, n, r) => { const t = i/n; return Math.max(-14, (t < 0.55 ? 60 + 420*t : 290*Math.exp(-(t-0.55)*9)) * (0.75 + 0.5*r()) - (t > 0.93 ? 9*r() : 0)); },
+    commits:(i, r) => i < 18 ? Math.round(3*r()) : 0,
+    releaseEvery:88, lastReleaseDays:412, releaseCount:14, firstVersion:[3,0,0], prereleaseEvery:0,
+    contrib:[58,27,15], contribOther:0,
+    issues:(m, r) => ({ opened: Math.round(14 + 9*r()), closed: Math.round(m < 3 ? 6*r() : r()*1.4) }),
+    prs:(m, r) => { const o = Math.round(5 + 5*r()); return { opened:o, merged: m < 3 ? Math.round(o*0.3) : 0 }; },
+    openIssues:388, openPrs:64, spikeWeeks:0,
+    skills:[],
+    peers:{ group:'JavaScript', n:290, rows:[['Total stars',96,41200,'stars'],['Stars gained, last 30 days',7,18,'stars'],['Commits, last 90 days',1,0,'commits'],['Active contributors, last 90 days',2,0,'people'],['Issues closed per issue opened',3,0.04,'ratio'],['Releases, last 12 months',4,0,'releases']] } }
+];
+
+PROFILES.push({ id:'slowing', owner:'', name:'', ownerType:'Organization', lang:'', license:'MIT', desc:'', blurb:'', seed:51, ageWeeks:220, lastCommitDays:60,
+  star:(i, n, r) => (30 + 160*Math.sin(Math.min(1, i/n)*Math.PI*0.85)) * (0.75 + 0.5*r()),
+  commits:(i, r) => Math.max(0, Math.round((i < 26 ? 18 - i*0.4 : 5 - (i-26)*0.2) + 4*r())),
+  releaseEvery:45, lastReleaseDays:210, firstVersion:[2,0,0], prereleaseEvery:5,
+  contrib:[48,18,11,7,5,4,3,2,2], contribOther:20,
+  issues:(m, r) => ({ opened: Math.round(30 + 8*r()), closed: Math.round(m < 6 ? 28 + 6*r() : 14 + 6*r()) }),
+  prs:(m, r) => { const o = Math.round(14 + 6*r()); return { opened:o, merged:Math.round(o*(m < 6 ? 0.75 : 0.4)) }; },
+  openIssues:160, openPrs:22, spikeWeeks:0, skills:[],
+  peers:{ group:'', n:300, rows:[['Total stars',70,0,'stars'],['Stars gained, last 30 days',35,0,'stars'],['Commits, last 90 days',30,0,'commits'],['Active contributors, last 90 days',33,0,'people'],['Issues closed per issue opened',28,0.5,'ratio'],['Releases, last 12 months',20,1,'releases']] } });
+const TEMPLATE = (id) => PROFILES.find(p => p.id === id);
+const hashStr = (str) => { let h = 2166136261; for (const ch of str) { h ^= ch.charCodeAt(0); h = Math.imul(h, 16777619); } return h >>> 0; };
+/* The dashboard passes its row in the URL (/repo/{owner}/{name}?s=…). Sample data until the API is wired (F7 Step 7). */
+function readRecord(){
+  const q = new URLSearchParams(location.search);
+  const m = location.pathname.match(/\/repo\/([^/]+)\/([^/?#]+)/);
+  const full = m ? decodeURIComponent(m[1]) + '/' + decodeURIComponent(m[2]) : (q.get('repo') || 'lumen-labs/agent-kit');
+  const [owner, name] = full.split('/');
+  const num = (k, dflt) => { const v = parseFloat(q.get(k)); return isFinite(v) ? v : dflt; };
+  if (!q.has('s') && full === 'lumen-labs/agent-kit') return { owner, name, status:'Active', lang:'Python', stars:18455, pushed:2, contributors:64, ownerType:'Organization', ai:true, spike:false, trending:0, desc:'Agent skills for document work: PDF, slides, spreadsheets.' };
+  return { owner, name, status: q.get('s') || 'Active', lang: q.get('l') || 'N/A', stars: num('st', 0), pushed: num('p', 2), contributors: num('c', 10),
+    ownerType: q.get('o') === 'User' ? 'User' : 'Organization', ai: q.get('ai') === '1', spike: q.get('sp') === '1', trending: num('t', 0), desc: q.get('d') || '' };
+}
+function profileFor(rec){
+  const base = rec.spike ? TEMPLATE('hype-agent') : rec.status === 'Active' ? TEMPLATE('agent-kit') : rec.status === 'Slowing' ? TEMPLATE('slowing') : TEMPLATE('tablekit');
+  const p = Object.assign({}, base, { id: (rec.owner + '/' + rec.name).toLowerCase(), owner: rec.owner, name: rec.name, desc: rec.desc, lang: rec.lang, ownerType: rec.ownerType,
+    seed: hashStr(rec.owner + '/' + rec.name), targetStars: rec.stars || null, trending: rec.trending, archived: rec.status === 'Archived', contribOther: Math.max(rec.contributors, base.contrib.length) });
+  if (rec.status === 'Active') { p.lastCommitDays = Math.min(Math.max(1, rec.pushed), 30); p.lastReleaseDays = Math.min(base.lastReleaseDays, 40); if (rec.spike) p.releaseCount = 3; }
+  else if (rec.status === 'Slowing') { p.lastCommitDays = Math.min(Math.max(31, rec.pushed), 182); }
+  else { p.lastCommitDays = Math.max(183, rec.pushed); }
+  if (rec.contributors <= 3 && !rec.spike) p.contrib = [62, 26, 12].slice(0, Math.max(1, rec.contributors));
+  p.skills = rec.ai ? (base.skills.length ? base.skills : TEMPLATE('agent-kit').skills) : [];
+  p.peers = Object.assign({}, base.peers, { group: rec.lang });
+  return p;
+}
+function build(p){
+  const r = rng(p.seed);
+  /* weekly net stars, oldest first */
+  const weeks = [];
+  for (let i = 0; i < p.ageWeeks; i++) weeks.push({ t: LAST_SUN - (p.ageWeeks-1-i)*7*DAY, gained: Math.round(p.star(i, p.ageWeeks-1, r)) });
+  weeks[weeks.length-1].gained = Math.round(weeks[weeks.length-1].gained * 2/7);   // current week is partial (Sun + Mon)
+  let tot = 0; weeks.forEach(w => { tot += w.gained; w.total = Math.max(0, tot); });
+  if (p.targetStars && tot > 0) { const f = p.targetStars / tot; tot = 0; weeks.forEach(w => { w.gained = Math.round(w.gained * f); tot += w.gained; w.total = Math.max(0, tot); }); weeks[weeks.length-1].total += p.targetStars - tot; weeks[weeks.length-1].gained += p.targetStars - tot; }
+  /* daily, last 30 days, split from weekly */
+  const days = [];
+  for (let k = 29; k >= 0; k--) {
+    const t = Date.UTC(2026,10,23) - k*DAY;
+    const wk = weeks.find(w => t >= w.t && t < w.t + 7*DAY) || weeks[weeks.length-1];
+    const per = wk === weeks[weeks.length-1] ? wk.gained/2 : wk.gained/7;
+    days.push({ t, gained: Math.round(per * (0.7 + 0.6*r())) });
+  }
+  let dt = weeks[weeks.length-1].total - sum(days.map(x => x.gained));
+  days.forEach(x => { dt += x.gained; x.total = dt; });
+  /* commits, 52 weeks with days */
+  const commits = [];
+  for (let i = 0; i < 52; i++) {
+    const total = p.commits(i, r);
+    const w = [0.25,1.2,1.3,1.25,1.15,1,0.35].map(f => f*(0.6 + 0.8*r()));
+    const ws = sum(w); const daysArr = w.map(f => Math.round(total*f/ws));
+    commits.push({ t: LAST_SUN - (51-i)*7*DAY, total: sum(daysArr), days: daysArr });
+  }
+  if (p.lastCommitDays > 2) { const lim = NOW - p.lastCommitDays*DAY; commits.forEach(c => c.days.forEach((v, k) => { if (c.t + k*DAY > lim) c.days[k] = 0; })); commits.forEach(c => c.total = sum(c.days)); }
+  if (p.lastCommitDays <= 30) { const t0 = NOW - p.lastCommitDays*DAY; const c = commits.find(c => t0 >= c.t && t0 < c.t+7*DAY); if (c) { const k = Math.floor((t0-c.t)/DAY); c.days[k] = Math.max(1, c.days[k]); c.total = sum(c.days); } }
+  /* releases */
+  const releases = [];
+  const count = p.releaseCount || Math.floor((p.ageWeeks*7 - 40) / p.releaseEvery);
+  let t = NOW - p.lastReleaseDays*DAY, v = [...p.firstVersion];
+  const stamps = [];
+  for (let i = 0; i < count; i++) { stamps.push(t); t -= (p.releaseEvery + (r()-0.5)*p.releaseEvery*0.5)*DAY; }
+  stamps.reverse().forEach((ts, i) => {
+    if (i) { if (i % 6 === 0) { v = [v[0]+1, 0, 0]; } else if (i % 2 === 0) { v = [v[0], v[1]+1, 0]; } else { v = [v[0], v[1], v[2]+1]; } }
+    const pre = p.prereleaseEvery && i % p.prereleaseEvery === p.prereleaseEvery-1 && i !== stamps.length-1;
+    releases.push({ t: ts, tag: 'v' + v.join('.') + (pre ? '-rc.1' : ''), pre });
+  });
+  /* issues & PRs, 12 months oldest first */
+  const months = [];
+  for (let m = 0; m < 12; m++) {
+    const mt = Date.UTC(2025, 11 + m, 1);
+    months.push({ t: mt, ...p.issues(m, r), pr: p.prs(m, r) });
+  }
+  /* contributors */
+  const contrib = p.contrib.map((s, i) => ({ login: i === 0 ? p.owner === 'newwave' ? 'nw-dev' : p.owner + '-' + ['ada','ben','cy'][0] : 'person-' + (i+1), share: s/100 }));
+  const names = { 'agent-kit':['mira-k','jtan','oboyle','sasha-r','devlin','priya-n','kofi','lena-w','tomasz','ruiz'], 'hype-agent':['nw-dev','kai-x','j0e'], 'tablekit':['hgrant','mvoss','elle-b'] }[p.id] || [];
+  contrib.forEach((c, i) => { if (names[i]) c.login = names[i]; });
+  return { weeks, days, commits, releases, months, contrib };
+}
+
+/* ---------- rules (mirror backend F2 / F8 G7; the frontend only renders results) ---------- */
+function analyse(p, D){
+  const lastCommit = NOW - p.lastCommitDays*DAY;
+  const lastRel = D.releases.length ? D.releases.filter(x => !x.pre).slice(-1)[0] || D.releases.slice(-1)[0] : null;
+  const relDays = lastRel ? (NOW - lastRel.t)/DAY : null;
+  let status;
+  if (p.archived) status = 'Archived';
+  else if (p.lastCommitDays <= 30 && (relDays === null || relDays <= 182)) status = 'Active';
+  else if (p.lastCommitDays <= 182) status = 'Slowing';
+  else status = 'Quiet';
+  const statusTone = { Active:'good', Slowing:'warn', Quiet:'neutral', Archived:'bad' }[status];
+
+  const W = D.weeks, n = W.length;
+  const g7 = W[n-1].gained + W[n-2].gained * 5/7;
+  const g30 = sum(D.days.map(x => x.gained));
+  const prev30 = sum(W.slice(Math.max(0, n-10), n-5).map(w => w.gained)) * 30/35;
+  const base12 = median(W.slice(Math.max(0, n-15), n-3).map(w => w.gained)) || 1;
+  const commits90 = sum(D.commits.slice(-13).map(c => c.total));
+  const commitsPrev90 = sum(D.commits.slice(-26, -13).map(c => c.total));
+  const spike = p.spikeWeeks > 0 && W.slice(-3).some(w => w.gained > 8*Math.max(base12, 10)) && commits90 < 40;
+
+  const top = D.contrib[0].share;
+  let cum = 0, for80 = 0; for (const c of D.contrib) { cum += c.share; for80++; if (cum >= 0.8) break; }
+  const single = top >= 0.8;
+
+  const last6 = D.months.slice(-6);
+  const opened6 = sum(last6.map(m => m.opened)), closed6 = sum(last6.map(m => m.closed));
+  const closeRatio = opened6 ? closed6/opened6 : null;
+  const backlog6 = opened6 - closed6;
+  let growStreak = 0; for (let i = D.months.length-1; i >= 0 && D.months[i].opened > D.months[i].closed; i--) growStreak++;
+  const prO = sum(D.months.map(m => m.pr.opened)), prM = sum(D.months.map(m => m.pr.merged));
+  const mergeRate = prO ? prM/prO : null;
+
+  const relTimes = D.releases.filter(x => !x.pre).map(x => x.t);
+  const gaps = relTimes.slice(1).map((t, i) => (t - relTimes[i])/DAY);
+  const medGap = median(gaps.slice(-8));
+  const rel12 = D.releases.filter(x => !x.pre && x.t > NOW - 365*DAY).length;
+
+  const checks = [];
+  checks.push(status === 'Active' ? { tone:'good', t:'Actively maintained', d:`Last commit ${ago(lastCommit)}, last release ${lastRel ? ago(lastRel.t) : 'never'}.`, k:'maintenance' }
+    : status === 'Slowing' ? { tone:'warn', t:'Maintenance is slowing', d:`Last commit ${ago(lastCommit)}, but no release in ${Math.round(relDays)} days.`, k:'maintenance' }
+    : status === 'Archived' ? { tone:'bad', t:'Archived by its owner', d:'Read-only. No one will fix bugs or answer issues.', k:'maintenance' }
+    : { tone:'bad', t:'No recent work', d:`Last commit ${ago(lastCommit)}.`, k:'maintenance' });
+  checks.push(single ? { tone:'warn', t:'Mostly one person', d:`${D.contrib[0].login} made ${Math.round(top*100)}% of last year’s commits.`, k:'maintainers' }
+    : { tone:'good', t:'Shared maintenance', d:`${for80} people made 80% of last year’s commits. The top person made ${Math.round(top*100)}%.`, k:'maintainers' });
+  checks.push(p.license === 'NOASSERTION' ? { tone:'warn', t:'Custom or unrecognized license', d:'GitHub couldn’t match it to a standard license. Read it before you reuse the code.', k:'license' }
+    : !p.license ? { tone:'bad', t:'No license', d:'No license: others may not legally reuse this code.', k:'license' }
+    : { tone:'good', t:`${p.license} license`, d:'A standard open-source license.', k:'license' });
+  checks.push(spike ? { tone:'warn', t:'Unusual star spike', d:'Unusual spike: lots of new stars but little other activity.', k:'stars' }
+    : g7 <= 0 ? { tone:'neutral', t:'No new attention', d:`Net ${signed(Math.round(g7))} stars in the last 7 days.`, k:'stars' }
+    : { tone:'good', t:'Steady interest', d:`+${n0(g7)} stars in the last 7 days, in line with recent weeks.`, k:'stars' });
+  const scripted = p.skills.filter(s => s[2] > 0).length;
+  if (p.skills.length) checks.push(scripted ? { tone:'warn', t:`${scripted} of ${p.skills.length} skills run scripts`, d:'This skill includes scripts that can run on your computer. Read them before installing.', k:'scripts' }
+    : { tone:'good', t:'No skills run scripts', d:`${p.skills.length} skills, all instructions only.`, k:'scripts' });
+  const issuesCount = checks.filter(c => c.tone === 'warn' || c.tone === 'bad').length;
+
+  /* decision brief findings */
+  const momChange = prev30 > 0 ? (g30 - prev30)/prev30 : null;
+  const momentum = spike ? { tone:'warn', v:'Spiky', e:`${Math.round(100*(W[n-1].gained+W[n-2].gained)/Math.max(1,g30))}% of the last 30 days’ stars arrived in 2 weeks.` }
+    : g30 <= 0 ? { tone:'neutral', v:'Fading', e:`Net ${signed(g30)} stars in 30 days.` }
+    : momChange !== null && momChange > 0.1 ? { tone:'good', v:'Growing', e:`+${n0(g30)} stars in 30 days, ${pct(momChange)} on the 30 days before.` }
+    : momChange !== null && momChange < -0.1 ? { tone:'warn', v:'Cooling', e:`+${n0(g30)} stars in 30 days, ${pct(momChange)} on the 30 days before.` }
+    : { tone:'neutral', v:'Steady', e:`+${n0(g30)} stars in 30 days, about the same as before.` };
+  const devChange = commitsPrev90 ? (commits90 - commitsPrev90)/commitsPrev90 : null;
+  const maintenance = commits90 === 0 ? { tone:'bad', v:'Stopped', e:`No commits in 13 weeks. Last commit ${ago(lastCommit)}.` }
+    : devChange !== null && devChange < -0.4 ? { tone:'warn', v:'Slowing down', e:`${n0(commits90)} commits in 13 weeks, ${pct(devChange)} on the 13 before.` }
+    : devChange !== null && devChange > 0.1 ? { tone:'good', v:'Speeding up', e:`${n0(commits90)} commits in 13 weeks, ${pct(devChange)} on the 13 before.` }
+    : { tone:'good', v:'Steady', e:`${n0(commits90)} commits in 13 weeks, similar to the 13 before.` };
+  const support = closeRatio === null ? { tone:'neutral', v:'N/A', e:'No issues in the last 6 months.' }
+    : closeRatio >= 0.95 ? { tone:'good', v:'Keeping up', e:`Closed ${n0(closed6)} of ${n0(opened6)} new issues in 6 months.` }
+    : closeRatio >= 0.6 ? { tone:'warn', v:'Falling behind', e:`Closed ${n0(closed6)} for every ${n0(opened6)} opened in 6 months. Backlog ${signed(backlog6)}.` }
+    : { tone:'bad', v:'Not answering', e:`Closed ${n0(closed6)} of ${n0(opened6)} new issues in 6 months. Backlog ${signed(backlog6)}.` };
+  const relRatio = relDays !== null && medGap ? relDays/medGap : null;
+  const shipping = !lastRel ? { tone:'neutral', v:'No releases', e:'Uses the default branch only.' }
+    : relRatio <= 1.5 ? { tone:'good', v:'On its usual pace', e:`Last release ${ago(lastRel.t)}. Usually every ${Math.round(medGap)} days.` }
+    : { tone:'warn', v:`Overdue, ${relRatio.toFixed(1)}× its usual gap`, e:`Last release ${ago(lastRel.t)}. Usually every ${Math.round(medGap)} days.` };
+  const people = single ? { tone:'warn', v:'Depends on one person', e:`${Math.round(top*100)}% of last year’s commits came from ${D.contrib[0].login}.` }
+    : { tone:'good', v:`Shared by ${for80} people`, e:`${for80} people made 80% of last year’s commits.` };
+  const findings = [['Is interest real and growing?', momentum], ['Is someone still working on it?', maintenance], ['Will my bug reports get answered?', support], ['Does it ship on a rhythm?', shipping], ['What if one person leaves?', people]];
+
+  const fit = [], watch = [];
+  if (status === 'Active') fit.push('You need something that is maintained today and should be for the next year.');
+  if (!single) fit.push('You want work spread across several people, not one.');
+  if (shipping.tone === 'good') fit.push(`You like predictable upgrades: a release about every ${Math.round(medGap)} days.`);
+  if (momentum.tone === 'good') fit.push('You want a growing community, which usually means more answers and examples online.');
+  if (p.ownerType === 'Organization') fit.push(`It is published by an organization (${p.owner}), not one personal account.`);
+  if (status === 'Quiet') fit.push('You only need the current version as it is and can fix problems yourself.');
+  if (support.tone !== 'good' && support.tone !== 'neutral') watch.push(`You expect quick help: issues are being opened faster than they are closed (${growStreak} months in a row).`);
+  if (single) watch.push('Your team can’t take over if the main maintainer stops.');
+  if (spike) watch.push('You are choosing it for its star count: most recent stars arrived in a sudden burst with little other activity.');
+  if (p.license === 'NOASSERTION') watch.push('You need legal clarity: the license is not a standard one.');
+  if (scripted) watch.push(`You install skills without reading them: ${scripted} of ${p.skills.length} skills run scripts on your computer.`);
+  if (shipping.tone === 'warn') watch.push('You need regular fixes: the next release is well past its usual date.');
+  if (status === 'Quiet') watch.push(`You need security fixes or new features: the last commit was ${ago(lastCommit)}.`);
+  if (!watch.length) watch.push('Nothing stood out in the data we have.');
+  if (!fit.length) fit.push('You are only evaluating it, and will check again later.');
+
+  return { status, statusTone, lastCommit, lastRel, relDays, g7, g30, prev30, momChange, commits90, commitsPrev90, devChange, spike, base12,
+    top, for80, single, opened6, closed6, closeRatio, backlog6, growStreak, prO, prM, mergeRate, medGap, rel12, gaps,
+    checks, issuesCount, findings, fit, watch, scripted };
+}
+
+/* ---------- chart primitives ---------- */
+const css = (name) => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+function frame(el, pad){ const w = Math.max(240, el.clientWidth), h = el.clientHeight || 200; return { w, h, x0: pad.l, x1: w - pad.r, y0: pad.t, y1: h - pad.b }; }
+function yAxis(F, ticks, sy, fmt = compact){ return ticks.map(v => `<line x1="${F.x0}" x2="${F.x1}" y1="${sy(v)}" y2="${sy(v)}" style="stroke:var(--line-2)"/><text x="${F.x0-8}" y="${sy(v)+4}" text-anchor="end" style="fill:var(--ink-3);font-size:11px">${fmt(v)}</text>`).join(''); }
+function xLabels(F, items, sx, fmt, k = 5){ if (!items.length) return ''; const idx = new Set(); for (let j = 0; j < k; j++) idx.add(Math.round(j*(items.length-1)/(k-1))); return [...idx].map(i => `<text x="${sx(i)}" y="${F.y1+18}" text-anchor="${i === 0 ? 'start' : i === items.length-1 ? 'end' : 'middle'}" style="fill:var(--ink-3);font-size:11px">${fmt(items[i], i)}</text>`).join(''); }
+function tipper(el){ let tip = el.querySelector('.tip'); if (!tip) { tip = document.createElement('div'); tip.className = 'tip'; tip.hidden = true; el.appendChild(tip); } return tip; }
+function hover(el, F, count, sx, render){
+  const tip = tipper(el); let cur = -1;
+  const show = (i) => { cur = Math.max(0, Math.min(count-1, i)); const o = render(cur); tip.innerHTML = o.html; tip.hidden = false;
+    const tw = tip.offsetWidth; let x = sx(cur); x = Math.max(tw/2, Math.min(F.w - tw/2, x)); tip.style.left = x + 'px'; tip.style.top = Math.max(o.y, 40) + 'px';
+    const c = el.querySelector('.cursor'); if (c) { c.setAttribute('x1', sx(cur)); c.setAttribute('x2', sx(cur)); c.style.display = ''; }
+    const dot = el.querySelector('.cdot'); if (dot && o.dy !== undefined) { dot.setAttribute('cx', sx(cur)); dot.setAttribute('cy', o.dy); dot.style.display = ''; } };
+  const hide = () => { tip.hidden = true; const c = el.querySelector('.cursor'); if (c) c.style.display = 'none'; const dot = el.querySelector('.cdot'); if (dot) dot.style.display = 'none'; };
+  const pick = (cx) => { const rect = el.getBoundingClientRect(); const x = cx - rect.left; let best = 0, bd = Infinity; for (let i = 0; i < count; i++) { const dd = Math.abs(sx(i) - x); if (dd < bd) { bd = dd; best = i; } } return best; };
+  el.onmousemove = (e) => show(pick(e.clientX));
+  el.onmouseleave = hide;
+  el.ontouchstart = (e) => show(pick(e.touches[0].clientX));
+  el.onkeydown = (e) => { if (e.key === 'ArrowRight') { show(cur < 0 ? count-1 : cur+1); e.preventDefault(); } else if (e.key === 'ArrowLeft') { show(cur < 0 ? count-1 : cur-1); e.preventDefault(); } else if (e.key === 'Home') { show(0); e.preventDefault(); } else if (e.key === 'End') { show(count-1); e.preventDefault(); } else if (e.key === 'Escape') hide(); };
+  el.onblur = hide;
+}
+
+/* ---------- state ---------- */
+let P = profileFor(readRecord()), D, A;
+const ui = { range:'1y', view:'gained' };
+
+/* ---------- render: head + verdict + brief + KPIs ---------- */
+function renderHead(){
+  $('#repoTitle').innerHTML = `<span class="own">${esc(P.owner)} /</span> ${esc(P.name)}`;
+  $('#repoDesc').textContent = P.desc;
+  const ageYrs = P.ageWeeks/52;
+  const chips = [`<span class="chip">${P.ownerType}</span>`, `<span class="chip">${esc(P.lang)}</span>`, `<span class="chip">${ageYrs < 1 ? Math.round(P.ageWeeks/4.35) + ' months old' : ageYrs.toFixed(0) + (ageYrs < 1.5 ? ' year old' : ' years old')}</span>`];
+  if (P.trending) chips.push(`<span class="chip warn">From GitHub Trending · #${P.trending}</span>`);
+  if (P.skills.length) chips.push(`<span class="chip accent">${P.skills.length} AI skills</span>`);
+  $('#repoChips').innerHTML = chips.join('');
+  $('#ghLink').href = `https://github.com/${P.owner}/${P.name}`;
+  $('#freshTxt').textContent = 'Data last updated 2 hours ago';
+  document.querySelectorAll('.upd').forEach(e => e.textContent = 'Updated Nov 23, 2026, 12:04 UTC');
+  document.title = `${P.owner}/${P.name} · GitAnalyze`;
+}
+function renderVerdict(){
+  const t = A.statusTone;
+  $('#vTile').className = 'vtile bg-' + t; $('#vTile').innerHTML = `<span class="t-${t}">${toneIcon(t)}</span>`;
+  $('#vWord').className = 't-' + t; $('#vWord').textContent = A.status;
+  $('#vSent').textContent = A.issuesCount === 0 ? 'Nothing stood out. The usual signals look healthy.' : A.issuesCount === 1 ? '1 thing to look at before you adopt it.' : `${A.issuesCount} things to look at before you adopt it.`;
+  $('#vChecks').innerHTML = A.checks.map(c => `<li><span class="mark bg-${c.tone} t-${c.tone}">${toneIcon(c.tone)}</span><span class="t">${esc(c.t)}</span><button class="info" type="button" data-info="${c.k}" aria-label="About ${esc(c.t.toLowerCase())}" aria-expanded="false"></button><span class="d">${esc(c.d)}</span></li>`).join('');
+}
+function renderBrief(){
+  $('#findings').innerHTML = A.findings.map(([q, f]) => `<div class="find"><div class="k"><span class="t-${f.tone}">${toneIcon(f.tone)}</span>${esc(q)}</div><div class="v t-${f.tone === 'neutral' ? 'neutral' : f.tone}">${esc(f.v)}</div><div class="e">${esc(f.e)}</div></div>`).join('');
+  $('#fitIco').innerHTML = ICON.check; $('#watchIco').innerHTML = ICON.warn;
+  $('#fitList').innerHTML = A.fit.map(s => `<li>${esc(s)}</li>`).join('');
+  $('#watchList').innerHTML = A.watch.map(s => `<li>${esc(s)}</li>`).join('');
+}
+function sparkSvg(vals, tone = 'var(--c1)'){
+  const w = 120, h = 28, mx = Math.max(...vals), mn = Math.min(0, ...vals), sp = (mx - mn) || 1;
+  const pts = vals.map((v, i) => `${(i/(vals.length-1)*w).toFixed(1)},${(h - 2 - (v - mn)/sp*(h-4)).toFixed(1)}`).join(' ');
+  return `<svg class="spark" viewBox="0 0 ${w} ${h}" preserveAspectRatio="none" aria-hidden="true"><polyline points="${pts}" fill="none" style="stroke:${tone}" stroke-width="1.8" vector-effect="non-scaling-stroke" stroke-linejoin="round"/></svg>`;
+}
+function delta(change, goodWhenUp = true, label = 'vs previous period'){
+  if (change === null || !isFinite(change)) return `<small>N/A ${label}</small>`;
+  const tone = Math.abs(change) < 0.05 ? 'neutral' : (change > 0) === goodWhenUp ? 'good' : 'warn';
+  const ic = Math.abs(change) < 0.05 ? ICON.flat : change > 0 ? ICON.up : ICON.down;
+  return `<span class="delta t-${tone}">${ic}${pct(change)}<span class="muted" style="font-weight:400">&nbsp;${label}</span></span>`;
+}
+function renderKpis(){
+  const W = D.weeks, total = W[W.length-1].total;
+  const open = P.openIssues;
+  const k = [
+    ['Total stars', 'stars', n0(total), delta(A.g30 / Math.max(1, total - A.g30), true, 'in 30 days'), sparkSvg(W.slice(-52).map(w => w.total))],
+    ['Stars gained, 30 days', 'gained', signed(A.g30), delta(A.momChange, true, 'vs prior 30 days'), sparkSvg(W.slice(-12).map(w => w.gained))],
+    ['Commits, 13 weeks', 'commits', n0(A.commits90), delta(A.devChange, true, 'vs prior 13'), sparkSvg(D.commits.map(c => c.total))],
+    ['Open issues', 'issues', n0(open), `<span class="delta t-${A.backlog6 > 0 ? 'warn' : 'good'}">${A.backlog6 > 0 ? ICON.up : ICON.down}${signed(A.backlog6)}<span class="muted" style="font-weight:400">&nbsp;in 6 months</span></span>`, sparkSvg(D.months.map((m, i) => sum(D.months.slice(0, i+1).map(x => x.opened - x.closed))), 'var(--c2)')],
+    ['Pull requests merged', 'prs', A.mergeRate === null ? 'N/A' : Math.round(A.mergeRate*100) + '%', `<small>${n0(A.prM)} of ${n0(A.prO)} in 12 months</small>`, sparkSvg(D.months.map(m => m.pr.merged))],
+    ['Releases, 12 months', 'releases', n0(A.rel12), `<small>${A.lastRel ? 'Last ' + ago(A.lastRel.t) : 'N/A'}</small>`, sparkSvg(D.months.map(m => D.releases.filter(r => !r.pre && r.t >= m.t && r.t < m.t + 31*DAY).length))]
+  ];
+  $('#kpis').innerHTML = k.map(([l, key, v, dl, sp]) => `<div class="kpi"><dt>${l}<button class="info" type="button" data-info="${key}" aria-label="About ${l.toLowerCase()}" aria-expanded="false"></button></dt><dd>${v}</dd>${dl}${sp}</div>`).join('');
+}
+
+/* ---------- render: charts ---------- */
+function renderPulse(){
+  const el = $('#pulse'), w = Math.max(200, el.clientWidth), h = 30, v = D.commits.map(c => c.total), mx = Math.max(1, ...v);
+  const pts = v.map((x, i) => `${(i/(v.length-1)*w).toFixed(1)},${(h - 3 - x/mx*(h-8)).toFixed(1)}`).join(' ');
+  const tone = { good:'var(--good)', warn:'var(--warn)', bad:'var(--bad)', neutral:'var(--ink-2)' }[A.statusTone];
+  el.innerHTML = `<svg viewBox="0 0 ${w} ${h}" height="${h}" role="img" aria-label="Commits per week over the last 52 weeks, ${n0(sum(v))} in total"><line x1="0" x2="${w}" y1="${h-3}" y2="${h-3}" style="stroke:var(--line)"/><polyline points="${pts}" fill="none" style="stroke:${tone}" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/></svg>`;
+}
+function starSeries(){
+  if (ui.range === '1m') return D.days.map(x => ({ ...x, daily:true }));
+  if (ui.range === '1y') return D.weeks.slice(-52);
+  return D.weeks;
+}
+function renderStars(){
+  const el = $('#starChart'), S = starSeries(), F = frame(el, { l:52, r:12, t:16, b:30 });
+  const gained = ui.view === 'gained';
+  const vals = S.map(s => gained ? s.gained : s.total);
+  let lo = gained ? Math.min(0, ...vals) : (ui.range === 'all' ? 0 : Math.min(...vals) * 0.97), hi = Math.max(...vals);
+  if (gained && S.length > 4) { /* moving average */ }
+  const ticks = niceTicks(lo, hi * 1.05); lo = ticks[0]; hi = ticks[ticks.length-1];
+  const bw = (F.x1 - F.x0)/S.length;
+  const sx = (i) => F.x0 + bw*(i + 0.5);
+  const sy = (v) => F.y1 - (v - lo)/(hi - lo)*(F.y1 - F.y0);
+  const ma = S.map((s, i) => { const a = S.slice(Math.max(0, i-3), i+1).map(x => x.gained); return sum(a)/a.length; });
+  let g = yAxis(F, ticks, sy);
+  if (gained) {
+    g += S.map((s, i) => { const y = sy(Math.max(0, s.gained)), y0 = sy(Math.min(0, s.gained)); const spike = A.spike && s.gained > 8*Math.max(A.base12, 10);
+      return `<rect x="${(F.x0 + bw*i + bw*0.15).toFixed(1)}" y="${y.toFixed(1)}" width="${Math.max(1, bw*0.7).toFixed(1)}" height="${Math.max(1, y0 - y).toFixed(1)}" rx="2" style="fill:${spike ? 'var(--warn)' : s.gained < 0 ? 'var(--bad)' : 'var(--c1)'};opacity:.85"/>`; }).join('');
+    if (S.length > 6) g += `<polyline points="${ma.map((v, i) => `${sx(i).toFixed(1)},${sy(v).toFixed(1)}`).join(' ')}" fill="none" style="stroke:var(--c2)" stroke-width="2.2" stroke-linejoin="round"/>`;
+  } else {
+    const pts = S.map((s, i) => `${sx(i).toFixed(1)},${sy(s.total).toFixed(1)}`);
+    g += `<polygon points="${sx(0).toFixed(1)},${F.y1} ${pts.join(' ')} ${sx(S.length-1).toFixed(1)},${F.y1}" style="fill:var(--c1);opacity:.1"/><polyline points="${pts.join(' ')}" fill="none" style="stroke:var(--c1)" stroke-width="2.2" stroke-linejoin="round"/>`;
+  }
+  /* release markers */
+  const rel = D.releases.filter(r => !r.pre && r.t >= S[0].t && r.t <= S[S.length-1].t + (S[0].daily ? DAY : 7*DAY));
+  const idxOf = (t) => { for (let i = S.length-1; i >= 0; i--) if (t >= S[i].t) return i; return 0; };
+  g += rel.map(r => { const x = sx(idxOf(r.t)); return `<path d="M${x.toFixed(1)} ${F.y1} l-4 7 h8 z" style="fill:var(--ink-3)"><title>${esc(r.tag)} released ${fDayY(r.t)}</title></path>`; }).join('');
+  g += `<line class="cursor" x1="0" x2="0" y1="${F.y0}" y2="${F.y1}" style="stroke:var(--ink-3);display:none" stroke-dasharray="4 4"/><circle class="cdot" r="4.5" style="fill:var(--c1);stroke:var(--surface);display:none" stroke-width="2"/>`;
+  g += xLabels(F, S, sx, (s) => S[0].daily || ui.range === '1y' ? fDay(s.t) : fMonY(s.t));
+  const label = `${gained ? 'Stars gained per ' + (S[0].daily ? 'day' : 'week') : 'Total stars'}, ${fDayY(S[0].t)} to ${fDayY(S[S.length-1].t)}. ${n0(D.weeks[D.weeks.length-1].total)} total.`;
+  el.innerHTML = `<svg viewBox="0 0 ${F.w} ${F.h}" height="${F.h}" role="img" aria-label="${esc(label)}">${g}</svg>`;
+  const relAt = {}; rel.forEach(r => { relAt[idxOf(r.t)] = r.tag; });
+  hover(el, F, S.length, sx, (i) => { const s = S[i];
+    return { html: `<b>${s.daily ? fDayY(s.t) : 'Week of ' + fDayY(s.t)}</b><br>${signed(s.gained)} stars that ${s.daily ? 'day' : 'week'}<br>${n0(s.total)} total${gained && S.length > 6 ? `<br>4-week average ${n0(ma[i])}` : ''}${relAt[i] ? `<br>Released ${esc(relAt[i])}` : ''}`, y: sy(gained ? Math.max(0, s.gained) : s.total), dy: gained ? undefined : sy(s.total) }; });
+  $('#starLegend').innerHTML = gained ? `<span><i style="background:var(--c1);opacity:.85"></i>Net stars</span>${S.length > 6 ? '<span><i class="ln" style="background:var(--c2)"></i>4-week average</span>' : ''}${A.spike ? '<span><i style="background:var(--warn)"></i>Unusual week</span>' : ''}<span><svg width="10" height="8" style="margin-right:6px" aria-hidden="true"><path d="M5 0l-5 8h10z" style="fill:var(--ink-3)"/></svg>Release</span>`
+    : `<span><i class="ln" style="background:var(--c1)"></i>Total stars</span><span><svg width="10" height="8" style="margin-right:6px" aria-hidden="true"><path d="M5 0l-5 8h10z" style="fill:var(--ink-3)"/></svg>Release</span>`;
+}
+function renderStarText(){
+  const total = D.weeks[D.weeks.length-1].total;
+  $('#starSum').innerHTML = `<span><b>${signed(Math.round(A.g7))}</b>in the last 7 days</span><span><b>${signed(A.g30)}</b>in the last 30 days</span><span><b>${n0(total)}</b>total</span>`;
+  const m = A.findings[0][1];
+  $('#momTake').innerHTML = `<span class="t-${m.tone}">${toneIcon(m.tone)}</span><span>${A.spike ? 'Attention jumped suddenly in the last 2 weeks without matching work on the code.' : m.v === 'Growing' ? `Interest is growing: ${pct(A.momChange)} more stars than the 30 days before.` : m.v === 'Fading' ? 'Attention has faded: about as many people remove a star as add one.' : m.v === 'Cooling' ? 'Interest is cooling compared with the 30 days before.' : 'Interest is steady.'}</span>`;
+  $('#spikeAlert').innerHTML = A.spike ? `<div class="alert warn" role="alert">${ICON.warn}<span>Unusual spike: lots of new stars but little other activity. ${n0(D.weeks.slice(-2).reduce((s,w)=>s+w.gained,0))} stars in 2 weeks, against a usual ${n0(A.base12)} a week, while only ${n0(A.commits90)} commits were made in 13 weeks.</span></div>` : '';
+}
+function renderCommits(){
+  const el = $('#commitChart'), C = D.commits, F = frame(el, { l:40, r:10, t:12, b:28 });
+  const hi = niceMax(Math.max(4, ...C.map(c => c.total)) * 1.1), ticks = niceTicks(0, hi);
+  const top = ticks[ticks.length-1], bw = (F.x1 - F.x0)/C.length, sx = (i) => F.x0 + bw*(i+0.5), sy = (v) => F.y1 - v/top*(F.y1 - F.y0);
+  const avg = (a, b) => sum(C.slice(a, b).map(c => c.total))/(b - a);
+  const segs = [[0,13],[13,26],[26,39],[39,52]].map(([a, b]) => ({ a, b, v: avg(a, b) }));
+  let g = yAxis(F, ticks, sy, n0);
+  g += C.map((c, i) => `<rect x="${(F.x0 + bw*i + bw*0.12).toFixed(1)}" y="${sy(c.total).toFixed(1)}" width="${(bw*0.76).toFixed(1)}" height="${Math.max(c.total ? 1 : 0, F.y1 - sy(c.total)).toFixed(1)}" rx="2" style="fill:var(--c1);opacity:.85"/>`).join('');
+  g += segs.map(s => `<line x1="${(F.x0 + bw*s.a).toFixed(1)}" x2="${(F.x0 + bw*s.b).toFixed(1)}" y1="${sy(s.v).toFixed(1)}" y2="${sy(s.v).toFixed(1)}" style="stroke:var(--c2)" stroke-width="2.5" stroke-linecap="round"/>`).join('');
+  g += `<line class="cursor" x1="0" x2="0" y1="${F.y0}" y2="${F.y1}" style="stroke:var(--ink-3);display:none" stroke-dasharray="4 4"/>`;
+  g += xLabels(F, C, sx, (c, i) => i === C.length-1 ? 'This week' : fDay(c.t), 4);
+  el.innerHTML = `<svg viewBox="0 0 ${F.w} ${F.h}" height="${F.h}" role="img" aria-label="Commits per week over 52 weeks: ${n0(sum(C.map(c=>c.total)))} commits. Last 13 weeks ${n0(A.commits90)}.">${g}</svg>`;
+  hover(el, F, C.length, sx, (i) => ({ html:`<b>Week of ${fDayY(C[i].t)}</b><br>${n0(C[i].total)} commits<br>Quarter average ${segs[Math.floor(i/13)].v.toFixed(1)} a week`, y: sy(C[i].total) }));
+  const m = A.findings[1][1];
+  $('#maintTake').innerHTML = `<span class="t-${m.tone}">${toneIcon(m.tone)}</span><span>${A.commits90 === 0 ? `No commits in the last 13 weeks. The last one was ${ago(A.lastCommit)}.` : `${n0(A.commits90)} commits in the last 13 weeks${A.devChange === null ? '' : `, ${pct(A.devChange)} on the 13 weeks before`}.`}</span>`;
+}
+function renderHeat(){
+  const el = $('#heat'), C = D.commits, w = Math.max(240, el.clientWidth), cols = 52, gap = 2;
+  const cell = Math.max(3, Math.min(14, (w - 30 - gap*cols)/cols)), h = 7*(cell+gap) + 18;
+  const all = C.flatMap(c => c.days), mx = Math.max(1, ...all);
+  const lvl = (v) => v === 0 ? 0 : Math.min(4, 1 + Math.floor(v/mx*3.999));
+  const op = [0, .25, .5, .75, 1];
+  let g = '';
+  ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].forEach((n, k) => { if (k % 2) g += `<text x="0" y="${18 + k*(cell+gap) + cell*0.8}" style="fill:var(--ink-3);font-size:10px">${n}</text>`; });
+  C.forEach((c, i) => { if (i % 13 === 0) g += `<text x="${30 + i*(cell+gap)}" y="10" style="fill:var(--ink-3);font-size:10px">${MON[d(c.t).getUTCMonth()]}</text>`;
+    c.days.forEach((v, k) => { const t = c.t + k*DAY; if (t > NOW) return; const L = lvl(v);
+      g += `<rect x="${30 + i*(cell+gap)}" y="${18 + k*(cell+gap)}" width="${cell}" height="${cell}" rx="2" style="fill:${L ? 'var(--c1)' : 'var(--surface-2)'};opacity:${L ? op[L] : 1}"><title>${fDayY(t)}: ${v} commit${v === 1 ? '' : 's'}</title></rect>`; }); });
+  el.innerHTML = `<svg viewBox="0 0 ${30 + cols*(cell+gap)} ${h}" style="max-width:${30 + cols*(cell+gap)}px" role="img" aria-label="Commit calendar for the last 52 weeks">${g}</svg>`;
+  $('#heatLegend').innerHTML = `<span>Less</span>${op.map((o, i) => `<i style="background:${i ? 'var(--c1)' : 'var(--surface-2)'};opacity:${i ? o : 1};margin:0"></i>`).join('')}<span>More</span>`;
+  const dayTot = [0,0,0,0,0,0,0]; C.forEach(c => c.days.forEach((v, k) => dayTot[k] += v));
+  const wk = sum(dayTot.slice(1, 6)), tot = sum(dayTot);
+  const activeWeeks = C.filter(c => c.total > 0).length;
+  $('#maintFacts').innerHTML = [
+    ['Last commit', `${ago(A.lastCommit)}<small>${fDayY(A.lastCommit)}</small>`],
+    ['Weeks with any commit', `${activeWeeks} of 52`],
+    ['Work on weekdays', tot ? `${Math.round(wk/tot*100)}%<small>${wk/tot > 0.85 ? 'Looks like paid or team work' : 'A lot of evening and weekend work'}</small>` : 'N/A']
+  ].map(([a, b]) => `<div><dt>${a}</dt><dd>${b}</dd></div>`).join('');
+}
+function renderPareto(){
+  const el = $('#pareto'), Cn = D.contrib.slice(0, 10), F = frame(el, { l:40, r:40, t:14, b:46 });
+  const other = 1 - sum(Cn.map(c => c.share));
+  const rows = other > 0.004 ? [...Cn, { login:`${P.contribOther - 10 > 0 ? P.contribOther - 10 + ' others' : 'Others'}`, share: other, other:true }] : Cn;
+  const bw = (F.x1 - F.x0)/rows.length, sx = (i) => F.x0 + bw*(i+0.5), sy = (v) => F.y1 - v*(F.y1 - F.y0);
+  let cum = 0; const cumv = rows.map(r => (cum += r.share));
+  let g = [0, .25, .5, .75, 1].map(v => `<line x1="${F.x0}" x2="${F.x1}" y1="${sy(v)}" y2="${sy(v)}" style="stroke:var(--line-2)"/><text x="${F.x0-8}" y="${sy(v)+4}" text-anchor="end" style="fill:var(--ink-3);font-size:11px">${v*100}%</text>`).join('');
+  g += `<line x1="${F.x0}" x2="${F.x1}" y1="${sy(.8)}" y2="${sy(.8)}" style="stroke:var(--ink-3)" stroke-dasharray="2 4" stroke-width="1.5"/><text x="${F.x1+6}" y="${sy(.8)+4}" style="fill:var(--ink-3);font-size:11px">80%</text>`;
+  g += rows.map((r, i) => `<rect x="${(F.x0 + bw*i + bw*0.18).toFixed(1)}" y="${sy(r.share).toFixed(1)}" width="${(bw*0.64).toFixed(1)}" height="${(F.y1 - sy(r.share)).toFixed(1)}" rx="2" style="fill:${r.other ? 'var(--c3)' : 'var(--c1)'};opacity:.85"/>`).join('');
+  g += `<polyline points="${cumv.map((v, i) => `${sx(i).toFixed(1)},${sy(v).toFixed(1)}`).join(' ')}" fill="none" style="stroke:var(--c2)" stroke-width="2.2"/>` + cumv.map((v, i) => `<circle cx="${sx(i).toFixed(1)}" cy="${sy(v).toFixed(1)}" r="3" style="fill:var(--c2)"/>`).join('');
+  g += rows.map((r, i) => `<text x="${sx(i).toFixed(1)}" y="${F.y1+14}" text-anchor="end" transform="rotate(-35 ${sx(i).toFixed(1)} ${F.y1+14})" style="fill:var(--ink-3);font-size:11px;font-family:${r.other ? 'var(--sans)' : 'var(--mono)'}">${esc(r.login.length > 10 ? r.login.slice(0, 9) + '…' : r.login)}</text>`).join('');
+  g += `<line class="cursor" x1="0" x2="0" y1="${F.y0}" y2="${F.y1}" style="stroke:var(--ink-3);display:none" stroke-dasharray="4 4"/>`;
+  el.innerHTML = `<svg viewBox="0 0 ${F.w} ${F.h}" height="${F.h}" role="img" aria-label="Top contributor made ${Math.round(A.top*100)}% of commits. ${A.for80} people made 80%.">${g}</svg>`;
+  hover(el, F, rows.length, sx, (i) => ({ html:`<b>${esc(rows[i].login)}</b><br>${(rows[i].share*100).toFixed(1)}% of commits<br>Top ${i+1} together: ${Math.round(cumv[i]*100)}%`, y: sy(Math.max(rows[i].share, cumv[i])) }));
+  const m = A.findings[4][1];
+  $('#peopleTake').innerHTML = `<span class="t-${m.tone}">${toneIcon(m.tone)}</span><span>${A.single ? `One person, ${esc(D.contrib[0].login)}, made ${Math.round(A.top*100)}% of last year’s commits.` : `${A.for80} people made 80% of last year’s commits. No one person carries it.`}</span>`;
+  const people = P.contribOther || D.contrib.length;
+  $('#peopleFacts').innerHTML = [
+    ['People who committed last year', n0(people)],
+    ['Top contributor', `<span class="mono" style="font-weight:500">${esc(D.contrib[0].login)}</span><small>${Math.round(A.top*100)}% of commits</small>`],
+    ['People behind 80% of commits', n0(A.for80)],
+    ['Maintainer check', A.single ? '<span class="t-warn">Mostly one person</span>' : '<span class="t-good">Shared maintenance</span>'],
+    ['Owner', `${P.ownerType}<small class="mono">${esc(P.owner)}</small>`]
+  ].map(([a, b]) => `<div><dt>${a}</dt><dd>${b}</dd></div>`).join('');
+}
+function grouped(el, rows, a, b, nameA, nameB){
+  const F = frame(el, { l:40, r:8, t:12, b:26 });
+  const hi = niceMax(Math.max(4, ...rows.flatMap(r => [a(r), b(r)])) * 1.08), ticks = niceTicks(0, hi), top = ticks[ticks.length-1];
+  const gw = (F.x1 - F.x0)/rows.length, sx = (i) => F.x0 + gw*(i+0.5), sy = (v) => F.y1 - v/top*(F.y1 - F.y0);
+  let g = yAxis(F, ticks, sy, n0);
+  g += rows.map((r, i) => { const x = F.x0 + gw*i, bw = gw*0.34;
+    return `<rect x="${(x + gw*0.14).toFixed(1)}" y="${sy(a(r)).toFixed(1)}" width="${bw.toFixed(1)}" height="${(F.y1 - sy(a(r))).toFixed(1)}" rx="2" style="fill:var(--c1)"/><rect x="${(x + gw*0.14 + bw + 2).toFixed(1)}" y="${sy(b(r)).toFixed(1)}" width="${bw.toFixed(1)}" height="${(F.y1 - sy(b(r))).toFixed(1)}" rx="2" style="fill:var(--c2)"/>`; }).join('');
+  g += `<line class="cursor" x1="0" x2="0" y1="${F.y0}" y2="${F.y1}" style="stroke:var(--ink-3);display:none;opacity:.4" stroke-width="${gw.toFixed(1)}"/>`;
+  g += rows.map((r, i) => i % 2 === 0 || rows.length < 8 ? `<text x="${sx(i)}" y="${F.y1+18}" text-anchor="middle" style="fill:var(--ink-3);font-size:11px">${MON[d(r.t).getUTCMonth()]}</text>` : '').join('');
+  el.innerHTML = `<svg viewBox="0 0 ${F.w} ${F.h}" height="${F.h}" role="img" aria-label="${nameA} and ${nameB} per month for 12 months">${g}</svg>`;
+  el.querySelector('.cursor').style.stroke = 'var(--surface-2)';
+  el.querySelector('svg').insertBefore(el.querySelector('.cursor'), el.querySelector('svg').firstChild);
+  hover(el, F, rows.length, sx, (i) => ({ html:`<b>${fMonY(rows[i].t)}</b><br>${nameA}: ${n0(a(rows[i]))}<br>${nameB}: ${n0(b(rows[i]))}`, y: sy(Math.max(a(rows[i]), b(rows[i]))) }));
+}
+function renderIssues(){
+  const M = D.months;
+  grouped($('#issChart'), M, r => r.opened, r => r.closed, 'Opened', 'Closed');
+  grouped($('#prChart'), M, r => r.pr.opened, r => r.pr.merged, 'Opened', 'Merged');
+  /* net change diverging */
+  const el = $('#netChart'), F = frame(el, { l:40, r:8, t:10, b:22 }), net = M.map(m => m.opened - m.closed);
+  const mx = niceMax(Math.max(4, ...net.map(Math.abs))), gw = (F.x1 - F.x0)/M.length, mid = (F.y0 + F.y1)/2;
+  const sy = (v) => mid - v/mx*(F.y1 - F.y0)/2;
+  let g = `<line x1="${F.x0}" x2="${F.x1}" y1="${mid}" y2="${mid}" style="stroke:var(--line)"/><text x="${F.x0-8}" y="${sy(mx)+4}" text-anchor="end" style="fill:var(--ink-3);font-size:11px">+${mx}</text><text x="${F.x0-8}" y="${mid+4}" text-anchor="end" style="fill:var(--ink-3);font-size:11px">0</text><text x="${F.x0-8}" y="${sy(-mx)+4}" text-anchor="end" style="fill:var(--ink-3);font-size:11px">−${mx}</text>`;
+  g += net.map((v, i) => { const x = F.x0 + gw*i + gw*0.2, y = v >= 0 ? sy(v) : mid; return `<rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${(gw*0.6).toFixed(1)}" height="${Math.max(1, Math.abs(sy(v) - mid)).toFixed(1)}" rx="2" style="fill:${v > 0 ? 'var(--warn)' : 'var(--good)'}"><title>${fMonY(M[i].t)}: backlog ${signed(v)}</title></rect>`; }).join('');
+  g += M.map((m, i) => i % 2 === 0 ? `<text x="${F.x0 + gw*(i+0.5)}" y="${F.y1+16}" text-anchor="middle" style="fill:var(--ink-3);font-size:11px">${MON[d(m.t).getUTCMonth()]}</text>` : '').join('');
+  el.innerHTML = `<svg viewBox="0 0 ${F.w} ${F.h}" height="${F.h}" role="img" aria-label="Change in open issues per month. Net ${signed(sum(net))} over 12 months.">${g}</svg>`;
+  const s = A.findings[2][1];
+  $('#issTake').innerHTML = `<span class="t-${s.tone}">${toneIcon(s.tone)}</span><span>${A.closeRatio === null ? 'No issues in the last 6 months.' : A.growStreak >= 2 ? `The backlog has grown ${A.growStreak} months in a row: ${signed(A.backlog6)} open issues in 6 months.` : A.closeRatio >= 0.95 ? 'Issues are closed about as fast as they are opened.' : `${Math.round(A.closeRatio*100)} issues closed for every 100 opened in the last 6 months.`}</span>`;
+  $('#prTake').innerHTML = A.mergeRate === null ? `<span class="t-neutral">${ICON.minus}</span><span>No pull requests in 12 months.</span>`
+    : `<span class="t-${A.mergeRate >= 0.6 ? 'good' : 'warn'}">${toneIcon(A.mergeRate >= 0.6 ? 'good' : 'warn')}</span><span>${Math.round(A.mergeRate*100)}% of pull requests were merged. ${A.mergeRate >= 0.6 ? 'Outside contributions are welcome and reviewed.' : 'Most outside contributions are not getting in.'}</span>`;
+  $('#issFacts').innerHTML = [
+    ['Open issues', `${n0(P.openIssues)}`],
+    ['Open pull requests', `${n0(P.openPrs)}`],
+    ['Issues closed per 100 opened, 6 months', A.closeRatio === null ? 'N/A' : n0(A.closeRatio*100)],
+    ['Pull requests merged, 12 months', `${n0(A.prM)} of ${n0(A.prO)}`]
+  ].map(([a, b]) => `<div><dt>${a}</dt><dd>${b}</dd></div>`).join('');
+}
+function renderReleases(){
+  const el = $('#relChart'), F = frame(el, { l:12, r:12, t:30, b:28 });
+  const t0 = NOW - 730*DAY, sx = (t) => F.x0 + (t - t0)/(NOW - t0)*(F.x1 - F.x0);
+  const R = D.releases.filter(r => r.t >= t0), mid = (F.y0 + F.y1)/2;
+  const lastT = A.lastRel ? A.lastRel.t : null;
+  let g = '';
+  if (lastT) { const xa = Math.max(F.x0, sx(lastT)); g += `<rect x="${xa.toFixed(1)}" y="${mid-14}" width="${(F.x1 - xa).toFixed(1)}" height="28" rx="6" style="fill:var(--${A.relDays <= A.medGap*1.5 ? 'surface-2' : 'warn-soft'});stroke:var(--${A.relDays <= A.medGap*1.5 ? 'line' : 'warn'})" stroke-width="1"/><text x="${F.x1 - 4}" y="${mid-20}" text-anchor="end" style="fill:var(--${A.relDays <= A.medGap*1.5 ? 'ink-2' : 'warn'});font-size:12px;font-weight:600">${Math.round(A.relDays)} days since last release</text>`; }
+  g += `<line x1="${F.x0}" x2="${F.x1}" y1="${mid}" y2="${mid}" style="stroke:var(--line)" stroke-width="2"/>`;
+  for (let k = 0; k <= 4; k++) { const t = t0 + k*(NOW - t0)/4; g += `<line x1="${sx(t)}" x2="${sx(t)}" y1="${mid-4}" y2="${mid+4}" style="stroke:var(--line)"/><text x="${sx(t)}" y="${F.y1+18}" text-anchor="${k === 0 ? 'start' : k === 4 ? 'end' : 'middle'}" style="fill:var(--ink-3);font-size:11px">${k === 4 ? 'Today' : fMonY(t)}</text>`; }
+  g += R.map(r => `<circle cx="${sx(r.t).toFixed(1)}" cy="${mid}" r="6" style="fill:${r.pre ? 'var(--surface)' : 'var(--c1)'};stroke:var(--c1)" stroke-width="2"><title>${esc(r.tag)}${r.pre ? ' (prerelease)' : ''}, ${fDayY(r.t)}</title></circle>`).join('');
+  if (!R.length) g += `<text x="${F.x0}" y="${mid-12}" style="fill:var(--ink-3);font-size:13px">No releases in the last 24 months</text>`;
+  el.innerHTML = `<svg viewBox="0 0 ${F.w} ${F.h}" height="${F.h}" role="img" aria-label="${R.length} releases in the last 24 months">${g}</svg>`;
+  /* bullet: days since vs usual gap */
+  const bel = $('#relBullet'), B = frame(bel, { l:12, r:12, t:8, b:22 });
+  if (A.lastRel && A.medGap) {
+    const mxd = Math.max(A.relDays, A.medGap*2) * 1.1, bx = (v) => B.x0 + v/mxd*(B.x1 - B.x0);
+    const tone = A.relDays <= A.medGap*1.5 ? 'var(--good)' : 'var(--warn)';
+    let bg = `<rect x="${B.x0}" y="${B.y0}" width="${(bx(A.medGap*1.5) - B.x0).toFixed(1)}" height="${B.y1 - B.y0}" rx="4" style="fill:var(--surface-2)"/>`;
+    bg += `<rect x="${B.x0}" y="${(B.y0 + (B.y1 - B.y0)*0.3).toFixed(1)}" width="${(bx(A.relDays) - B.x0).toFixed(1)}" height="${((B.y1 - B.y0)*0.4).toFixed(1)}" rx="3" style="fill:${tone}"/>`;
+    bg += `<line x1="${bx(A.medGap)}" x2="${bx(A.medGap)}" y1="${B.y0-2}" y2="${B.y1+2}" style="stroke:var(--ink)" stroke-width="2.5"/>`;
+    bg += `<text x="${bx(A.medGap)}" y="${B.y1+16}" text-anchor="middle" style="fill:var(--ink-2);font-size:11px">Usual gap ${Math.round(A.medGap)} days</text>`;
+    bg += `<text x="${Math.min(B.x1, bx(A.relDays) + 6)}" y="${B.y0 + (B.y1 - B.y0)/2 + 4}" text-anchor="${bx(A.relDays) + 120 > B.x1 ? 'end' : 'start'}" style="fill:var(--ink);font-size:12px;font-weight:600">${Math.round(A.relDays)} days</text>`;
+    bel.innerHTML = `<svg viewBox="0 0 ${B.w} ${B.h}" height="${B.h}" role="img" aria-label="${Math.round(A.relDays)} days since the last release. Usual gap ${Math.round(A.medGap)} days.">${bg}</svg>`;
+  } else bel.innerHTML = '<p class="note">N/A: not enough releases to work out a usual gap.</p>';
+  const s = A.findings[3][1];
+  $('#relTake').innerHTML = `<span class="t-${s.tone}">${toneIcon(s.tone)}</span><span>${!A.lastRel ? 'No releases yet.' : s.tone === 'good' ? `Ships about every ${Math.round(A.medGap)} days, and the last release was ${ago(A.lastRel.t)}. The next one is not overdue.` : `The last release was ${ago(A.lastRel.t)}, ${(A.relDays/A.medGap).toFixed(1)}× its usual gap of ${Math.round(A.medGap)} days.`}</span>`;
+  $('#relList').innerHTML = D.releases.slice(-6).reverse().map(r => `<div><dt><span class="mono">${esc(r.tag)}</span> ${r.pre ? '<span class="chip warn">Prerelease</span>' : ''}</dt><dd>${ago(r.t)}<small>${fDayY(r.t)}</small></dd></div>`).join('') || '<p class="note">No releases.</p>';
+}
+function renderPeers(){
+  const pr = P.peers;
+  $('#peerSub').textContent = `Where it sits among the ${n0(pr.n)} ${pr.group} repositories in GitAnalyze rankings.`;
+  const live = { 'Total stars': D.weeks[D.weeks.length-1].total, 'Stars gained, last 30 days': A.g30, 'Commits, last 90 days': A.commits90, 'Issues closed per issue opened': A.closeRatio, 'Releases, last 12 months': A.rel12 };
+  pr.rows = pr.rows.map(r => r[0] in live && live[r[0]] !== null ? [r[0], r[1], live[r[0]], r[3]] : r);
+  const fmtV = (v, u) => u === 'ratio' ? `${Math.round(v*100)} per 100` : `${compact(v)} ${u}`;
+  $('#peers').innerHTML = pr.rows.map(([name, p, v, u]) => `<div class="peer"><div class="n">${name}<small>${fmtV(v, u)}</small></div><div class="track" role="img" aria-label="${name}: ${ordinal(p)} percentile"><span class="base"></span><span class="iqr" style="left:25%;width:50%"></span><span class="med" style="left:50%"></span><span class="me" style="left:${p}%"></span></div><div class="p">${ordinal(p)}<small>percentile</small></div></div>`).join('');
+  const hiRows = pr.rows.filter(r => r[1] >= 75).map(r => r[0].toLowerCase()), loRows = pr.rows.filter(r => r[1] <= 25).map(r => r[0].toLowerCase());
+  const tone = loRows.length > hiRows.length ? 'warn' : 'good';
+  $('#peerTake').innerHTML = `<span class="t-${tone}">${toneIcon(tone)}</span><span>${hiRows.length ? `Top quarter for ${listJoin(hiRows)}.` : ''} ${loRows.length ? `Bottom quarter for ${listJoin(loRows)}.` : 'Not in the bottom quarter on any measure.'}</span>`;
+}
+const ordinal = (n) => { const s = ['th','st','nd','rd'], v = n % 100; return n + (s[(v-20)%10] || s[v] || s[0]); };
+const listJoin = (a) => a.length < 2 ? a.join('') : a.slice(0, -1).join(', ') + ' and ' + a[a.length-1];
+function renderAI(){
+  $('#aiCount').textContent = P.skills.length || ''; $('#aiCount').hidden = !P.skills.length;
+  const card = $('#aiCard');
+  if (!P.skills.length) { card.innerHTML = `<div class="takeaway"><span class="t-neutral">${ICON.minus}</span><span>No AI capabilities found by our rules.</span></div><p class="note">We looked for skill folders, agent setup files and an MCP server. <a href="#">See the rules</a>.</p>`; return; }
+  card.innerHTML = `
+    <div class="ctrls"><span class="chip">Publisher: ${esc(P.owner)} (${P.ownerType.toLowerCase()})</span><span class="chip">Repository updated ${ago(A.lastCommit)}</span><span class="chip ${A.statusTone === 'good' ? 'good' : A.statusTone === 'warn' ? 'warn' : ''}">Health: ${A.status}</span></div>
+    <h3>Contains ${P.skills.length} AI skills <span class="chip good" style="border-radius:6px;font-weight:600">High confidence</span></h3>
+    ${A.scripted ? `<div class="alert warn" role="alert">${ICON.warn}<span>${A.scripted} of ${P.skills.length} skills include scripts that can run on your computer. Read them before installing.</span></div>` : ''}
+    <div class="tscroll"><table><thead><tr><th scope="col">Skill</th><th scope="col">What it does</th><th scope="col">Scripts</th></tr></thead><tbody>
+    ${P.skills.map(([n, w, s]) => `<tr><td><span class="mono">${esc(n)}</span><br><span class="note mono">skills/${esc(n)}/SKILL.md</span></td><td>${esc(w)}</td><td>${s ? `<span class="chip warn">${s} script${s > 1 ? 's' : ''}</span>` : '<span class="muted">None</span>'}</td></tr>`).join('')}
+    </tbody></table></div>
+    <p class="cap">We never show a quality score or a ‘safe’ label. Source <code>GET /repos/{owner}/{repo}/git/trees/{branch}?recursive=1</code> · <span class="upd">Updated Nov 23, 2026, 12:04 UTC</span></p>`;
+}
+
+/* ---------- info popover (F6 copy would come from metrics.yaml) ---------- */
+const DEF = {
+  status:['Status','Whether people are still working on it.','Active: a commit in 30 days and a release in 182 days (or no releases ever). Slowing: a commit in 182 days. Quiet: no commit in 182 days. Archived wins over everything.','/repos/{owner}/{repo}'],
+  maintenance:['Maintenance','Recent commits and releases.','Same rule as Status.','/repos/{owner}/{repo}/commits'],
+  maintainers:['Maintainers','How much of the work depends on one account.','Share of last year’s commits per non-bot account. 80% or more from one account is “Mostly one person”.','/repos/{owner}/{repo}/stats/contributors'],
+  license:['License','Whether others may legally reuse the code.','The SPDX id GitHub detects. NOASSERTION means GitHub couldn’t match it.','/repos/{owner}/{repo}/license'],
+  stars:['Star pattern','Whether new stars look organic.','Flags weeks with far more stars than the 12 weeks before while little other work happens.','/repos/{owner}/{repo}/stargazers/history'],
+  scripts:['Scripts in skills','Skills that ship files your computer can run.','Counts script files inside each skill folder.','/repos/{owner}/{repo}/git/trees/{branch}'],
+  gained:['Stars gained','Net new stars in the period.','Stars added minus stars removed, from weekly history.','/repos/{owner}/{repo}/stargazers/history'],
+  commits:['Commits','Commits to the default branch.','Sum of weekly commit counts.','/repos/{owner}/{repo}/stats/commit_activity'],
+  issues:['Open issues','Issues waiting for an answer, without pull requests.','Search count of open issues.','/search/issues'],
+  prs:['Pull requests merged','Share of opened pull requests that were merged.','Merged ÷ opened, last 12 months.','/search/issues'],
+  releases:['Releases','Formal releases, not tags.','Releases that are not drafts or prereleases.','/repos/{owner}/{repo}/releases']
+};
+DEF.stars_total = DEF.stars;
+let pop = null;
+function closePop(){ if (pop) { pop.btn.setAttribute('aria-expanded', 'false'); pop.el.remove(); pop = null; } }
+document.addEventListener('click', (e) => {
+  const b = e.target.closest('.info');
+  if (!b) { if (pop && !e.target.closest('.popover')) closePop(); return; }
+  if (pop && pop.btn === b) { closePop(); return; }
+  closePop();
+  const key = b.dataset.info === 'stars' && b.closest('.kpi') ? 'stars_total' : b.dataset.info;
+  const def = b.closest('.kpi') && b.dataset.info === 'stars' ? ['Total stars','People who bookmarked it. Stars are bookmarks, not usage.','stargazers_count on the repository.','/repos/{owner}/{repo}'] : DEF[key];
+  if (!def) return;
+  const el = document.createElement('div'); el.className = 'popover panel'; el.setAttribute('role', 'dialog');
+  el.style.cssText = 'position:absolute;z-index:60;max-width:340px;padding:14px 16px;box-shadow:var(--shadow);font-size:14px';
+  el.innerHTML = `<b style="font-size:15px">${def[0]}</b><p style="margin:4px 0 8px;color:var(--ink-2)">${def[1]}</p><p style="margin:0 0 6px"><b>How</b> ${def[2]}</p><p style="margin:0 0 6px"><b>Source</b> <code class="mono" style="font-size:12px">${def[3]}</code></p><p class="note" style="margin:0"><b>Updated</b> Nov 23, 2026, 12:04 UTC</p>`;
+  document.body.appendChild(el);
+  const r = b.getBoundingClientRect(); const left = Math.min(window.scrollX + r.left, window.scrollX + document.documentElement.clientWidth - el.offsetWidth - 12);
+  el.style.left = Math.max(12, left) + 'px'; el.style.top = (window.scrollY + r.bottom + 6) + 'px';
+  b.setAttribute('aria-expanded', 'true'); pop = { el, btn: b };
+});
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape') { closePop(); demoClose(); } });
+
+/* ---------- toast, copy, csv ---------- */
+let tt; function toast(msg){ const t = $('#toast'); t.textContent = msg; t.classList.add('show'); clearTimeout(tt); tt = setTimeout(() => t.classList.remove('show'), 3200); }
+$('#copyBrief').onclick = () => {
+  const lines = [`${P.owner}/${P.name}: ${A.status}. ${$('#vSent').textContent}`, '', ...A.findings.map(([q, f]) => `- ${q} ${f.v}. ${f.e}`), '', 'Watch out if:', ...A.watch.map(s => `- ${s}`), '', 'Source: GitHub API via GitAnalyze, updated Nov 23, 2026, 12:04 UTC. Stars are bookmarks, not usage.'];
+  const txt = lines.join('\n');
+  (navigator.clipboard ? navigator.clipboard.writeText(txt) : Promise.reject()).then(() => toast('Copied the brief with the source and date.'), () => toast('Copy is blocked in this preview. In production a window shows the text to copy.'));
+};
+$('#dlCsv').onclick = () => {
+  const rows = [['week_start','stars_gained','stars_total','commits']];
+  const C = new Map(D.commits.map(c => [c.t, c.total]));
+  D.weeks.forEach(w => rows.push([new Date(w.t).toISOString().slice(0,10), w.gained, w.total, C.has(w.t) ? C.get(w.t) : '']));
+  const blob = new Blob(['# Source: GitHub API via GitAnalyze, updated 2026-11-23T12:04Z\n' + rows.map(r => r.join(',')).join('\n')], { type:'text/csv' });
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `${P.owner}-${P.name}-weekly.csv`; a.click();
+  toast('Downloaded a CSV with the source and date.');
+};
+let inCmp = false;
+$('#addCmp').onclick = () => { inCmp = !inCmp; $('#addCmp').innerHTML = inCmp ? `${ICON.check}In compare` : '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>Add to compare'; $('#addCmp').querySelector('svg').style.cssText = 'width:16px;height:16px'; toast(inCmp ? `Added ${P.owner}/${P.name} to compare.` : `Removed ${P.owner}/${P.name} from compare.`); };
+
+/* ---------- controls ---------- */
+function seg(id, key){ $(id).addEventListener('click', (e) => { const b = e.target.closest('button'); if (!b) return; ui[key] = b.dataset.v; $(id).querySelectorAll('button').forEach(x => x.setAttribute('aria-pressed', String(x === b))); renderStars(); }); }
+seg('#rangeSeg', 'range'); seg('#viewSeg', 'view');
+const demoBtn = $('#demoBtn'), demoPanel = $('#demoPanel');
+function demoClose(){ demoPanel.classList.remove('open'); demoBtn.setAttribute('aria-expanded', 'false'); }
+demoBtn.onclick = (e) => { e.stopPropagation(); const o = !demoPanel.classList.contains('open'); demoPanel.classList.toggle('open', o); demoBtn.setAttribute('aria-expanded', String(o)); };
+document.addEventListener('click', (e) => { if (!e.target.closest('.demo')) demoClose(); });
+const DEMOS = [
+  ['lumen-labs/agent-kit', 'Healthy, growing, one thing to check', 's=Active&l=Python&st=18455&p=2&c=64&o=Organization&ai=1'],
+  ['newwave/hype-agent', 'Sudden star spike, one maintainer', 's=Active&l=Python&st=3200&p=1&c=2&o=User&ai=1&sp=1&t=1'],
+  ['oldframe/tablekit', 'Famous but quiet for 8 months', 's=Quiet&l=JavaScript&st=41200&p=241&c=3&o=Organization']];
+$('#demoOpts').innerHTML = DEMOS.map(([f, b, q]) => `<a class="opt" style="display:block;text-decoration:none;color:inherit" href="/repo/${f}?${q}" aria-current="${f === P.owner + '/' + P.name ? 'page' : 'false'}"><b>${f}</b><span>${b}</span></a>`).join('');
+$('#themeBtn').onclick = () => { const r = document.documentElement; const dark = r.dataset.theme ? r.dataset.theme === 'dark' : matchMedia('(prefers-color-scheme: dark)').matches; r.dataset.theme = dark ? 'light' : 'dark'; try { localStorage.setItem('ga-theme', r.dataset.theme); } catch (_) {} };
+try { const s = localStorage.getItem('ga-theme'); if (s) document.documentElement.dataset.theme = s; } catch (_) {}
+
+/* section nav highlight */
+const links = [...document.querySelectorAll('#snav a')];
+const secs = links.map(l => document.querySelector(l.getAttribute('href')));
+function spy(){ const line = 130; let on = 0; secs.forEach((sec, i) => { if (sec && sec.getBoundingClientRect().top <= line) on = i; });
+  if (window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 4) on = secs.length - 1;
+  links.forEach((l, i) => { l.classList.toggle('on', i === on); if (i === on) l.setAttribute('aria-current', 'location'); else l.removeAttribute('aria-current'); }); }
+window.addEventListener('scroll', spy, { passive:true }); spy();
+
+function drawCharts(){ renderPulse(); renderStars(); renderCommits(); renderHeat(); renderPareto(); renderIssues(); renderReleases(); }
+function load(){
+  D = build(P); A = analyse(P, D);
+  renderHead(); renderVerdict(); renderBrief(); renderKpis(); renderStarText(); renderPeers(); renderAI();
+  document.querySelectorAll('.info').forEach(b => { if (!b.innerHTML) b.innerHTML = ICON.info; });
+  drawCharts();
+}
+let rz; window.addEventListener('resize', () => { clearTimeout(rz); rz = setTimeout(drawCharts, 120); });
+load();
+})();
+</script>
+</body>
+</html>
