@@ -86,4 +86,6 @@ def release_pace(releases: Sequence[datetime] | None, now: datetime) -> BriefAns
     """
     if releases is None:
         return None
+    if not releases:
+        return BriefAnswer("neutral", "No releases")
     return None
