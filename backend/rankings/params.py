@@ -9,6 +9,7 @@ SORTS = ("stars", "gained", "pushed", "trending")
 WINDOWS = ("7d", "30d", "1y")
 FLAGS = ("0", "1")
 LIMITS = ("10", "25", "50", "100")
+MAX_PAGE_DIGITS = 7
 STATUSES = (ACTIVE, SLOWING, QUIET, ARCHIVED)
 
 
@@ -41,7 +42,8 @@ def _optional_choice(query: Mapping[str, str], name: str, choices: tuple[str, ..
 
 def _page(query: Mapping[str, str]) -> int:
     value = query.get("page") or "1"
-    if not (value.isascii() and value.isdigit()) or int(value) < 1:
+    is_number = value.isascii() and value.isdigit() and len(value) <= MAX_PAGE_DIGITS
+    if not is_number or int(value) < 1:
         raise InvalidRankingParams("page must be a positive number")
     return int(value)
 
