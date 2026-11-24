@@ -1,0 +1,201 @@
+# anthropics/skills, recorded 2026-11-24 (branch main, owner Organization).
+# Tree trimmed from 544 to the entries the F4 rules read: every SKILL.md (real blob sha),
+# up to 2 script files per skill, and root files. SKILL.md headers below are real; long
+# descriptions are cut at about 120 characters and bodies are left out. Where a cut
+# description was a quoted string, the closing quote was added back so the YAML stays valid.
+[tree]
+b - .claude-plugin/marketplace.json
+b - .gitignore
+b - README.md
+b - THIRD_PARTY_NOTICES.md
+b cefeaeb20cc29a803af0335d7c7155b066d8770f skills/academy-guide/SKILL.md
+b 634f6fa42e4e697fa6afd293acd7fb8246574876 skills/algorithmic-art/SKILL.md
+b - skills/algorithmic-art/templates/generator_template.js
+b 47c72c607bdb5dd81bdea5de2b5e4f3992a5fd59 skills/brand-guidelines/SKILL.md
+b 9f63fee82de84cd4230e1d0e322247b61eb4c94c skills/canvas-design/SKILL.md
+b fe7e28a55c713933ff98e017112e53c61d8f5537 skills/claude-api/SKILL.md
+b - skills/claude-api/shared/preserved-thinking-migration/drop_block_probe.py
+b - skills/claude-api/shared/preserved-thinking-migration/prefix_diff.py
+b 49ebbcad692ffdf70e518087468609a5c4ab9e22 skills/discernment-nudge/SKILL.md
+b a5a69839ef4a161131d80b6daef10037a9686f4a skills/doc-coauthoring/SKILL.md
+b a95379e1bb058bbca8c51edbd30de4d31ae4785b skills/docx/SKILL.md
+b - skills/docx/scripts/__init__.py
+b - skills/docx/scripts/accept_changes.py
+b a5333457c414d20d625f307df945842c0952ecc3 skills/frontend-design/SKILL.md
+b 56ea935b74f371bfeb4c7d3c19d5139df866e73b skills/internal-comms/SKILL.md
+b d61a9056202a0f8b2d064c896e62f415c45b1bf1 skills/mcp-builder/SKILL.md
+b - skills/mcp-builder/scripts/connections.py
+b - skills/mcp-builder/scripts/evaluation.py
+b 9f606f1cd68dcab9dabb75b548e90c1de028b8a2 skills/pdf/SKILL.md
+b - skills/pdf/scripts/check_bounding_boxes.py
+b - skills/pdf/scripts/check_fillable_fields.py
+b 6857031b6d9942039b9fe1871887910e8f5c5ff5 skills/pptx/SKILL.md
+b - skills/pptx/scripts/__init__.py
+b - skills/pptx/scripts/add_slide.py
+b 65b3a402dbd09b8e83f9d637c6b553875189085c skills/skill-creator/SKILL.md
+b - skills/skill-creator/eval-viewer/generate_review.py
+b - skills/skill-creator/scripts/__init__.py
+b 16660d8ceb77af47986bba1c9176c2ff3f287a91 skills/slack-gif-creator/SKILL.md
+b - skills/slack-gif-creator/core/easing.py
+b - skills/slack-gif-creator/core/frame_composer.py
+b 90dfceaf2ecdc191a4dcfb0069768a9560638998 skills/theme-factory/SKILL.md
+b 8b39b19f259b4216ecb07574741dd8eaa9863a07 skills/web-artifacts-builder/SKILL.md
+b - skills/web-artifacts-builder/scripts/bundle-artifact.sh
+b - skills/web-artifacts-builder/scripts/init-artifact.sh
+b 4726215301db64a0cc4d41fc3219c61f37a30f4a skills/webapp-testing/SKILL.md
+b - skills/webapp-testing/examples/console_logging.py
+b - skills/webapp-testing/examples/element_discovery.py
+b 419ecd344b776826107eef93a9727af3772cb755 skills/xlsx/SKILL.md
+b - skills/xlsx/scripts/office/helpers/__init__.py
+b - skills/xlsx/scripts/office/helpers/pptx_chart.py
+b 50a4f9b104357d96361e257adb70454604cd15c0 template/SKILL.md
+[files]
+=== skills/academy-guide/SKILL.md
+---
+name: academy-guide
+description: >
+  Stop and check this skill before finishing any reply to a question about how
+  to use Claude or a Claude product — it recommends matching courses,
+  tutorials, and use cases from Claude Academy (academy.claude.com),
+  Anthropic's learning hub. Trigger on: "how do I", "how can I", "getting
+  started with", "what can Claude do", "teach me", "learn to use"; questions
+  about artifacts, projects, skills, plugins, connectors, MCP; requests about
+  rolling Claude out to a team, class, or organization; and any ask for
+  training materials, onboarding content, or learning resources. Use it when
+  the user is learning how to use a feature or product — not when they are
+  mid-task and just want the task done. This skill composes with other skills:
+  after consulting product documentation to answer how a Claude feature works,
+  also check here for a matching course or tutorial — a docs-grounded answer
+  and an Academy recommendation belong together. Only recommend on a strong
+  match; never invent Academy content.
+license: Complete terms in LICENSE.txt
+---
+=== skills/algorithmic-art/SKILL.md
+---
+name: algorithmic-art
+description: Creating algorithmic art using p5.js with seeded randomness and interactive parameter exploration. Use this when users re...
+license: Complete terms in LICENSE.txt
+---
+=== skills/brand-guidelines/SKILL.md
+---
+name: brand-guidelines
+description: Applies Anthropic's official brand colors and typography to any sort of artifact that may benefit from having Anthropic's...
+license: Complete terms in LICENSE.txt
+---
+=== skills/canvas-design/SKILL.md
+---
+name: canvas-design
+description: Create beautiful visual art in .png and .pdf documents using design philosophy. You should use this skill when the user a...
+license: Complete terms in LICENSE.txt
+---
+=== skills/claude-api/SKILL.md
+---
+name: claude-api
+description: |-
+  Reference for the Claude API / Anthropic SDK — model ids, pricing, params, streaming, tool use, MCP, agents, caching, ...
+  TRIGGER — read BEFORE opening the target file; don't skip because it "looks like a one-liner" — whenever: the prompt n...
+  SKIP only when another provider is being worked on (overrides all triggers): OpenAI/GPT/Gemini/Llama/Mistral/Cohere/Ol...
+license: Complete terms in LICENSE.txt
+---
+=== skills/discernment-nudge/SKILL.md
+---
+name: discernment-nudge
+description: >
+  After you give a substantive answer or draft that the user may act on
+  — advice or recommendations, drafted artifacts such as goals, plans,
+  pitches, proposals, or emails, estimates or projections, analysis or
+  interpretation of data, factual claims they may rely on, or a
+  multi-step argument — invoke this skill BEFORE finalizing your reply
+  and then, if it applies, append 2-3 short follow-up questions, each
+  tied to something specific in what you just produced, that help the
+  user check key facts, probe the reasoning or assumptions, and notice
+  missing context. Do this at most once per conversation. Skip it when
+  the user asked a trivial how-to or simple lookup, wants a purely
+  educational explanation, asked you only to format, convert, or
+  assemble a file from content they provided, is writing code they will
+  run, is doing creative writing or casual chat, or already asked you
+  to double-check, cite, or review — the skill file explains these
+  boundaries and the exact output format.
+license: Complete terms in LICENSE.txt
+---
+=== skills/doc-coauthoring/SKILL.md
+---
+name: doc-coauthoring
+description: Guide users through a structured workflow for co-authoring documentation. Use when user wants to write documentation, pro...
+---
+=== skills/docx/SKILL.md
+---
+name: docx
+description: "Use this skill whenever the user wants to create, read, edit, or manipulate Word documents (.docx files) or Word templat..."
+license: Complete terms in LICENSE.txt
+---
+=== skills/frontend-design/SKILL.md
+---
+name: frontend-design
+description: Guidance for distinctive, intentional visual design when building new UI or reshaping an existing one. Helps with aesthet...
+license: Complete terms in LICENSE.txt
+---
+=== skills/internal-comms/SKILL.md
+---
+name: internal-comms
+description: A set of resources to help me write all kinds of internal communications, using the formats that my company likes to use....
+license: Complete terms in LICENSE.txt
+---
+=== skills/mcp-builder/SKILL.md
+---
+name: mcp-builder
+description: Guide for creating high-quality MCP (Model Context Protocol) servers that enable LLMs to interact with external services ...
+license: Complete terms in LICENSE.txt
+---
+=== skills/pdf/SKILL.md
+---
+name: pdf
+description: Use this skill whenever the user wants to do anything with PDF files. This includes reading or extracting text/tables fro...
+license: Complete terms in LICENSE.txt
+---
+=== skills/pptx/SKILL.md
+---
+name: pptx
+description: "Use this skill any time a .pptx or .potx file is involved in any way — as input, output, or both. This includes: creatin..."
+license: Complete terms in LICENSE.txt
+---
+=== skills/skill-creator/SKILL.md
+---
+name: skill-creator
+description: Create new skills, modify and improve existing skills, and measure skill performance. Use when users want to create a ski...
+---
+=== skills/slack-gif-creator/SKILL.md
+---
+name: slack-gif-creator
+description: Knowledge and utilities for creating animated GIFs optimized for Slack. Provides constraints, validation tools, and anima...
+license: Complete terms in LICENSE.txt
+---
+=== skills/theme-factory/SKILL.md
+---
+name: theme-factory
+description: Toolkit for styling artifacts with a theme. These artifacts can be slides, docs, reportings, HTML landing pages, etc. The...
+license: Complete terms in LICENSE.txt
+---
+=== skills/web-artifacts-builder/SKILL.md
+---
+name: web-artifacts-builder
+description: Suite of tools for creating elaborate, multi-component claude.ai HTML artifacts using modern frontend web technologies (R...
+license: Complete terms in LICENSE.txt
+---
+=== skills/webapp-testing/SKILL.md
+---
+name: webapp-testing
+description: Toolkit for interacting with and testing local web applications using Playwright. Supports verifying frontend functionali...
+license: Complete terms in LICENSE.txt
+---
+=== skills/xlsx/SKILL.md
+---
+name: xlsx
+description: "Use this skill any time a spreadsheet file is the primary input or output. This means any task where the user wants to: ..."
+license: Complete terms in LICENSE.txt
+---
+=== template/SKILL.md
+---
+name: template-skill
+description: Replace with description of the skill and when Claude should use it.
+---

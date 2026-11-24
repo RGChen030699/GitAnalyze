@@ -197,3 +197,16 @@ def test_W3_daily_workflow_reads_trending_after_the_rankings() -> None:
     rankings = text.index("python backend/manage.py refresh_rankings")
     trending = text.index("python backend/manage.py refresh_trending")
     assert rankings < trending
+
+
+def test_F4_daily_workflow_scans_ai_capabilities_after_trending() -> None:
+    text = WORKFLOW.read_text()
+
+    trending = text.index("python backend/manage.py refresh_trending")
+    ai = text.index("python backend/manage.py refresh_ai")
+    assert trending < ai
+
+
+def test_F4_pyyaml_is_a_runtime_dependency() -> None:
+    requirements = (WORKFLOW.parents[2] / "requirements.txt").read_text().lower()
+    assert "pyyaml" in requirements
