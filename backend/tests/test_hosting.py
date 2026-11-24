@@ -152,7 +152,7 @@ def test_H9_backup_run_skips_when_todays_refresh_already_succeeded() -> None:
     assert "gh run list" in text and "--status success" in text
     assert "steps.check.outputs.done != 'true'" in text
     languages = (
-        "TypeScript,Python,JavaScript,Java,C#,PHP,C++,Go,Rust,Swift,Kotlin,"
+        "Python,Java,TypeScript,JavaScript,C#,PHP,C++,Go,Rust,Swift,Kotlin,"
         "C,Ruby,Dart,Shell,R,Jupyter Notebook"
     )
     assert f"RANKINGS_LANGUAGES: {languages}" in text
