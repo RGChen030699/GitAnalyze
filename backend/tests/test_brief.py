@@ -143,3 +143,10 @@ def test_brief_maintainer_concentration_none_without_commits() -> None:
     assert maintainer_concentration(None) is None
     assert maintainer_concentration([]) is None
     assert maintainer_concentration([0, 0]) is None
+
+
+def test_brief_maintainer_concentration_depends_on_one_person_at_80_percent_or_more() -> None:
+    one_person = BriefAnswer("warn", "Depends on one person")
+    assert maintainer_concentration([10, 80, 10]) == one_person
+    assert maintainer_concentration([92, 5, 3]) == one_person
+    assert maintainer_concentration([79, 21]) != one_person
