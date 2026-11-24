@@ -20,5 +20,14 @@ class RankingsView(APIView):
             params = parse_params(request.query_params)
         except InvalidRankingParams as error:
             return Response({"detail": str(error)}, status=status.HTTP_400_BAD_REQUEST)
-        rows = [serialize_row(repo) for repo in ordered_repositories(params)]
-        return Response({"results": rows})
+        repositories = ordered_repositories(params)
+        start = (params.page - 1) * params.limit
+        rows = [serialize_row(repo) for repo in repositories[start : start + params.limit]]
+        return Response(
+            {
+                "count": repositories.count(),
+                "page": params.page,
+                "limit": params.limit,
+                "results": rows,
+            }
+        )
