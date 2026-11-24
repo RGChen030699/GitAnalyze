@@ -101,6 +101,8 @@ def release_pace(releases: Sequence[datetime] | None, now: datetime) -> BriefAns
     if not releases:
         return BriefAnswer("neutral", "No releases")
     dates = sorted(releases)
+    if len(dates) < 2:
+        return None  # no gap yet, so no usual pace to compare against
     usual_gap = median(_days_between(dates)[-USUAL_GAP_WINDOW:])
     ratio = _days(now - dates[-1]) / usual_gap
     if ratio <= ON_PACE_RATIO:
