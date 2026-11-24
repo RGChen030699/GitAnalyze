@@ -103,3 +103,7 @@ def test_brief_issue_response_not_answering_under_60_percent() -> None:
 
 def test_brief_release_pace_none_when_releases_unknown() -> None:
     assert release_pace(None, NOW) is None
+
+
+def test_brief_release_pace_no_releases_when_none_published() -> None:
+    assert release_pace([], NOW) == BriefAnswer("neutral", "No releases")
