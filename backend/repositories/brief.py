@@ -40,4 +40,6 @@ def interest(
     change = _change(gained_30d, gained_prev_30d)
     if change is not None and change > INTEREST_CHANGE:
         return BriefAnswer("good", "Growing")
+    if change is not None and change < -INTEREST_CHANGE:
+        return BriefAnswer("warn", "Cooling")
     return None
