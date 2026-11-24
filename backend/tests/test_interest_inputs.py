@@ -5,7 +5,7 @@ from typing import Any
 
 import pytest
 from django.test import Client
-from repositories.models import StarWeek
+from repositories.models import Repository, StarWeek
 from repositories.services import StarPoint, is_star_spike, stars_gained_previous
 
 from tests.test_repo_detail_api import HISTORY_SOURCE, NOW, frozen_now, make_repo  # noqa: F401
@@ -47,7 +47,7 @@ def test_G7_star_spike_rule(
 FETCHED = datetime(2026, 11, 23, 11, 0, tzinfo=UTC)
 
 
-def make_repo_with_weeks(week_count: int, **overrides: Any) -> None:
+def make_repo_with_weeks(week_count: int, **overrides: Any) -> Repository:
     fields: dict[str, Any] = {
         "stargazers_count": 10_000,
         "forks_count": 2_000,
@@ -65,6 +65,7 @@ def make_repo_with_weeks(week_count: int, **overrides: Any) -> None:
             source=HISTORY_SOURCE,
             fetched_at=FETCHED,
         )
+    return repo
 
 
 @pytest.mark.django_db
@@ -73,7 +74,44 @@ def test_detail_interest_compares_15_days_with_the_15_before(client: Client) -> 
 
     brief: dict[str, Any] = client.get("/api/repos/pallets/flask").json()["brief"]
 
-    assert brief["interest"] == {"tone": "neutral", "value": "Steady", "window_days": 15}
+    assert brief["interest"] == {
+        "tone": "neutral",
+        "value": "Steady",
+        "window_days": 15,
+        "recent": 150,
+        "previous": 150,
+        "change": 0.0,
+    }
+
+
+def set_daily(repo: Repository, first: date, last: date, per_day: int) -> None:
+    """Set every stored day from ``first`` to ``last`` to ``per_day`` stars."""
+    for week in StarWeek.objects.filter(repository=repo):
+        for offset in range(7):
+            if first <= week.week_start + timedelta(days=offset) <= last:
+                week.days[offset] = per_day
+        week.save()
+
+
+@pytest.mark.django_db
+def test_detail_interest_returns_recent_previous_and_change(client: Client) -> None:
+    repo = make_repo_with_weeks(10)
+    set_daily(repo, date(2026, 11, 9), AS_OF, 20)  # last 15 days: 300 against 150
+
+    interest = client.get("/api/repos/pallets/flask").json()["brief"]["interest"]
+
+    assert (interest["recent"], interest["previous"], interest["change"]) == (300, 150, 1.0)
+    assert interest["value"] == "Growing"
+
+
+@pytest.mark.django_db
+def test_detail_interest_change_is_null_when_previous_is_zero(client: Client) -> None:
+    repo = make_repo_with_weeks(10)
+    set_daily(repo, date(2026, 10, 25), date(2026, 11, 8), 0)  # the 15 days before
+
+    interest = client.get("/api/repos/pallets/flask").json()["brief"]["interest"]
+
+    assert (interest["recent"], interest["previous"], interest["change"]) == (150, 0, None)
 
 
 @pytest.mark.django_db
