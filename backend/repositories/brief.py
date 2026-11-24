@@ -8,12 +8,18 @@ from typing import Literal
 Tone = Literal["good", "warn", "bad", "neutral"]
 
 FLAT_SHARE_OF_TOTAL = 0.002
+INTEREST_CHANGE = 0.1
 
 
 @dataclass(frozen=True)
 class BriefAnswer:
     tone: Tone
     value: str
+
+
+def _change(current: int, previous: int) -> float | None:
+    """Relative change, or None when there is nothing to compare against."""
+    return (current - previous) / previous if previous > 0 else None
 
 
 def interest(
@@ -31,4 +37,7 @@ def interest(
         return BriefAnswer("neutral", "Fading")
     if gained_30d < FLAT_SHARE_OF_TOTAL * total_stars:
         return BriefAnswer("neutral", "Flat")
+    change = _change(gained_30d, gained_prev_30d)
+    if change is not None and change > INTEREST_CHANGE:
+        return BriefAnswer("good", "Growing")
     return None
