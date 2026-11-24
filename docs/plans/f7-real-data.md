@@ -336,7 +336,7 @@ The five decision brief answers move from `frontend/sample.js` (`analyse`) to Dj
 
 **Interfaces produced** (`repositories.brief`, pure functions with no database or network; each returns `None` when an input is `None`):
 - `BriefAnswer(tone: "good" | "warn" | "bad" | "neutral", value: str)`, a frozen dataclass.
-- `interest(gained_30d, gained_prev_30d, total_stars, spike) -> BriefAnswer | None`. In order: Spiky (warn) when `spike`, Fading (neutral) at 0 or fewer net stars, Flat (neutral) under 0.2% of total stars, Growing (good) above +10%, Cooling (warn) below −10%, else Steady (neutral). Steady also covers a previous 30 days with no stars.
+- `interest(gained_15d, gained_prev_15d, total_stars, spike) -> BriefAnswer | None`. In order: Spiky (warn) when `spike`, Fading (neutral) at 0 or fewer net stars, Flat (neutral) under 0.1% of total stars in 15 days (the same rate as the earlier 0.2% in 30 days), Growing (good) above +10%, Cooling (warn) below −10%, else Steady (neutral). Steady also covers a previous 15 days with no stars. *Changed from 30 days against the previous 30 (`405e7c6`, `6196b15`).*
 - `maintenance(commits_13w, commits_prev_13w) -> BriefAnswer | None`. Stopped (bad) at 0 commits, Slowing down (warn) below −40%, Speeding up (good) above +10%, else Steady (good).
 - `issue_response(opened_6m, closed_6m) -> BriefAnswer | None`. "N/A" (neutral) when no issues were opened, Keeping up (good) at 95% or more, Falling behind (warn) from 60% to under 95%, Not answering (bad) under 60%.
 - `release_pace(releases, now) -> BriefAnswer | None`. `releases` holds the publish dates of non-draft, non-prerelease releases. No releases (neutral) when empty, `None` with only one release, and otherwise the days since the newest release against the median of the last 8 gaps: On its usual pace (good) up to 1.5×, or "Overdue, X.X× its usual gap" (warn).
@@ -355,8 +355,8 @@ The five decision brief answers move from `frontend/sample.js` (`analyse`) to Dj
 |---|---|
 | `test_brief_interest_none_when_inputs_null` | Any `None` input gives `None` |
 | `test_brief_interest_spiky_when_star_pattern_check_fires` | warn, Spiky |
-| `test_brief_interest_fading_when_no_net_stars_in_30_days` | 0 and negative give neutral, Fading |
-| `test_brief_interest_flat_when_gain_under_0_2_percent_of_total` | 19 of 10,000 is Flat, 20 is not |
+| `test_brief_interest_fading_when_no_net_stars_in_15_days` | 0 and negative give neutral, Fading |
+| `test_brief_interest_flat_when_15_day_gain_under_0_1_percent_of_total` | 9 of 10,000 is Flat, 10 is not |
 | `test_brief_interest_growing_when_up_more_than_10_percent` | +11% is Growing, +10% is not |
 | `test_brief_interest_cooling_when_down_more_than_10_percent` | −11% is Cooling, −10% is not |
 | `test_brief_interest_steady_within_10_percent_or_without_prior_stars` | ±10% and a previous 0 give neutral, Steady |
@@ -481,7 +481,7 @@ Done as one piece of work (`bb0c8a2`–`87c3169`), briefed as "Step 7: connect t
 
 - [ ] Fetch and store commit activity, contributor statistics, the release list, and issue and pull request counts through `github_client`, with provenance (F2, F9).
 - [ ] Return them from `GET /api/repos/{owner}/{name}` and pass them into the Step 6b brief rules.
-- [ ] Compute the previous 30 days of stars and the F8 G7 spike check so the interest answer can be given.
+- [x] Compute the interest inputs and the F8 G7 spike check so the interest answer can be given (`7c8305b`–`f56dde8`). The answer now compares net stars in the last 15 days with the 15 days before, from `star_week` daily counts, and needs at least 30 days of history (`405e7c6`–`6196b15`). `brief.interest` is `{tone, value, window_days: 15}`. About, report and compare pages describe the 15-day rule (`556540f`–`541b408`). "Stars gained, 30 days" and every other 30-day number are unchanged.
 - [ ] Draw the report and compare charts from this data in place of the calculating message.
 
 ---
