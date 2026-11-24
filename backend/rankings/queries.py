@@ -1,11 +1,14 @@
 """Database queries for the rankings API. These never call GitHub (F7 T7)."""
 
-from django.db.models import F, QuerySet
+from typing import Any
+
+from django.db.models import Count, F, Max, QuerySet
 from django.db.models.functions import Lower
 from repositories.models import Repository
 
 from rankings.params import RankingParams
 
+MAX_LANGUAGES = 15
 GAIN_FIELDS = {
     "7d": "stars_gained_7d",
     "30d": "stars_gained_30d",
@@ -15,6 +18,22 @@ GAIN_FIELDS = {
 
 def ranked_repositories() -> QuerySet[Repository]:
     return Repository.objects.filter(ranked_at__isnull=False)
+
+
+def coverage() -> dict[str, Any]:
+    totals = ranked_repositories().aggregate(tracked=Count("id"), updated_at=Max("ranked_at"))
+    return {"prepared": totals["tracked"] > 0, **totals}
+
+
+def language_counts() -> list[dict[str, Any]]:
+    rows = (
+        ranked_repositories()
+        .filter(language__isnull=False)
+        .values("language")
+        .annotate(count=Count("id"))
+        .order_by("-count", "language")[:MAX_LANGUAGES]
+    )
+    return [{"name": row["language"], "count": row["count"]} for row in rows]
 
 
 def _filtered(params: RankingParams) -> QuerySet[Repository]:
