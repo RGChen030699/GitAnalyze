@@ -153,7 +153,7 @@ def test_H9_backup_run_skips_when_todays_refresh_already_succeeded() -> None:
     assert "steps.check.outputs.done != 'true'" in text
     languages = (
         "Python,Java,TypeScript,JavaScript,C#,PHP,C++,Go,Rust,Swift,Kotlin,"
-        "C,Ruby,Dart,Shell,R,Jupyter Notebook"
+        "C,Ruby,Dart,Scala,Shell,R,Jupyter Notebook"
     )
     assert f"RANKINGS_LANGUAGES: {languages}" in text
     assert "DATABASE_URL: ${{ secrets.DATABASE_URL }}" in text
