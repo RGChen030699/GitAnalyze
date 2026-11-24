@@ -107,3 +107,8 @@ def test_brief_release_pace_none_when_releases_unknown() -> None:
 
 def test_brief_release_pace_no_releases_when_none_published() -> None:
     assert release_pace([], NOW) == BriefAnswer("neutral", "No releases")
+
+
+def test_brief_release_pace_on_usual_pace_up_to_1_5x_its_gap() -> None:
+    every_30_days = days_ago(45, 75, 105, 135)
+    assert release_pace(every_30_days, NOW) == BriefAnswer("good", "On its usual pace")
