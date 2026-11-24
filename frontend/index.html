@@ -554,10 +554,13 @@ function renderTable() {
     ? '<div class="more" id="moreSentinel"><button class="btn" type="button" id="moreBtn">Show more</button><span class="note">The next ' + fmtN(Math.min(PER_SCROLL, rest)) + ' load as you scroll.</span></div>'
     : (state.pages > 1 || list.length > state.limit ? '<div class="more"><span class="note">End of list: all ' + fmtN(list.length) + ' repositories shown.</span></div>' : '');
   if (rest > 0) {
-    /* Load the next batch only when the person scrolls near the end, never on its own after a render. */
+    /* Load the next batch only when the person scrolls DOWN near the end. A shorter list moves the page
+       on its own (and on tall screens its end is already in view), which must not count as scrolling. */
+    const startY = window.scrollY;
     const onScroll = () => {
       const el = $('#moreSentinel');
-      if (el && el.getBoundingClientRect().top < window.innerHeight + 160) { window.removeEventListener('scroll', onScroll); loadMore(); }
+      if (!el || window.scrollY < startY + 40) return;
+      if (el.getBoundingClientRect().top < window.innerHeight + 160) { window.removeEventListener('scroll', onScroll); loadMore(); }
     };
     window.addEventListener('scroll', onScroll, { passive: true });
     observer = { disconnect: () => window.removeEventListener('scroll', onScroll) };
