@@ -98,7 +98,8 @@ def trending(full_name: str) -> Any:
 
 
 def github_calls() -> list[str]:
-    return [str(c.request.url) for c in responses.calls if c.request.url.startswith(API_BASE_URL)]
+    urls = [str(call.request.url) for call in responses.calls]
+    return [url for url in urls if url.startswith(API_BASE_URL)]
 
 
 @responses.activate

@@ -317,3 +317,8 @@ test('F2 risky maintainer and missing license add watch-out lines', () => {
   ]);
   assert.equal(A.issuesCount, 2);
 });
+
+test('F8 G5 reportModel takes the weekly Trending rank from the API', () => {
+  assert.equal(D.reportModel({ ...detail, trending: 3 }, NOW).P.trending, 3);
+  assert.equal(D.reportModel(detail, NOW).P.trending, null);
+});

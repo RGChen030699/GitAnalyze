@@ -99,3 +99,10 @@ def test_report_interest_text_reads_the_api_change() -> None:
 
     assert "${pct(A.interestChange)} more stars than the 15 days before." in repo
     assert "A.momChange === null ? 'Interest is growing.'" not in repo
+
+
+def test_G4_trending_tab_credits_github_trending_with_a_link() -> None:
+    text = read("index.html")
+    assert '<a href="https://github.com/trending"' in text
+    assert "From GitHub Trending</a>" in text
+    assert "'Trending last updated '" in text

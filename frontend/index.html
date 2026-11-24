@@ -286,6 +286,7 @@ footer .wrap{display:flex;flex-wrap:wrap;gap:8px 24px}
     </div>
     <div class="tbl-bar">
       <span class="note" id="showing" aria-live="polite"></span>
+      <span class="note" id="trendCredit" hidden><a href="https://github.com/trending" target="_blank" rel="noopener">From GitHub Trending</a> · <span id="trendDate"></span></span>
       <span style="display:flex;flex-wrap:wrap;align-items:center;gap:8px"><span id="focusNote"></span>
         <button type="button" class="btn small" id="dlTable">Download</button>
       </span>
@@ -358,7 +359,7 @@ const statusPill = (s) => { const t = GAData.statusTone(s); return '<span class=
 const M = window.GA_METRICS;
 
 /* ---------- data from the API (F7): /api/rankings, every page for the current Rank by and filters ---------- */
-let REPOS = [], BY_ID = {}, META = { tracked: null, updated_at: null, languages: [] }, loadErr = null, loadToken = 0;
+let REPOS = [], BY_ID = {}, META = { tracked: null, updated_at: null, trending_updated_at: null, languages: [] }, loadErr = null, loadToken = 0;
 async function loadRankings() {
   const token = ++loadToken; const rows = []; let page = 1, meta = null, err = null;
   state.loading = true; renderTable();
@@ -375,7 +376,7 @@ async function loadRankings() {
   const now = Date.now();
   REPOS = err ? [] : rows.map((r) => GAData.toRow(r, now));
   BY_ID = Object.fromEntries(REPOS.map((r) => [r.id, r]));
-  if (meta) META = { tracked: meta.tracked, updated_at: meta.updated_at, languages: meta.languages };
+  if (meta) META = { tracked: meta.tracked, updated_at: meta.updated_at, trending_updated_at: meta.trending_updated_at || null, languages: meta.languages };
   loadErr = err; state.empty = !!err || !meta || !meta.prepared; state.loading = false;
   $('#freshText').textContent = 'Rankings updated ' + GAData.updatedLabel(META.updated_at, now);
   renderControls(); renderTable(); renderRecent(); renderTray();
@@ -539,6 +540,9 @@ function renderTable() {
   renderHead();
   renderSummary(list);
   $('#trackedN').textContent = show(META.tracked, fmtN);
+  // F8 G4: credit GitHub Trending, and say when the feed was last read.
+  $('#trendCredit').hidden = state.view !== 'trending';
+  $('#trendDate').textContent = 'Trending last updated ' + GAData.updatedLabel(META.trending_updated_at, Date.now());
   const reloading = state.loading && REPOS.length > 0;
   $('#tblLoading').hidden = !reloading; $('#tbody').closest('table').setAttribute('aria-busy', String(state.loading));
   if (state.loading && !reloading) {

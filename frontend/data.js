@@ -211,7 +211,7 @@
       archived: det.archived, openIssues: det.open_issues, openPrs: null,
       license: license ? license.spdx_id || '' : null, created: det.created_at ? Date.parse(det.created_at) : null,
       contribOther: missing(det.contributors_last_year) ? null : det.contributors_last_year,
-      skills: null, peers: null, trending: null };
+      skills: null, peers: null, trending: missing(det.trending) ? null : det.trending };
     const commits = commitSeries(det.commit_activity);
     const contrib = contributorShares(det);
     const releases = releaseSeries(det.releases);
