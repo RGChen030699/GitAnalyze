@@ -139,9 +139,14 @@ def skill_scripts(folder: str, paths: Iterable[str]) -> list[str]:
         relative = path[len(prefix) :]
         if not folder and "/" in relative and not relative.startswith("scripts/"):
             continue  # a skill at the repository root: only its own top level and scripts/
-        if relative.endswith(SCRIPT_EXTENSIONS) or relative.startswith("scripts/"):
+        if relative.endswith(SCRIPT_EXTENSIONS) or _extensionless_script(relative):
             found.append(relative)
     return sorted(found)
+
+
+def _extensionless_script(relative: str) -> bool:
+    """A file with no extension in scripts/ is likely an executable; data files are not."""
+    return relative.startswith("scripts/") and "." not in basename(relative)
 
 
 def manifest_skill_folders(text: str) -> set[str]:
@@ -286,9 +291,22 @@ def _root_readme(blobs: Sequence[TreeEntry]) -> str | None:
     return next((e.path for e in blobs if e.path.lower() == "readme.md"), None)
 
 
+def _skill_folders(blobs: Sequence[TreeEntry]) -> set[str]:
+    return {dirname(e.path) for e in blobs if basename(e.path) == SKILL_FILE}
+
+
+def _inside(path: str, folders: set[str]) -> bool:
+    return any(f and (path == f or path.startswith(f"{f}/")) for f in folders)
+
+
 def _dependency_files(blobs: Sequence[TreeEntry]) -> list[str]:
-    """Shallowest first, so a monorepo's root and package manifests come before deep ones."""
-    found = [e.path for e in blobs if DEPENDENCY_FILE.match(basename(e.path))]
+    """Shallowest first. A skill's own helper dependencies don't make the repo an MCP server."""
+    skills = _skill_folders(blobs)
+    found = [
+        e.path
+        for e in blobs
+        if DEPENDENCY_FILE.match(basename(e.path)) and not _inside(e.path, skills)
+    ]
     return sorted(found, key=lambda p: (p.count("/"), p))[:MAX_DEPENDENCY_FILES]
 
 
