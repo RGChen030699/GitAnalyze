@@ -10,7 +10,7 @@
 
 **Spec:** `docs/prd/F7-top-repositories.md`, with `F0`, `F1` (L1–L4), `F2` (R1–R4, S1–S5), `F3` §2 and `F8` §2.
 
-**Status:** Steps 1, 2, 3, 3a, 4, 6a and 6b are done. Step 5 is committed (`a3c892b`–`5fa4648`) but its checkboxes below were not ticked. Steps 6, 7 and 8 have not been implemented. `refresh_rankings` has been tested only with recorded fixtures on in-memory SQLite. It has not run against live GitHub or a real Postgres database.
+**Status:** Steps 1, 2, 3, 3a, 4, 6a, 6b and 8 are done. Step 8 still has limit 10, `/api/lookup` wiring and a browser check open. Step 5 is committed (`a3c892b`–`5fa4648`) but its checkboxes below were not ticked. Steps 6, 7, 9 and 10 have not been implemented. `refresh_rankings` has been tested only with recorded fixtures on in-memory SQLite. It has not run against live GitHub or a real Postgres database.
 
 ## Global Constraints
 
@@ -420,42 +420,78 @@ The five decision brief answers move from `frontend/sample.js` (`analyse`) to Dj
 
 ### Step 8: Connect the frontend
 
-**Files:**
-- Create: `frontend/rows.js`, `frontend/tests/rows.test.js`
-- Modify: `frontend/index.html`
-- Test: `backend/tests/test_frontend_static.py`
+Done as one piece of work (`bb0c8a2`–`87c3169`), briefed as "Step 7: connect the frontend to the API". It covers `index.html`, `repo.html` and `compare.html`, not only the rankings table. The design changed from the first draft below: one mapping module, `data.js`, replaces `rows.js`. Pages use relative `/api/` paths, not a `<meta>` base URL, and a DEBUG-only Django route replaces `python -m http.server`.
 
-**Interfaces produced** (`rows.js`, classic script that also exports for Node):
-- `toRow(apiRow, now: Date) -> Row` maps to the existing shape: `pushed` as days ago, `weeks` oldest first, `null` preserved.
-- `display(value, format) -> string` returns "N/A" for `null`.
-- `compareNullable(a, b, dir) -> number` puts `null` last in both directions.
-- `sumKnown(values) -> number | null` returns `null` when every value is `null`.
-- `languageOptions(languages) -> string[]` returns `"Any"` followed by the API's language names, in API order.
+**Files:**
+- Create: `frontend/data.js`, `frontend/report-kit.js`, `frontend/tests/data.test.js`, `backend/config/dev_frontend.py`
+- Modify: `frontend/index.html`, `frontend/repo.html`, `frontend/compare.html`, `backend/config/urls.py`
+- Delete: `frontend/sample.js`. Its chart and formatting helpers moved unchanged to `report-kit.js`. Its sample profiles, `build()` and `analyse()` are gone.
+- Test: `backend/tests/test_dev_frontend.py`, `backend/tests/test_frontend_static.py`
+
+**Same origin in development:** `config.dev_frontend` serves `frontend/` from Django when `DEBUG` is on, mirroring `frontend/vercel.json`. That covers `/`, `/repo/{owner}/{name}`, `/compare`, `/about`, `/about/{section}` and top-level `.js`/`.css` files. Every route answers 404 when `DEBUG` is off. In production Vercel serves the pages and forwards `/api/` to the backend.
+
+**Interfaces produced** (`data.js`, pure, loaded as `window.GAData` and as a Node module):
+- `show(value, fmt)`, `compareNullable(a, b, dir)` and `sumKnown(values)`: `null` shows as "N/A", sorts last, and is left out of sums.
+- `rankingsQuery(state, page)`. Rank by Total stars gives `sort=stars`. Gaining stars gives `sort=gained&window=7d|30d|1y`. Trending gives `sort=trending&trending=1`. The filters map to `lang`, `status` and `archived=0`, with `limit=100`.
+- `toRow(apiRow, now)`, `weeksFromHistory(history, stars)`, `daysFromHistory(history, stars, now)` and `compareRecord(detail, now)`.
+- `briefFindings(brief)`, `statusTone(status)`, `reportModel(detail, now)`. The report model takes status and brief answers from the API and shows N/A for unknowns. Good-fit and watch-out lines come only from known results.
+- `utcStamp(iso)`, `updatedLabel(iso, now)`, `agoLabel(t, now)` and `busyMinutes(retryAfter)`.
 
 | Test | Assertion |
 |---|---|
-| `toRow converts pushed_at to days ago` | Fixed `now`; `null` stays `null` |
-| `toRow keeps weeks oldest first` | Same order as the API |
-| `display shows N/A for null but keeps real 0` | `0` stays `0` |
-| `compareNullable sorts null last both ways` | Ascending and descending |
-| `sumKnown ignores null and returns null if all null` | Both cases |
-| `languageOptions keeps API order after Any` | Not re-sorted alphabetically; an empty list gives only `Any` |
-| `test_T7_frontend_never_calls_github_api` | `index.html` and `rows.js` contain no `api.github.com` |
-| `test_frontend_has_no_sample_data` | No `makeRepo`, `generate`, `NAMED`, "Sample data" or demo panel |
+| `test_dev_serves_page_for_each_vercel_route` | All five routes serve their page in DEBUG |
+| `test_dev_serves_frontend_scripts` | Top-level `.js` is served |
+| `test_dev_does_not_serve_files_outside_the_top_level` | Path traversal and subfolders give 404 |
+| `test_dev_frontend_is_off_when_debug_is_off` | 404 without DEBUG |
+| `data.test.js` (20 tests) | Each `data.js` function, including null cases and the report model |
+| `test_T7_frontend_never_calls_github_or_an_absolute_api_host` | No `api.github.com` or `localhost:8000` in `frontend/` |
+| `test_rankings_page_loads_from_relative_api_path` | `index.html` calls `/api/rankings?` |
+| `test_report_pages_load_each_repo_from_relative_api_path` | `repo.html` and `compare.html` call `/api/repos/` |
+| `test_real_data_pages_use_data_module_not_sample_js` | All three pages load `data.js`, none load `sample.js` |
+| `test_real_data_pages_drop_sample_data_notes` | No "Sample data" or "sample repositories" |
+| `test_rankings_page_has_no_sample_generator` | No `makeRepo`, `NAMED`, `generate` or `NOW_LABEL` |
+| `test_report_pages_show_calculating_message_for_null_charts` | The exact calculating message is present |
+| `test_sample_js_is_gone` | `frontend/sample.js` does not exist |
 
-- [ ] Write tests, confirm red, commit `test(F7): frontend row mapping [red]`.
-- [ ] Read the API base URL from `<meta name="gitanalyze-api-base">`, default `http://localhost:8000`.
-- [ ] Load all rankings pages at `limit=100` until `count` is reached. The existing controls need window, status and archived filters that the API does not take.
-- [ ] Remove the sample generator, demo panel, sample-data notes and hard-coded "Today at 04:10 UTC". Use real `fetched_at` and `updated_at`.
-- [ ] Handle `null` in `rowHtml`, `spark`, `ago`, `statusPill`, `renderSummary`, status counts, sorting and CSV.
-- [ ] Disable the AI filter and show "N/A" for the AI summary, because AI data is not collected yet.
-- [ ] Apply the small F7 fixes: add limit 10 (T4), "Show more" (T5), "Updated <time>" (T9).
-- [ ] Build the Language filter from the API's `languages` with `languageOptions`, so it lists only languages present in the database, sorted by repository count (T2). Remove any hard-coded language list.
-- [ ] Wire lookup to `/api/lookup`, merge returned rows into the list, and show API error text. Debounce suggestions to 400 ms and abort stale requests. Picking a suggestion runs a lookup.
-- [ ] Show "Rankings are being prepared" only when `prepared=false`. If the API is unreachable, show "Couldn't load rankings" with a retry button.
-- [ ] Run `node --test frontend/tests/`, plus the backend checks.
-- [ ] Manual check: serve with `python -m http.server 8080 --directory frontend`, then verify empty database, `refresh_rankings --limit 10`, filters, a 404 lookup, and no browser requests to `api.github.com`.
-- [ ] Commit `feat(F7): load rankings and lookup from the API [green]`.
+- [x] Write tests, confirm red, commit (`bb0c8a2`, `f967996`, `14c73b0`, `2e65a2d`).
+- [x] Serve `frontend/` from Django in DEBUG on the API origin (`e40018c`).
+- [x] Load every rankings page at `limit=100` until `count` is reached, for the current Rank by and filters. Column-header sorting, focus, search and paging stay client-side.
+- [x] Remove the sample generator, sample-data notes and hard-coded times. Use the real `updated_at` and `fetched_at`.
+- [x] Handle `null` in rows, sparklines, last commit, status pill, summary, status counts, sorting and download.
+- [x] Disable the AI filter and show "N/A" for the AI summary, because AI data is not collected yet.
+- [x] Build the Language filter from the API's `languages`, in API order (T2).
+- [x] "Updated <time>" from `updated_at` (T9). "Show more" already existed (T5).
+- [ ] Add limit 10 to the Show control (T4). It still offers 25, 50 and 100.
+- [x] Report and compare pages load `/api/repos/{owner}/{name}` and render its `brief` instead of `analyse()`. Null values show "N/A". Null charts show "GitHub is still calculating this. Check back in a minute." A 404 shows the API's message.
+- [x] Report links, the compare list, Download and the GitHub button use the real repository.
+- [x] Lookup on the main page opens `/repo/{owner}/{name}` or `/compare` directly, and the report fetches on demand. Suggestions search the loaded rankings only.
+- [ ] Wire lookup and suggestions to `/api/lookup` once Step 7 exists.
+- [x] Show "Rankings are being prepared" when `prepared=false` or the API can't be reached. Show the "GitHub is busy" message on 429 or 503.
+- [x] Run `node --test 'frontend/tests/*.test.js'` and the backend checks. Node 22 needs a file pattern, not a directory.
+- [ ] Manual browser check. The local server ran against Neon: every route answered 200, the API returned 10 ranked repositories, and `data.js` mapped the real responses correctly. No browser was connected, so the rendered pages were not looked at.
+- [x] Commit `feat(F7): load rankings, reports and compare from the API [green]` (`87c3169`).
+
+**Known gap:** most report charts show the calculating message, because commit, contributor, issue and release data is not collected (Step 9). The wording stays until then.
+
+**Process note:** `b9e794c` is a `[green]` commit made while the `14c73b0` static tests were still red.
+
+---
+
+### Step 9: Collect activity data (commits, contributors, releases, issue and pull request counts)
+
+- [ ] Fetch and store commit activity, contributor statistics, the release list, and issue and pull request counts through `github_client`, with provenance (F2, F9).
+- [ ] Return them from `GET /api/repos/{owner}/{name}` and pass them into the Step 6b brief rules.
+- [ ] Compute the previous 30 days of stars and the F8 G7 spike check so the interest answer can be given.
+- [ ] Draw the report and compare charts from this data in place of the calculating message.
+
+---
+
+### Step 10: Host the backend on Vercel and refresh daily
+
+- [ ] Deploy the Django backend as its own Vercel project, using `DATABASE_URL` for Neon and `GITHUB_TOKEN` from the environment, with `DJANGO_DEBUG=0`.
+- [ ] Forward the frontend's `/api/` requests to the backend.
+- [ ] Run `refresh_rankings` once a day on a schedule.
+- [ ] Add a per-client throttle to on-demand fetches before going public.
 
 ---
 
