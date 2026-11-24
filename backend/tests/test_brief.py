@@ -150,3 +150,11 @@ def test_brief_maintainer_concentration_depends_on_one_person_at_80_percent_or_m
     assert maintainer_concentration([10, 80, 10]) == one_person
     assert maintainer_concentration([92, 5, 3]) == one_person
     assert maintainer_concentration([79, 21]) != one_person
+
+
+def test_brief_maintainer_concentration_shared_by_people_who_made_80_percent() -> None:
+    assert maintainer_concentration([20, 50, 30]) == BriefAnswer("good", "Shared by 2 people")
+    assert maintainer_concentration([79, 21]) == BriefAnswer("good", "Shared by 2 people")
+    assert maintainer_concentration([41, 14, 9, 7, 5, 4, 3, 3, 2, 2, 10]) == BriefAnswer(
+        "good", "Shared by 5 people"
+    )
