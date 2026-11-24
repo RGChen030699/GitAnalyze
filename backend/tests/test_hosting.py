@@ -137,7 +137,7 @@ def test_H9_daily_refresh_workflow_uses_repository_secrets() -> None:
     text = WORKFLOW.read_text()
 
     assert "schedule:" in text and "cron:" in text
-    assert "python backend/manage.py refresh_rankings --limit 800" in text
+    assert "python backend/manage.py refresh_rankings --limit 1000" in text
     assert 'cron: "0 9 * * *"' in text  # main daily run, 9:00 AM UTC
     assert 'cron: "25 9 * * *"' in text  # first backup check, 9:25 AM UTC
     assert 'cron: "50 9 * * *"' in text  # second backup check, 9:50 AM UTC
@@ -151,7 +151,10 @@ def test_H9_backup_run_skips_when_todays_refresh_already_succeeded() -> None:
     assert "github.event.schedule == '50 9 * * *'" in text
     assert "gh run list" in text and "--status success" in text
     assert "steps.check.outputs.done != 'true'" in text
-    languages = "TypeScript,Python,JavaScript,Java,C#,PHP,Shell,C++,Go,Rust,Swift,Kotlin"
+    languages = (
+        "TypeScript,Python,JavaScript,Java,C#,PHP,Shell,C++,Go,Rust,Swift,Kotlin,"
+        "C,Ruby,Dart,Jupyter Notebook,R"
+    )
     assert f"RANKINGS_LANGUAGES: {languages}" in text
     assert "DATABASE_URL: ${{ secrets.DATABASE_URL }}" in text
     assert "GITHUB_TOKEN: ${{ secrets.GH_API_TOKEN }}" in text
