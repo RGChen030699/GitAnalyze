@@ -488,9 +488,9 @@ Done as one piece of work (`bb0c8a2`–`87c3169`), briefed as "Step 7: connect t
 
 ### Step 10: Host the backend on Vercel and refresh daily
 
-- [ ] Deploy the Django backend as its own Vercel project, using `DATABASE_URL` for Neon and `GITHUB_TOKEN` from the environment, with `DJANGO_DEBUG=0`.
-- [ ] Forward the frontend's `/api/` requests to the backend.
-- [ ] Run `refresh_rankings` once a day on a schedule.
+- [ ] Deploy the Django backend as its own Vercel project, using `DATABASE_URL` for Neon and `GITHUB_TOKEN` from the environment, with `DEBUG=0`. Code is ready (`api/index.py`, root `vercel.json`, settings from `DEBUG`, `ALLOWED_HOSTS`, `FRONTEND_ORIGIN`). Not yet deployed or checked live.
+- [x] Forward the frontend's `/api/` requests to the backend (`https://gitanalyze-backend.vercel.app`).
+- [x] Run `refresh_rankings` once a day on a schedule (`.github/workflows/refresh-rankings.yml`). Not yet run for real.
 - [ ] Add a per-client throttle to on-demand fetches before going public.
 
 ---

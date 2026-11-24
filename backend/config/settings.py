@@ -13,19 +13,20 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 
 # Vercel sets VERCEL=1 and VERCEL_URL (this deployment's host) in its functions.
 ON_VERCEL = bool(os.environ.get("VERCEL"))
-DEBUG = os.environ.get("DJANGO_DEBUG", "0" if ON_VERCEL else "1") == "1"
+TRUE_VALUES = {"1", "true", "yes", "on"}
+DEBUG = os.environ.get("DEBUG", "0" if ON_VERCEL else "1").strip().lower() in TRUE_VALUES
 
 DEV_SECRET_KEY = "dev-only-insecure-key-change-me"
 SECRET_KEY = os.environ.get("DJANGO_SECRET_KEY", "" if not DEBUG else DEV_SECRET_KEY)
 if not SECRET_KEY:
-    raise ImproperlyConfigured("Set DJANGO_SECRET_KEY when DJANGO_DEBUG is off")
+    raise ImproperlyConfigured("Set DJANGO_SECRET_KEY when DEBUG is off")
 
 
 def _host_list(value: str) -> list[str]:
     return [host.strip() for host in value.split(",") if host.strip()]
 
 
-ALLOWED_HOSTS = _host_list(os.environ.get("DJANGO_ALLOWED_HOSTS", "localhost,127.0.0.1"))
+ALLOWED_HOSTS = _host_list(os.environ.get("ALLOWED_HOSTS", "localhost,127.0.0.1"))
 if os.environ.get("VERCEL_URL"):
     ALLOWED_HOSTS.append(os.environ["VERCEL_URL"])
 
