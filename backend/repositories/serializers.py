@@ -2,7 +2,17 @@
 
 from typing import Any
 
-from repositories.models import Repository
+from repositories.models import Repository, StarWeek
+
+
+def _star_week(week: StarWeek) -> dict[str, Any]:
+    return {
+        "week_start": week.week_start,
+        "stars_gained": week.stars_gained,
+        "days": week.days,
+        "source": week.source,
+        "fetched_at": week.fetched_at,
+    }
 
 
 def serialize_detail(repo: Repository) -> dict[str, Any]:
@@ -25,4 +35,5 @@ def serialize_detail(repo: Repository) -> dict[str, Any]:
         "stars_gained_7d": repo.stars_gained_7d,
         "stars_gained_30d": repo.stars_gained_30d,
         "stars_gained_year": repo.stars_gained_year,
+        "star_history": [_star_week(week) for week in repo.star_weeks.order_by("week_start")],
     }
