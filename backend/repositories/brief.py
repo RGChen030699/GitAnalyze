@@ -74,4 +74,4 @@ def issue_response(opened_6m: int | None, closed_6m: int | None) -> BriefAnswer 
         return BriefAnswer("good", "Keeping up")
     if close_ratio >= FALLING_BEHIND_RATIO:
         return BriefAnswer("warn", "Falling behind")
-    return None
+    return BriefAnswer("bad", "Not answering")
