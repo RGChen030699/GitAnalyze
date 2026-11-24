@@ -1,6 +1,6 @@
 """JSON shape of one repository on the repository page."""
 
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Any
 
 from repositories.brief import (
@@ -12,6 +12,7 @@ from repositories.brief import (
     release_pace,
 )
 from repositories.models import Repository, StarWeek
+from repositories.services import StarPoint, is_star_spike, stars_gained_previous
 
 REPOSITORY_FIELDS = (
     "description",
@@ -68,11 +69,30 @@ def serialize_brief_answer(answer: BriefAnswer | None) -> dict[str, str] | None:
     return None if answer is None else {"tone": answer.tone, "value": answer.value}
 
 
-def _brief(repo: Repository, now: datetime) -> dict[str, dict[str, str] | None]:
+def _gained_prev_30d(repo: Repository, weeks: list[StarWeek]) -> int | None:
+    """Same as_of as stars_gained_30d: the day the star history was fetched."""
+    if repo.star_history_fetched_at is None:
+        return None
+    as_of = repo.star_history_fetched_at.astimezone(UTC).date()
+    points = [StarPoint(week.week_start, week.days) for week in weeks]
+    return stars_gained_previous(points, as_of, 30)
+
+
+def _interest(repo: Repository, weeks: list[StarWeek]) -> BriefAnswer | None:
+    spike = is_star_spike(
+        repo.stars_gained_7d, repo.forks_count, repo.open_issues_count, repo.stargazers_count
+    )
+    return interest(
+        repo.stars_gained_30d, _gained_prev_30d(repo, weeks), repo.stargazers_count, spike
+    )
+
+
+def _brief(
+    repo: Repository, weeks: list[StarWeek], now: datetime
+) -> dict[str, dict[str, str] | None]:
     """Inputs we don't store yet are passed as None, so those answers stay null."""
     answers = {
-        # The previous 30 days and the star-spike check (F8 G7) are not computed yet.
-        "interest": interest(repo.stars_gained_30d, None, repo.stargazers_count, None),
+        "interest": _interest(repo, weeks),
         "maintenance": maintenance(None, None),
         "issue_response": issue_response(None, None),
         "release_pace": release_pace(None, now),
@@ -109,5 +129,5 @@ def serialize_detail(repo: Repository, now: datetime) -> dict[str, Any]:
         **values,
         "star_history": [_star_week(week) for week in weeks],
         "provenance": _provenance(values, origins),
-        "brief": _brief(repo, now),
+        "brief": _brief(repo, weeks, now),
     }

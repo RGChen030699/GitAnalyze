@@ -37,6 +37,28 @@ def stars_gained(points: Sequence[StarPoint], as_of: date, days: int) -> int:
     )
 
 
+SPIKE_MIN_GAINED_7D = 1_000
+SPIKE_ACTIVITY_PERCENT = 1
+
+
+def stars_gained_previous(points: Sequence[StarPoint], as_of: date, days: int) -> int | None:
+    """Net stars in the ``days`` before the last ``days``; None if history doesn't reach back."""
+    first_day = as_of - timedelta(days=2 * days - 1)
+    if not points or min(point.week_start for point in points) > first_day:
+        return None
+    return stars_gained(points, as_of - timedelta(days=days), days)
+
+
+def is_star_spike(
+    gained_7d: int | None, forks: int | None, open_issues: int | None, total: int | None
+) -> bool | None:
+    """F8 G7: >= 1,000 stars in 7 days while forks + open issues are under 1% of total stars."""
+    if gained_7d is None or forks is None or open_issues is None or total is None:
+        return None
+    quiet = (forks + open_issues) * 100 < total * SPIKE_ACTIVITY_PERCENT
+    return gained_7d >= SPIKE_MIN_GAINED_7D and quiet
+
+
 def stars_gained_year(points: Sequence[StarPoint], as_of: date) -> int:
     return stars_gained(points, as_of, YEAR_DAYS)
 
