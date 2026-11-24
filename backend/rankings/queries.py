@@ -18,5 +18,7 @@ def ranked_repositories() -> QuerySet[Repository]:
 
 
 def ordered_repositories(params: RankingParams) -> QuerySet[Repository]:
+    if params.sort == "trending" or params.trending_only:
+        return Repository.objects.none()  # F8: no trending data is stored yet
     field = GAIN_FIELDS[params.window] if params.sort == "gained" else "stargazers_count"
     return ranked_repositories().order_by(F(field).desc(nulls_last=True), Lower("full_name"))

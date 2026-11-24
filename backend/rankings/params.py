@@ -3,8 +3,9 @@
 from collections.abc import Mapping
 from dataclasses import dataclass
 
-SORTS = ("stars", "gained")
+SORTS = ("stars", "gained", "trending")
 WINDOWS = ("7d", "30d", "1y")
+FLAGS = ("0", "1")
 
 
 class InvalidRankingParams(Exception):
@@ -15,6 +16,7 @@ class InvalidRankingParams(Exception):
 class RankingParams:
     sort: str = "stars"
     window: str = "7d"
+    trending_only: bool = False
 
 
 def _choice(query: Mapping[str, str], name: str, choices: tuple[str, ...], default: str) -> str:
@@ -28,4 +30,5 @@ def parse_params(query: Mapping[str, str]) -> RankingParams:
     return RankingParams(
         sort=_choice(query, "sort", SORTS, "stars"),
         window=_choice(query, "window", WINDOWS, "7d"),
+        trending_only=_choice(query, "trending", FLAGS, "0") == "1",
     )
