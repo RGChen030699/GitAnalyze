@@ -28,6 +28,7 @@ INSTALLED_APPS = [
 ]
 
 MIDDLEWARE = [
+    "config.cors.FrontendCorsMiddleware",
     "django.middleware.security.SecurityMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
@@ -111,5 +112,7 @@ REST_FRAMEWORK = {
 
 # F0 C1: the GitHub client reads this; it fails with a clear error if missing.
 GITHUB_TOKEN = os.environ.get("GITHUB_TOKEN", "")
+
+FRONTEND_ORIGIN = os.environ.get("FRONTEND_ORIGIN", "http://localhost:8080").rstrip("/")
 
 RANKINGS_LANGUAGES = parse_rankings_languages(os.environ.get("RANKINGS_LANGUAGES"))
