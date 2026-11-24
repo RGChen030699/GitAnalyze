@@ -7,7 +7,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from rankings.params import InvalidRankingParams, parse_params
-from rankings.queries import coverage, language_counts, ordered_repositories
+from rankings.queries import coverage, language_counts, ordered_repositories, trending_key
 from rankings.serializers import serialize_row
 
 
@@ -22,7 +22,8 @@ class RankingsView(APIView):
             return Response({"detail": str(error)}, status=status.HTTP_400_BAD_REQUEST)
         repositories = ordered_repositories(params)
         start = (params.page - 1) * params.limit
-        rows = [serialize_row(repo) for repo in repositories[start : start + params.limit]]
+        key = trending_key(params)
+        rows = [serialize_row(repo, key) for repo in repositories[start : start + params.limit]]
         return Response(
             {
                 **coverage(),

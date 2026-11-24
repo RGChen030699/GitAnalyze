@@ -2,9 +2,11 @@
 
 from typing import Any
 
-from django.db.models import Count, F, Max, QuerySet
-from django.db.models.functions import Lower
+from django.db.models import Count, F, IntegerField, Max, QuerySet
+from django.db.models.fields.json import KT
+from django.db.models.functions import Cast, Lower
 from repositories.models import Repository
+from repositories.trending import ALL_KEY
 
 from rankings.params import RankingParams
 
@@ -21,8 +23,15 @@ def ranked_repositories() -> QuerySet[Repository]:
 
 
 def coverage() -> dict[str, Any]:
-    totals = ranked_repositories().aggregate(tracked=Count("id"), updated_at=Max("ranked_at"))
+    totals = ranked_repositories().aggregate(
+        tracked=Count("id"), updated_at=Max("ranked_at"), trending_updated_at=Max("trending_at")
+    )
     return {"prepared": totals["tracked"] > 0, **totals}
+
+
+def trending_key(params: RankingParams) -> str:
+    """Which weekly Trending feed applies: the chosen language's, or the overall one (F8 G4)."""
+    return params.lang or ALL_KEY
 
 
 def language_counts() -> list[dict[str, Any]]:
@@ -56,7 +65,13 @@ def _sort_field(params: RankingParams) -> str:
 
 
 def ordered_repositories(params: RankingParams) -> QuerySet[Repository]:
+    repositories = _filtered(params)
+    key = trending_key(params)
     if params.sort == "trending" or params.trending_only:
-        return Repository.objects.none()  # F8: no trending data is stored yet
+        repositories = repositories.filter(trending__has_key=key)
+    if params.sort == "trending":
+        rank = Cast(KT(f"trending__{key}"), IntegerField())
+        ranked = repositories.annotate(trending_rank=rank)
+        return ranked.order_by("trending_rank", Lower("full_name"))
     field = _sort_field(params)
-    return _filtered(params).order_by(F(field).desc(nulls_last=True), Lower("full_name"))
+    return repositories.order_by(F(field).desc(nulls_last=True), Lower("full_name"))

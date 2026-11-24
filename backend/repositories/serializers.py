@@ -4,6 +4,7 @@ from datetime import UTC, datetime
 from typing import Any
 
 from django.utils.dateparse import parse_datetime
+from github_client.trending import feed_url
 from health.services import (
     PENDING,
     commit_activity_view,
@@ -100,6 +101,7 @@ def _origins(repo: Repository, newest_week: StarWeek | None) -> dict[str, Origin
     origins: dict[str, Origin] = dict.fromkeys(REPOSITORY_FIELDS, fetched)
     origins["newest_release_at"] = _origin(f"/repos/{repo.full_name}/releases", repo.fetched_at)
     origins.update(_health_origins(repo))
+    origins["trending"] = _origin(feed_url("weekly", None), repo.trending_at)
     origins["status"] = _origin(STATUS_SOURCE, repo.fetched_at)
     history = None
     if newest_week is not None:
@@ -264,6 +266,7 @@ def serialize_detail(repo: Repository, now: datetime) -> dict[str, Any]:
         "stars_gained_7d": repo.stars_gained_7d,
         "stars_gained_30d": repo.stars_gained_30d,
         "stars_gained_year": repo.stars_gained_year,
+        "trending": (repo.trending or {}).get("all"),  # F8 G5: weekly overall Trending rank
         **_health_values(repo, now),
         **dict.fromkeys(UNSTORED_FIELDS, None),
     }
