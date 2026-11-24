@@ -4,3 +4,4 @@ pytest-django>=4.8
 responses>=0.25
 ruff>=0.5
 mypy>=1.10
+types-PyYAML>=6.0  # type hints for pyyaml, so mypy checks ai_capabilities

@@ -66,3 +66,9 @@ jobs:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           GITHUB_TOKEN: ${{ secrets.GH_API_TOKEN }}
           RANKINGS_LANGUAGES: Python,Java,TypeScript,JavaScript,C#,PHP,C++,Go,Rust,Swift,Kotlin,C,Ruby,Dart,Scala,Shell,R,Jupyter Notebook
+      - name: Scan AI capabilities
+        if: steps.check.outputs.done != 'true'
+        run: python backend/manage.py refresh_ai
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          GITHUB_TOKEN: ${{ secrets.GH_API_TOKEN }}

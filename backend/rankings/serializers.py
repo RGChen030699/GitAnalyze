@@ -32,7 +32,7 @@ def serialize_row(repo: Repository, trending_key: str | None = None) -> dict[str
         "stars_gained_year": repo.stars_gained_year,
         "weeks_12": repo.weeks_12,
         "contributors": None,
-        "ai": None,
+        "ai": repo.ai["has_ai"] if repo.ai else None,  # F4: null until scanned
         "spike": None,
         "trending": trending_rank(repo, trending_key),
         "source": repo.source,

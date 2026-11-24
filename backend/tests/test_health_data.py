@@ -76,6 +76,7 @@ def make_repo(**overrides: Any) -> Repository:
         "fetched_at": NOW - timedelta(hours=2),
         "raw": load("repo.json"),
         "releases": releases_payload(),
+        "ai_fetched_at": NOW - timedelta(hours=2),  # F4 scan is fresh; these tests are about F2
     }
     return Repository.objects.create(**{**fields, **overrides})
 

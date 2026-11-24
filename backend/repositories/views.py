@@ -8,6 +8,7 @@ from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from repositories.ai_fetch import ai_is_stale, refresh_ai_quietly
 from repositories.fetch import RepoNotFound, get_or_fetch
 from repositories.health_fetch import health_is_stale, refresh_health
 from repositories.serializers import serialize_detail
@@ -27,4 +28,6 @@ class RepositoryDetailView(APIView):
             return Response({"detail": str(error)}, status=status.HTTP_404_NOT_FOUND)
         if health_is_stale(repo, now):
             refresh_health(client, repo, now)
+        if ai_is_stale(repo, now):
+            refresh_ai_quietly(client, repo, now)
         return Response(serialize_detail(repo, now))

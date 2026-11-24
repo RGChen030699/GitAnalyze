@@ -103,6 +103,8 @@ def _origins(repo: Repository, newest_week: StarWeek | None) -> dict[str, Origin
     origins["newest_release_at"] = _origin(f"/repos/{repo.full_name}/releases", repo.fetched_at)
     origins.update(_health_origins(repo))
     origins["trending"] = _origin(feed_url("weekly", None), repo.trending_at)
+    ai_origin = _origin(repo.ai["source"], repo.ai_fetched_at) if repo.ai else None
+    origins["ai"] = origins["ai_capabilities"] = ai_origin
     origins["status"] = _origin(STATUS_SOURCE, repo.fetched_at)
     history = None
     if newest_week is not None:
@@ -268,6 +270,8 @@ def serialize_detail(repo: Repository, now: datetime) -> dict[str, Any]:
         "stars_gained_30d": repo.stars_gained_30d,
         "stars_gained_year": repo.stars_gained_year,
         "trending": (repo.trending or {}).get(WEEKLY_ALL),  # F8 G5: weekly overall Trending rank
+        "ai": repo.ai["has_ai"] if repo.ai else None,  # F4: null until scanned
+        "ai_capabilities": repo.ai,
         **_health_values(repo, now),
         **dict.fromkeys(UNSTORED_FIELDS, None),
     }
