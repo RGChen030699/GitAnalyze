@@ -17,8 +17,19 @@ def ranked_repositories() -> QuerySet[Repository]:
     return Repository.objects.filter(ranked_at__isnull=False)
 
 
+def _filtered(params: RankingParams) -> QuerySet[Repository]:
+    repositories = ranked_repositories()
+    if params.lang is not None:
+        repositories = repositories.filter(language__iexact=params.lang)
+    if params.status is not None:
+        repositories = repositories.filter(status=params.status)
+    if params.archived is not None:
+        repositories = repositories.filter(archived=params.archived)
+    return repositories
+
+
 def ordered_repositories(params: RankingParams) -> QuerySet[Repository]:
     if params.sort == "trending" or params.trending_only:
         return Repository.objects.none()  # F8: no trending data is stored yet
     field = GAIN_FIELDS[params.window] if params.sort == "gained" else "stargazers_count"
-    return ranked_repositories().order_by(F(field).desc(nulls_last=True), Lower("full_name"))
+    return _filtered(params).order_by(F(field).desc(nulls_last=True), Lower("full_name"))
