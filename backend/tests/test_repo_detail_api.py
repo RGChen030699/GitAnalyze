@@ -204,3 +204,44 @@ def test_F3_detail_returns_star_weeks_oldest_first_with_provenance(client: Clien
             "fetched_at": "2026-11-23T10:00:00Z",
         },
     ]
+
+
+@pytest.mark.django_db
+def test_C8_detail_gives_source_and_fetched_at_for_each_value(client: Client) -> None:
+    repo = make_repo(
+        language="Python",
+        pushed_at=NOW - timedelta(days=3),
+        newest_release_at=NOW - timedelta(days=40),
+        status="Active",
+        stars_gained_7d=12,
+        stars_gained_30d=30,
+        star_history_fetched_at=NOW - timedelta(hours=1),
+    )
+    StarWeek.objects.create(
+        repository=repo,
+        week_start=date(2026, 11, 22),
+        stars_gained=3,
+        days=[3, 0, 0, 0, 0, 0, 0],
+        source=HISTORY_SOURCE,
+        fetched_at=NOW - timedelta(hours=1),
+    )
+
+    provenance = client.get("/api/repos/pallets/flask").json()["provenance"]
+
+    repo_origin = {"source": REPO_SOURCE, "fetched_at": "2026-11-23T10:00:00Z"}
+    history_origin = {"source": HISTORY_SOURCE, "fetched_at": "2026-11-23T11:00:00Z"}
+    for field in ("owner_type", "archived", "stars", "forks", "open_issues", "pushed_at"):
+        assert provenance[field] == repo_origin, field
+    assert provenance["language"] == repo_origin
+    assert provenance["newest_release_at"] == {
+        "source": "/repos/pallets/flask/releases",
+        "fetched_at": "2026-11-23T10:00:00Z",
+    }
+    assert provenance["status"] == {
+        "source": "Computed from pushed_at and releases (F2 status rule)",
+        "fetched_at": "2026-11-23T10:00:00Z",
+    }
+    assert provenance["stars_gained_7d"] == history_origin
+    assert provenance["stars_gained_30d"] == history_origin
+    assert provenance["stars_gained_year"] is None
+    assert provenance["description"] is None
