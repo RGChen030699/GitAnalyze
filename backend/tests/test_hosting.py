@@ -138,17 +138,17 @@ def test_H9_daily_refresh_workflow_uses_repository_secrets() -> None:
 
     assert "schedule:" in text and "cron:" in text
     assert "python backend/manage.py refresh_rankings --limit 800" in text
-    assert 'cron: "0 12 * * *"' in text  # main daily run, 12:00 PM UTC
-    assert 'cron: "25 12 * * *"' in text  # first backup check, 12:25 PM UTC
-    assert 'cron: "50 12 * * *"' in text  # second backup check, 12:50 PM UTC
+    assert 'cron: "0 8 * * *"' in text  # main daily run, 8:00 AM UTC
+    assert 'cron: "25 8 * * *"' in text  # first backup check, 8:25 AM UTC
+    assert 'cron: "50 8 * * *"' in text  # second backup check, 8:50 AM UTC
 
 
 def test_H9_backup_run_skips_when_todays_refresh_already_succeeded() -> None:
     text = WORKFLOW.read_text()
 
     assert "actions: read" in text
-    assert "github.event.schedule == '25 12 * * *'" in text
-    assert "github.event.schedule == '50 12 * * *'" in text
+    assert "github.event.schedule == '25 8 * * *'" in text
+    assert "github.event.schedule == '50 8 * * *'" in text
     assert "gh run list" in text and "--status success" in text
     assert "steps.check.outputs.done != 'true'" in text
     languages = "TypeScript,Python,JavaScript,Java,C#,PHP,Shell,C++,Go,Rust,Swift,Kotlin"
