@@ -374,7 +374,7 @@ const recFor = (id) => { const [owner, name] = id.split('/'); return BY_ID[id] |
 const fullOf = (id) => { const r = recFor(id); return r.full || r.owner + '/' + r.name; };
 
 /* ---------- state ---------- */
-const DEFAULTS = { view: 'stars', lang: 'Any', status: 'any', win: '7d', limit: 25, pages: 1, aiOnly: false, hideArch: true, sort: 'stars', dir: 'desc', focus: null, focusLabel: '', query: '' };
+const DEFAULTS = { view: 'stars', lang: 'Any', status: 'any', win: '7d', limit: 20, pages: 1, aiOnly: false, hideArch: true, sort: 'stars', dir: 'desc', focus: null, focusLabel: '', query: '' };
 const state = Object.assign({}, DEFAULTS, { compare: GACompare.ids(), recent: [], empty: false, loading: true });
 const WIN = { '7d': ['gain7', 'last 7 days', 'This week'], '30d': ['gain30', 'last 30 days', 'This month'], '1y': ['gainYear', 'last 12 months', 'This year'] };
 const gained = (r) => r[WIN[state.win][0]];
@@ -551,7 +551,7 @@ function renderTable() {
   }
   const rest = list.length - shown.length;
   $('#moreWrap').innerHTML = rest > 0
-    ? '<div class="more" id="moreSentinel"><button class="btn" type="button" id="moreBtn">Show more</button><span class="note">The next ' + fmtN(Math.min(state.limit, rest)) + ' load as you scroll.</span></div>'
+    ? '<div class="more" id="moreSentinel"><button class="btn" type="button" id="moreBtn">Show more</button><span class="note">The next ' + fmtN(Math.min(PER_SCROLL, rest)) + ' load as you scroll.</span></div>'
     : (state.pages > 1 || list.length > state.limit ? '<div class="more"><span class="note">End of list: all ' + fmtN(list.length) + ' repositories shown.</span></div>' : '');
   if (rest > 0) {
     /* Load the next batch only when the person scrolls near the end, never on its own after a render. */
@@ -564,8 +564,9 @@ function renderTable() {
   }
 }
 function sortLabel() { return { trending: 'GitHub Trending rank', stars: 'stars', gained: 'stars gained, ' + WIN[state.win][1], commit: 'last commit', contributors: 'contributors', name: 'name' }[state.sort] + (state.dir === 'asc' ? ' (ascending)' : ''); }
-/* Show 25 / 50 / 100 sets how many rows load at first and per scroll. */
-function shownCount() { return state.limit * state.pages; }
+/* Show 20 / 50 / 100 sets how many rows load first; each scroll then adds 10 more. */
+const PER_SCROLL = 10;
+function shownCount() { return state.limit + PER_SCROLL * (state.pages - 1); }
 function loadMore() { const y = window.scrollY; state.pages++; renderTable(); window.scrollTo(0, y); }
 
 /* ---------- render: controls ---------- */
@@ -577,7 +578,7 @@ function renderControls() {
   $('#fView').innerHTML = VIEWS.map(([k, l]) => '<button type="button" data-view="' + k + '" aria-pressed="' + (state.view === k) + '">' + l + '</button>').join('');
   $('#winField').hidden = state.view !== 'gaining';
   $('#fWin').innerHTML = Object.entries(WIN).map(([k, v]) => '<button type="button" data-win="' + k + '" aria-pressed="' + (state.win === k) + '">' + v[2] + '</button>').join('');
-  $('#fLimit').innerHTML = [25, 50, 100].map((n) => '<button type="button" data-limit="' + n + '" aria-pressed="' + (state.limit === n) + '">' + n + '</button>').join('');
+  $('#fLimit').innerHTML = [20, 50, 100].map((n) => '<button type="button" data-limit="' + n + '" aria-pressed="' + (state.limit === n) + '">' + n + '</button>').join('');
   $('#fAi').checked = state.aiOnly; $('#fArch').checked = state.hideArch;
   $('#fAi').disabled = !REPOS.some((r) => r.ai !== null && r.ai !== undefined); // AI data is not collected yet
 }
