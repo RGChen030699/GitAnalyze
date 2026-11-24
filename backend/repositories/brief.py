@@ -65,4 +65,6 @@ def issue_response(opened_6m: int | None, closed_6m: int | None) -> BriefAnswer 
     """Will my bug reports get answered? Issues closed for every issue opened, last 6 months."""
     if opened_6m is None or closed_6m is None:
         return None
+    if opened_6m == 0:
+        return BriefAnswer("neutral", "N/A")
     return None
