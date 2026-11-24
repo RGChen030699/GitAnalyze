@@ -178,3 +178,26 @@ def test_T4_invalid_sort_or_window_returns_400(client: Client, params: dict[str,
 
     assert response.status_code == 400
     assert response.json()["detail"]
+
+
+@pytest.mark.django_db
+@pytest.mark.parametrize("params", [{"sort": "trending"}, {"trending": "1"}])
+def test_G5_trending_is_empty_until_data_exists(client: Client, params: dict[str, str]) -> None:
+    make_repo("a/one")
+
+    response = client.get(URL, params)
+
+    assert response.status_code == 200
+    assert response.json()["results"] == []
+
+
+@pytest.mark.django_db
+def test_G5_trending_0_does_not_filter(client: Client) -> None:
+    make_repo("a/one")
+
+    assert names(client, trending="0") == ["a/one"]
+
+
+@pytest.mark.django_db
+def test_T4_invalid_trending_returns_400(client: Client) -> None:
+    assert client.get(URL, {"trending": "yes"}).status_code == 400
