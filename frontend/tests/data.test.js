@@ -125,3 +125,76 @@ test('busyMinutes reads Retry-After in seconds, rounded up, at least 1', () => {
 test('WEEK constant used by callers is one week in ms', () => {
   assert.equal(D.WEEK, WEEK);
 });
+
+const detail = {
+  ...apiRow, archived: false, newest_release_at: '2026-10-24T12:00:00Z', star_history: history,
+  commit_activity: null, releases: null, issues: null, pull_requests: null,
+  brief: { interest: { tone: 'good', value: 'Growing' }, maintenance: null, issue_response: null, release_pace: null, maintainer_concentration: null },
+};
+
+test('agoLabel matches the report wording and gives N/A without a time', () => {
+  assert.equal(D.agoLabel(NOW, NOW), 'today');
+  assert.equal(D.agoLabel(NOW - DAY, NOW), '1 day ago');
+  assert.equal(D.agoLabel(NOW - 3 * DAY, NOW), '3 days ago');
+  assert.equal(D.agoLabel(NOW - 90 * DAY, NOW), '3 months ago');
+  assert.equal(D.agoLabel(null, NOW), 'N/A');
+});
+
+test('reportModel keeps data we do not store as null, never 0', () => {
+  const { P, D: data, A } = D.reportModel(detail, NOW);
+  assert.equal(P.license, null);
+  assert.equal(P.skills, null);
+  assert.equal(P.peers, null);
+  assert.equal(P.openIssues, 5);
+  assert.equal(data.commits, null);
+  assert.equal(data.releases, null);
+  assert.equal(data.months, null);
+  assert.equal(data.contrib, null);
+  assert.deepEqual(data.weeks.map((w) => w.total), [69990, 69997, 70000]);
+  assert.equal(data.days.length, 16);
+  for (const key of ['commits90', 'devChange', 'momChange', 'closeRatio', 'mergeRate', 'rel12', 'medGap', 'top', 'for80', 'single', 'scripted', 'g30']) {
+    assert.equal(A[key], null, key);
+  }
+  assert.equal(A.g7, 12);
+  assert.equal(A.spike, null);
+  assert.equal(A.lastCommit, Date.parse('2026-11-20T12:00:00Z'));
+  assert.equal(A.relDays, 30);
+});
+
+test('reportModel takes status and brief answers from the API', () => {
+  const { A } = D.reportModel(detail, NOW);
+  assert.equal(A.status, 'Active');
+  assert.equal(A.statusTone, 'good');
+  assert.deepEqual(A.findings[0][1], { tone: 'good', v: 'Growing', e: '' });
+  assert.equal(A.findings[1][1].v, 'N/A');
+});
+
+test('reportModel checks show N/A where the data is not collected', () => {
+  const { A } = D.reportModel(detail, NOW);
+  assert.deepEqual(A.checks.map((c) => c.k), ['maintenance', 'maintainers', 'license', 'star_pattern']);
+  assert.equal(A.checks[0].t, 'Actively maintained');
+  assert.equal(A.checks[0].d, 'Last commit 3 days ago, last release 30 days ago.');
+  assert.deepEqual(A.checks.slice(1).map((c) => [c.tone, c.na]), [['neutral', true], ['neutral', true], ['neutral', true]]);
+  assert.equal(A.issuesCount, 0);
+  assert.equal(A.unknownChecks, 3);
+});
+
+test('reportModel shows N/A status when the API has none', () => {
+  const { A } = D.reportModel({ ...detail, status: null }, NOW);
+  assert.equal(A.status, 'N/A');
+  assert.equal(A.statusTone, 'neutral');
+  assert.equal(A.checks[0].na, true);
+});
+
+test('reportModel lists good-fit and watch-out lines only from known results', () => {
+  const active = D.reportModel(detail, NOW).A;
+  assert.deepEqual(active.fit, [
+    'You need something that is maintained today and should be for the next year.',
+    'You want a growing community, which usually means more answers and examples online.',
+    'It is published by an organization (pallets), not one personal account.',
+  ]);
+  assert.deepEqual(active.watch, ['Nothing stood out in the data we have.']);
+  const quiet = D.reportModel({ ...detail, status: 'Quiet', owner_type: 'User', brief: null }, NOW).A;
+  assert.deepEqual(quiet.fit, ['You only need the current version as it is and can fix problems yourself.']);
+  assert.deepEqual(quiet.watch, ['You need security fixes or new features: the last commit was 3 days ago.']);
+});
