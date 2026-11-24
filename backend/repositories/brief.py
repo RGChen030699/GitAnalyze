@@ -43,3 +43,10 @@ def interest(
     if change is not None and change < -INTEREST_CHANGE:
         return BriefAnswer("warn", "Cooling")
     return BriefAnswer("neutral", "Steady")
+
+
+def maintenance(commits_13w: int | None, commits_prev_13w: int | None) -> BriefAnswer | None:
+    """Is someone still working on it? Commits in the last 13 weeks against the 13 before."""
+    if commits_13w is None or commits_prev_13w is None:
+        return None
+    return None
