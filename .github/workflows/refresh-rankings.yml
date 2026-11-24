@@ -58,4 +58,4 @@ jobs:
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           GITHUB_TOKEN: ${{ secrets.GH_API_TOKEN }}
-          RANKINGS_LANGUAGES: TypeScript,Python,JavaScript,Java,C#,PHP,Shell,C++,Go,Rust,Swift,Kotlin,C,Ruby,Dart,Jupyter Notebook,R
+          RANKINGS_LANGUAGES: TypeScript,Python,JavaScript,Java,C#,PHP,C++,Go,Rust,Swift,Kotlin,C,Ruby,Dart,Shell,R,Jupyter Notebook
