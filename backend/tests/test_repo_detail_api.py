@@ -45,3 +45,15 @@ def test_L4_fresh_repo_served_from_database_without_github_call(client: Client) 
     assert response.status_code == 200
     assert response.json()["full_name"] == "pallets/flask"
     assert len(responses.calls) == 0
+
+
+@responses.activate
+@pytest.mark.django_db
+def test_L4_cache_lookup_is_case_insensitive(client: Client) -> None:
+    make_repo()
+
+    response = client.get("/api/repos/Pallets/FLASK")
+
+    assert response.status_code == 200
+    assert response.json()["full_name"] == "pallets/flask"
+    assert len(responses.calls) == 0
