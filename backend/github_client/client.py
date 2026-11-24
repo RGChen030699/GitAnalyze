@@ -6,7 +6,7 @@ from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Any, Literal
-from urllib.parse import quote, unquote, urlsplit
+from urllib.parse import parse_qs, quote, unquote, urlparse, urlsplit
 
 import requests
 from django.conf import settings
@@ -72,6 +72,14 @@ def _int_header(response: requests.Response, name: str) -> int | None:
         return None
 
 
+def _last_page(response: requests.Response) -> int | None:
+    last = response.links.get("last", {}).get("url")
+    if not last:
+        return None
+    pages = parse_qs(urlparse(last).query).get("page")
+    return int(pages[0]) if pages and pages[0].isdigit() else None
+
+
 def _is_rate_limited(response: requests.Response) -> bool:
     """A 429 always is; a 403 only with a rate-limit signal, else it is a permissions error."""
     if response.status_code == 429:
@@ -97,6 +105,7 @@ class GitHubClient:
         etag_store: ETagStore | None = None,
         search_rate_limit_margin: int = DEFAULT_SEARCH_RATE_LIMIT_MARGIN,
         wait_for_rate_limit: bool = True,
+        stats_retry_waits: tuple[float, ...] = STATS_RETRY_WAITS,
     ) -> None:
         self._etag_store: ETagStore = etag_store or InMemoryETagStore()
         self._session = session or requests.Session()
@@ -105,6 +114,7 @@ class GitHubClient:
         self._rate_limit_margin = rate_limit_margin
         self._search_rate_limit_margin = search_rate_limit_margin
         self._wait_for_rate_limit = wait_for_rate_limit
+        self._stats_retry_waits = stats_retry_waits
         self._quotas: dict[str, _Quota] = {}
         self.requests_sent = 0
 
@@ -147,9 +157,9 @@ class GitHubClient:
             cost += 1 + len(response.history)
 
             if response.status_code == 202:
-                if stats_retries == len(STATS_RETRY_WAITS):
+                if stats_retries == len(self._stats_retry_waits):
                     return self._result(None, path, cost, response, status="pending")
-                self._sleep(STATS_RETRY_WAITS[stats_retries])
+                self._sleep(self._stats_retry_waits[stats_retries])
                 stats_retries += 1
                 continue
 
@@ -227,6 +237,7 @@ class GitHubClient:
             cost=cost,
             final_url=response.url,
             status=status,
+            last_page=_last_page(response),
         )
 
     def _record_rate_limit(self, response: requests.Response, resource: str) -> None:

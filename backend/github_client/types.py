@@ -16,3 +16,4 @@ class GitHubResponse:
     final_url: str
     status: Literal["ok", "pending"] = "ok"
     from_cache: bool = False
+    last_page: int | None = None  # from the Link header, for counts read with per_page=1
