@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>How it works · GitAnalyze</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,650;12..96,750&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+/* How it works (design.md 8.5, F6). Tokens from docs/design.md §3. */
+:root{
+  --bg:#F3F4F0; --surface:#FFFFFF; --surface-2:#ECEEE8; --line:#D8DBD2; --line-2:#E6E8E1;
+  --ink:#181C18; --ink-2:#454B44; --ink-3:#5E645C;
+  --accent:#3048D6; --accent-ink:#FFFFFF; --accent-soft:#E3E6FB; --accent-text:#2A38B0;
+  --good:#1D7550; --good-soft:#DCEFE4; --warn:#955200; --warn-soft:#FAEAD2; --bad:#AE3127; --bad-soft:#F8E0DC;
+  --c1:#3048D6; --c2:#D07A1F; --c3:#5B615A;
+  --shadow:0 1px 2px rgba(24,28,24,.06),0 8px 24px rgba(24,28,24,.06);
+  --display:'Bricolage Grotesque','IBM Plex Sans',system-ui,sans-serif;
+  --sans:'IBM Plex Sans',system-ui,-apple-system,'Segoe UI',sans-serif;
+  --mono:'IBM Plex Mono',ui-monospace,SFMono-Regular,Menlo,monospace;
+  color-scheme:light;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --bg:#121512; --surface:#1A1E1A; --surface-2:#232823; --line:#343A33; --line-2:#2A2F2A;
+    --ink:#ECEEE9; --ink-2:#BCC2B9; --ink-3:#9DA49A;
+    --accent:#8A9BFE; --accent-ink:#0B1029; --accent-soft:#252B54; --accent-text:#B3BCFF;
+    --good:#62CB98; --good-soft:#173628; --warn:#F1AD52; --warn-soft:#3B2B13; --bad:#F2867B; --bad-soft:#3F1E1B;
+    --c1:#8A9BFE; --c2:#F1AD52; --c3:#BCC2B9;
+    --shadow:0 1px 2px rgba(0,0,0,.3),0 8px 24px rgba(0,0,0,.25);
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#121512; --surface:#1A1E1A; --surface-2:#232823; --line:#343A33; --line-2:#2A2F2A;
+  --ink:#ECEEE9; --ink-2:#BCC2B9; --ink-3:#9DA49A;
+  --accent:#8A9BFE; --accent-ink:#0B1029; --accent-soft:#252B54; --accent-text:#B3BCFF;
+  --good:#62CB98; --good-soft:#173628; --warn:#F1AD52; --warn-soft:#3B2B13; --bad:#F2867B; --bad-soft:#3F1E1B;
+  --c1:#8A9BFE; --c2:#F1AD52; --c3:#BCC2B9;
+  --shadow:0 1px 2px rgba(0,0,0,.3),0 8px 24px rgba(0,0,0,.25);
+  color-scheme:dark;
+}
+*,*::before,*::after{box-sizing:border-box}
+[hidden]{display:none!important}
+html{scroll-behavior:smooth;scroll-padding-top:120px}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:15px;line-height:1.5;-webkit-font-smoothing:antialiased;font-variant-numeric:tabular-nums}
+a{color:var(--accent-text)} a:hover{color:var(--ink)}
+button,input,select{font:inherit;color:inherit}
+:focus-visible{outline:3px solid var(--accent);outline-offset:2px;border-radius:6px}
+.mono{font-family:var(--mono)}
+.wrap{max-width:1280px;margin:0 auto;padding:0 24px}
+.note{font-size:13px;color:var(--ink-3);margin:0}
+.muted{color:var(--ink-3)}
+@media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}*{animation:none!important;transition:none!important}}
+
+/* header (same as dashboard) */
+.top{position:sticky;top:0;z-index:20;background:var(--surface);border-bottom:1px solid var(--line)}
+.top .wrap{display:flex;flex-wrap:wrap;align-items:center;gap:6px 16px;min-height:56px}
+.brand{display:flex;align-items:center;gap:10px;text-decoration:none;color:var(--ink);font-family:var(--display);font-weight:750;font-size:19px;letter-spacing:-.01em;margin-right:8px}
+.nav{display:flex;flex-wrap:wrap;gap:2px;flex:1 1 auto}
+.nav a{display:inline-flex;align-items:center;min-height:40px;padding:0 11px;font-size:14px;border-radius:10px;text-decoration:none;color:var(--ink-2);font-weight:500}
+.nav a:hover{background:var(--surface-2);color:var(--ink)}
+.nav a[aria-current="page"]{color:var(--ink);background:var(--surface-2)}
+.tools{display:flex;align-items:center;gap:6px}
+.icon-btn{display:inline-grid;place-items:center;width:44px;height:44px;border-radius:10px;border:1px solid transparent;background:transparent;color:var(--ink-2);cursor:pointer}
+.icon-btn:hover{background:var(--surface-2);color:var(--ink)}
+
+
+.chip{display:inline-flex;align-items:center;gap:6px;padding:3px 10px;border-radius:999px;background:var(--surface-2);color:var(--ink-2);font-size:12px;font-weight:500;white-space:nowrap}
+.chip.good{background:var(--good-soft);color:var(--good)} .chip.warn{background:var(--warn-soft);color:var(--warn)} .chip.bad{background:var(--bad-soft);color:var(--bad)} .chip.accent{background:var(--accent-soft);color:var(--accent-text)}
+.chip svg{width:13px;height:13px}
+code{font-family:var(--mono);font-size:13px;background:var(--surface-2);padding:1px 6px;border-radius:6px;overflow-wrap:anywhere}
+main.wrap{display:grid;grid-template-columns:220px minmax(0,1fr);gap:40px;padding-top:28px;padding-bottom:72px}
+.toc{position:sticky;top:76px;align-self:start;display:grid;gap:2px}
+.toc p{margin:0 0 6px;font-size:13px;color:var(--ink-3)}
+.toc a{display:flex;align-items:center;min-height:38px;padding:0 12px;border-radius:10px;text-decoration:none;color:var(--ink-2);font-size:14px;font-weight:500;border-left:3px solid transparent}
+.toc a:hover{background:var(--surface-2);color:var(--ink)}
+.toc a.on{color:var(--ink);background:var(--surface-2);border-left-color:var(--accent);border-radius:0 10px 10px 0}
+.content{display:grid;gap:44px;min-width:0;max-width:900px}
+h1{margin:0;font-family:var(--display);font-weight:750;font-size:clamp(32px,4.4vw,48px);letter-spacing:-.025em;line-height:1.02}
+.lead{font-size:18px;line-height:1.55;color:var(--ink-2);margin:12px 0 0;max-width:62ch}
+section{scroll-margin-top:80px;display:grid;gap:14px}
+h2{margin:0;font-family:var(--display);font-weight:650;font-size:24px;letter-spacing:-.01em;line-height:1.2}
+h3{margin:0;font-size:17px;font-weight:600}
+section>p{margin:0;color:var(--ink-2);max-width:72ch}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:14px}
+.steps{list-style:none;margin:0;padding:0;display:grid;gap:12px;counter-reset:s}
+.steps>li{counter-increment:s;display:grid;grid-template-columns:40px minmax(0,1fr);gap:4px 16px;padding:18px 20px;background:var(--surface);border:1px solid var(--line);border-radius:14px}
+.steps>li>*{grid-column:2}
+.steps>li::before{content:counter(s);grid-column:1;grid-row:1/span 6;width:36px;height:36px;border-radius:10px;background:var(--accent-soft);color:var(--accent-text);display:grid;place-items:center;font-family:var(--display);font-weight:750;font-size:18px}
+.steps h3{align-self:center}
+.steps p{margin:0;color:var(--ink-2);font-size:15px}
+.steps ul{margin:6px 0 0;padding-left:18px;color:var(--ink-2);font-size:14px;display:grid;gap:3px}
+.try{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+table{width:100%;border-collapse:collapse;font-size:14px}
+th{text-align:left;font-weight:600;font-size:13px;color:var(--ink-2);padding:10px 14px;border-bottom:1px solid var(--line);background:var(--surface-2)}
+th:first-child{border-radius:14px 0 0 0} th:last-child{border-radius:0 14px 0 0}
+td{padding:11px 14px;border-bottom:1px solid var(--line-2);vertical-align:top}
+tr:last-child td{border-bottom:none}
+.tscroll{overflow-x:auto}
+.dict{display:grid}
+.dict>div{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.5fr);gap:6px 28px;padding:16px 20px;border-top:1px solid var(--line-2)}
+.dict>div:first-child{border-top:none}
+.dict h3{font-size:16px}
+.dict .means{margin:4px 0 0;color:var(--ink-2);font-size:14px}
+.dict dl{margin:0;display:grid;grid-template-columns:auto minmax(0,1fr);gap:6px 14px;font-size:14px}
+.dict dt{color:var(--ink-3);font-weight:500}
+.dict dd{margin:0}
+.limits{margin:0;padding:18px 20px 18px 42px;display:grid;gap:10px;color:var(--ink-2)}
+.limits b{color:var(--ink)}
+.terms{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:0;margin:0}
+.terms div{padding:14px 20px;border-top:1px solid var(--line-2)}
+.terms dt{font-weight:600}
+.terms dd{margin:2px 0 0;color:var(--ink-2);font-size:14px}
+.note{font-size:13px;color:var(--ink-3);margin:0}
+footer{border-top:1px solid var(--line);padding:22px 0 40px}
+footer .wrap{display:flex;flex-wrap:wrap;justify-content:space-between;gap:8px 24px}
+@media (max-width:900px){
+  main.wrap{grid-template-columns:1fr;gap:20px}
+  .toc{position:static;display:flex;flex-wrap:wrap;gap:4px}
+  .toc p{width:100%}
+  .toc a{border-left:none;border:1px solid var(--line);border-radius:999px;min-height:36px}
+  .toc a.on{border-radius:999px;border-color:var(--accent)}
+  .dict>div{grid-template-columns:1fr}
+}
+</style>
+</head>
+<body>
+<header class="top">
+  <div class="wrap">
+    <a class="brand" href="/" aria-label="GitAnalyze home">
+      <svg width="28" height="28" viewBox="0 0 28 28" aria-hidden="true"><rect x="1" y="1" width="26" height="26" rx="8" style="fill:var(--accent)"></rect><g transform="translate(6 6)" style="fill:var(--accent-ink)"><path d="M6 .278a.77.77 0 0 1 .08.858 7.2 7.2 0 0 0-.878 3.46c0 4.021 3.278 7.277 7.318 7.277q.792-.001 1.533-.16a.79.79 0 0 1 .81.316.73.73 0 0 1-.031.893A8.35 8.35 0 0 1 8.344 16C3.734 16 0 12.286 0 7.71 0 4.266 2.114 1.312 5.124.06A.75.75 0 0 1 6 .278"></path><path d="M10.794 3.148a.217.217 0 0 1 .412 0l.387 1.162c.173.518.579.924 1.097 1.097l1.162.387a.217.217 0 0 1 0 .412l-1.162.387a1.730 1.730 0 0 0-1.097 1.097l-.387 1.162a.217.217 0 0 1-.412 0l-.387-1.162A1.730 1.730 0 0 0 9.310 6.593l-1.162-.387a.217.217 0 0 1 0-.412l1.162-.387a1.730 1.730 0 0 0 1.097-1.097zM13.863.099a.145.145 0 0 1 .274 0l.258.774c.115.346.386.617.732.732l.774.258a.145.145 0 0 1 0 .274l-.774.258a1.160 1.160 0 0 0-.732.732l-.258.774a.145.145 0 0 1-.274 0l-.258-.774a1.160 1.160 0 0 0-.732-.732l-.774-.258a.145.145 0 0 1 0-.274l.774-.258c.346-.115.617-.386.732-.732z"></path></g></svg>
+      GitAnalyze
+    </a>
+    <nav class="nav" aria-label="Main">
+      <a href="/">Main</a>
+      <a href="/compare" data-nav="compare">Compare <span class="count nav-count" hidden>0</span></a>
+      <a href="/about" aria-current="page">How it works</a>
+    </nav>
+    <div class="tools">
+      <button type="button" class="icon-btn" id="themeBtn" aria-label="Switch colour theme">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="8.5"></circle><path d="M12 3.5a8.5 8.5 0 0 1 0 17z" fill="currentColor"></path></svg>
+      </button>
+    </div>
+  </div>
+</header>
+
+<main class="wrap">
+  <nav class="toc" aria-label="On this page" id="toc">
+    <p>On this page</p>
+    <a href="#use">How to use it</a>
+    <a href="#status">Status and checks</a>
+    <a href="#brief">Decision brief rules</a>
+    <a href="#dictionary">Metric dictionary</a>
+    <a href="#ai">Finding AI capabilities</a>
+    <a href="#rankings">What rankings cover</a>
+    <a href="#limits">Known limits</a>
+    <a href="#terms">Glossary</a>
+  </nav>
+
+  <div class="content">
+    <header>
+      <h1>How it works</h1>
+      <p class="lead">GitAnalyze reads public GitHub data and explains it in plain language, so you can tell whether a repository is alive, maintained and safe to depend on. We show evidence and the rule behind it, never a score.</p>
+    </header>
+
+    <section id="use" aria-labelledby="h-use">
+      <h2 id="h-use">How to use it</h2>
+      <ol class="steps">
+        <li><h3>Find a repository</h3>
+          <p>Type a name in the box on the home page, or paste a link. Each of these works:</p>
+          <div class="try"><code>https://github.com/owner/repo</code><code>github.com/owner/repo/issues/12</code><code>owner/repo</code><code>git@github.com:owner/repo.git</code><code>agent</code></div>
+          <p class="note" style="margin-top:6px">Paste up to three, separated by spaces, commas or new lines. Compare up to 3 repositories at a time.</p></li>
+        <li><h3>Browse the rankings</h3>
+          <p>The table under the search box lists the repositories we track.</p>
+          <ul>
+            <li><b>Rank by</b> Total stars (the default), Gaining stars, or Trending.</li>
+            <li>Gaining stars lets you pick this week, this month or this year.</li>
+            <li>Filter by language, status and AI capabilities. Archived repositories are hidden unless you turn them on.</li>
+            <li>Show 25, 50 or 100 at a time, then keep scrolling for more.</li>
+          </ul></li>
+        <li><h3>Open a report</h3>
+          <p>Click a repository name. The report answers first, then shows the evidence.</p>
+          <ul>
+            <li><b>Summary:</b> status, the checks behind it, a decision brief and the key numbers.</li>
+            <li><b>Evidence:</b> momentum, maintenance, people, issues and pull requests, releases, peers, and AI and trust.</li>
+            <li>Every number has an info button that says what it means, how it’s worked out, where it comes from and what it can’t tell you.</li>
+          </ul></li>
+        <li><h3>Compare options</h3>
+          <p>Press the plus button on up to three rows in the table. They collect in the compare bar at the bottom of the screen. Press Compare there, or open Compare in the top menu, to see them side by side.</p></li>
+        <li><h3>Share what you found</h3>
+          <ul>
+            <li><b>Copy brief</b> puts a short summary, with the source and date, on your clipboard for a slide, doc or message.</li>
+            <li><b>Download CSV</b> gives you the weekly numbers behind the charts.</li>
+            <li>Every report has its own link, <code>/repo/owner/name</code>, so you can send it to your team.</li>
+          </ul></li>
+      </ol>
+    </section>
+
+    <section id="status" aria-labelledby="h-status">
+      <h2 id="h-status">Status and checks</h2>
+      <p>Each repository gets one status from a fixed rule. Archived wins over everything else.</p>
+      <div class="panel tscroll"><table>
+        <thead><tr><th scope="col">Status</th><th scope="col">Rule</th></tr></thead>
+        <tbody>
+          <tr><td><span class="chip good" data-icon="check">Active</span></td><td>A commit in the last 30 days, and a release in the last 182 days or no releases ever</td></tr>
+          <tr><td><span class="chip warn" data-icon="warn">Slowing</span></td><td>A commit in the last 182 days, but not Active</td></tr>
+          <tr><td><span class="chip" data-icon="minus">Quiet</span></td><td>No commit in the last 182 days</td></tr>
+          <tr><td><span class="chip bad" data-icon="x">Archived</span></td><td>The owner archived it on GitHub. It is read-only.</td></tr>
+        </tbody></table></div>
+      <p>Under the status, the report lists the checks it is based on. Each one passes, asks you to look, or stops you.</p>
+      <div class="panel tscroll"><table>
+        <thead><tr><th scope="col">Check</th><th scope="col">Pass</th><th scope="col">Look first</th><th scope="col">Stop</th></tr></thead>
+        <tbody>
+          <tr><td>Maintenance</td><td>Actively maintained</td><td>Maintenance is slowing</td><td>No recent work, or archived by its owner</td></tr>
+          <tr><td>Maintainers</td><td>Shared maintenance</td><td>Mostly one person: one account made 80% or more of last year’s commits</td><td>N/A</td></tr>
+          <tr><td>License</td><td>A standard license, such as MIT</td><td>Custom or unrecognized license</td><td>No license: others may not legally reuse this code</td></tr>
+          <tr><td>Star pattern</td><td>Steady interest</td><td>Unusual spike: lots of new stars but little other activity</td><td>N/A</td></tr>
+          <tr><td>Scripts in skills</td><td>No skills run scripts</td><td>Some skills include scripts that can run on your computer</td><td>N/A</td></tr>
+        </tbody></table></div>
+    </section>
+
+    <section id="brief" aria-labelledby="h-brief">
+      <h2 id="h-brief">Decision brief rules</h2>
+      <p>The decision brief answers five questions with fixed rules. No AI writes it: the same numbers always give the same words.</p>
+      <div class="panel tscroll"><table>
+        <thead><tr><th scope="col">Question</th><th scope="col">Compares</th><th scope="col">Answers</th></tr></thead>
+        <tbody>
+          <tr><td>Is interest real and growing?</td><td>Stars in the last 30 days against the 30 days before</td><td>Growing (up more than 10%), Cooling (down more than 10%), Steady, Flat (under 0.2% of its total stars), Fading (no net stars), or Spiky when the star-pattern check fires</td></tr>
+          <tr><td>Is someone still working on it?</td><td>Commits in the last 13 weeks against the 13 before</td><td>Speeding up (up more than 10%), Slowing down (down more than 40%), Steady, or Stopped (none)</td></tr>
+          <tr><td>Will my bug reports get answered?</td><td>Issues closed for every issue opened, last 6 months</td><td>Keeping up (95% or more), Falling behind (60–95%), Not answering (under 60%)</td></tr>
+          <tr><td>Does it ship on a rhythm?</td><td>Days since the last release against its usual gap</td><td>On its usual pace (up to 1.5× the gap), or Overdue</td></tr>
+          <tr><td>What if one person leaves?</td><td>The top contributor’s share of last year’s commits</td><td>Shared by N people, or Depends on one person (80% or more)</td></tr>
+        </tbody></table></div>
+      <p class="note">The thresholds are the team’s current working values and may change after user interviews.</p>
+    </section>
+
+    <section id="dictionary" aria-labelledby="h-dict">
+      <h2 id="h-dict">Metric dictionary</h2>
+      <p>The same definitions appear when you press an info button anywhere on the site.</p>
+      <div class="panel dict" id="dict"></div>
+    </section>
+
+    <section id="ai" aria-labelledby="h-ai">
+      <h2 id="h-ai">Finding AI capabilities</h2>
+      <p>We check each repository’s file tree with four rules. Higher levels are stronger evidence. We never show a quality score or a ‘safe’ label.</p>
+      <div class="panel tscroll"><table>
+        <thead><tr><th scope="col">Level</th><th scope="col">What we look for</th><th scope="col">Confidence</th></tr></thead>
+        <tbody>
+          <tr><td>1. AI skill</td><td>A file named <code>SKILL.md</code> with a valid header and a description</td><td><span class="chip good">High</span></td></tr>
+          <tr><td>1b. Possible skill</td><td><code>SKILL.md</code> without a valid header, or inside a template, example or test folder</td><td><span class="chip warn">Medium</span></td></tr>
+          <tr><td>2. Set up for AI coding agents</td><td>Files such as <code>CLAUDE.md</code>, <code>AGENTS.md</code>, <code>GEMINI.md</code>, Cursor rules or Copilot instructions</td><td><span class="chip warn">Medium</span></td></tr>
+          <tr><td>3. MCP server</td><td>A <code>server.json</code> using the MCP schema, or an MCP library in the project’s dependencies</td><td><span class="chip warn">Medium</span></td></tr>
+          <tr><td>4. README mentions AI features</td><td>Phrases such as “agent skill” or “MCP server” in the README. A hint, not proof.</td><td><span class="chip">Low</span></td></tr>
+        </tbody></table></div>
+      <p>When a skill folder contains script files, we say so: this skill includes scripts that can run on your computer. Read them before installing.</p>
+    </section>
+
+    <section id="rankings" aria-labelledby="h-rank">
+      <h2 id="h-rank">What rankings cover</h2>
+      <p>Rankings cover the repositories we track, not all of GitHub. The watch list is built from:</p>
+      <ul style="margin:0;padding-left:20px;color:var(--ink-2);display:grid;gap:4px">
+        <li>the most-starred repositories on GitHub,</li>
+        <li>repositories on GitHub Trending, read through the GitHubTrendingRSS feed and credited “From GitHub Trending”,</li>
+        <li>repositories tagged with AI topics,</li>
+        <li>and any repository someone looks up here.</li>
+      </ul>
+      <p>Rankings refresh once a day. Gaining stars covers this week, this month or this year. We don’t offer 5- or 10-year windows.</p>
+    </section>
+
+    <section id="limits" aria-labelledby="h-lim">
+      <h2 id="h-lim">Known limits</h2>
+      <ol class="panel limits">
+        <li><b>Stars are not usage.</b> GitHub has no data on how many people use a project.</li>
+        <li><b>Net stars.</b> Removed stars disappear from past weeks too, so history can shift slightly.</li>
+        <li><b>Rankings cover our watch list:</b> top repositories by stars, GitHub Trending, AI topics, and repositories users have looked up. Not every repository on GitHub.</li>
+        <li><b>Contributor details</b> cover the top 100 contributors only.</li>
+        <li><b>AI capabilities</b> are found by file rules; a skill in a non-standard format may be missed. We do not judge quality.</li>
+        <li><b>Updated daily</b>, not in real time.</li>
+        <li><b>Not covered:</b> company backing, security advisories, paid support, documentation quality.</li>
+      </ol>
+    </section>
+
+    <section id="terms" aria-labelledby="h-terms">
+      <h2 id="h-terms">Glossary</h2>
+      <dl class="panel terms">
+        <div><dt>Star</dt><dd>A bookmark someone adds to a repository on GitHub. It shows interest, not use.</dd></div>
+        <div><dt>Fork</dt><dd>A personal copy of a repository that someone can change without touching the original.</dd></div>
+        <div><dt>Release</dt><dd>A named version the maintainers published, usually with notes on what changed.</dd></div>
+        <div><dt>Tag</dt><dd>A label on one point in the history. A tag, not a formal release, unless the maintainers publish it as one.</dd></div>
+        <div><dt>Issue</dt><dd>A bug report, question or request someone opened on the repository.</dd></div>
+        <div><dt>Pull request</dt><dd>A proposed change someone asks the maintainers to add.</dd></div>
+        <div><dt>Contributor</dt><dd>An account that has made commits to the repository.</dd></div>
+        <div><dt>Archived</dt><dd>Made read-only by the owner. No one will fix bugs or answer issues.</dd></div>
+        <div><dt>License</dt><dd>The terms that say whether, and how, others may reuse the code.</dd></div>
+        <div><dt>Maintainer</dt><dd>A person who reviews changes, answers issues and publishes releases.</dd></div>
+        <div><dt>AI skill</dt><dd>A folder with a <code>SKILL.md</code> file that teaches an AI assistant to do a task.</dd></div>
+        <div><dt>MCP server</dt><dd>A tool that AI apps can connect to, using the Model Context Protocol.</dd></div>
+        <div><dt>Agent setup file</dt><dd>A file such as <code>CLAUDE.md</code> or <code>AGENTS.md</code> that tells AI coding agents how to work in the repository.</dd></div>
+      </dl>
+    </section>
+  </div>
+</main>
+
+<footer><div class="wrap">
+  <p class="note">GitAnalyze is an independent project. It is not affiliated with or endorsed by GitHub. Data from the public GitHub API, refreshed daily.</p>
+  <p class="note"><a href="/">Back to rankings</a></p>
+</div></footer>
+
+<script src="/metrics.js"></script>
+<script src="/compare-list.js"></script>
+<script>
+(() => {
+'use strict';
+const $ = (s) => document.querySelector(s);
+const esc = (s) => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const ICON = {
+  check:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>',
+  warn:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3.5L2.5 20h19z"/><path d="M12 10v4.5M12 17.3v.2"/></svg>',
+  minus:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" aria-hidden="true"><path d="M6 12h12"/></svg>',
+  x:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" aria-hidden="true"><path d="M6.5 6.5l11 11M17.5 6.5l-11 11"/></svg>'
+};
+document.querySelectorAll('[data-icon]').forEach(c => c.insertAdjacentHTML('afterbegin', ICON[c.dataset.icon]));
+const M = window.GA_METRICS || {};
+$('#dict').innerHTML = Object.values(M).map(m => `<div><div><h3>${esc(m.label)}</h3><p class="means">${esc(m.means)}</p></div><dl><dt>How</dt><dd>${esc(m.method)}</dd><dt>Source</dt><dd><code>${esc(m.source)}</code></dd><dt>Can’t tell you</dt><dd>${esc(m.cannot)}</dd></dl></div>`).join('');
+/* /about/metrics and /about/terms land on their sections (F6 P4, P5) */
+const sub = location.pathname.match(/\/about\/(metrics|terms)/);
+if (sub && !location.hash) document.getElementById(sub[1] === 'metrics' ? 'dictionary' : 'terms').scrollIntoView({ behavior:'instant' });
+const links = [...document.querySelectorAll('#toc a')], secs = links.map(l => document.querySelector(l.getAttribute('href')));
+function spy(){ let on = 0; const line = Math.max(120, window.innerHeight * 0.3); secs.forEach((s, i) => { if (s.getBoundingClientRect().top <= line) on = i; });
+  if (window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 4) on = secs.length - 1;
+  links.forEach((l, i) => { l.classList.toggle('on', i === on); if (i === on) l.setAttribute('aria-current', 'location'); else l.removeAttribute('aria-current'); }); }
+window.addEventListener('scroll', spy, { passive:true }); spy();
+$('#themeBtn').onclick = () => { const r = document.documentElement; const dark = r.dataset.theme ? r.dataset.theme === 'dark' : matchMedia('(prefers-color-scheme: dark)').matches; r.dataset.theme = dark ? 'light' : 'dark'; try { localStorage.setItem('ga-theme', r.dataset.theme); } catch (_) {} };
+try { const s = localStorage.getItem('ga-theme'); if (s) document.documentElement.dataset.theme = s; } catch (_) {}
+})();
+</script>
+<script src="/theme.js"></script>
+</body>
+</html>

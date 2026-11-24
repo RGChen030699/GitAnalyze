@@ -66,12 +66,6 @@ button,input,select{font:inherit;color:inherit}
 .tools{display:flex;align-items:center;gap:6px}
 .icon-btn{display:inline-grid;place-items:center;width:44px;height:44px;border-radius:10px;border:1px solid transparent;background:transparent;color:var(--ink-2);cursor:pointer}
 .icon-btn:hover{background:var(--surface-2);color:var(--ink)}
-.demo{position:relative}
-.demo>button{display:inline-flex;align-items:center;gap:8px;min-height:44px;padding:0 12px;border-radius:10px;border:1px dashed var(--line);background:transparent;cursor:pointer;color:var(--ink-2);font-weight:500;font-size:14px}
-.demo-panel{position:absolute;right:0;top:calc(100% + 8px);width:300px;background:var(--surface);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow);padding:16px;display:none;z-index:40}
-.demo-panel.open{display:block}
-.switch{display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:44px;font-size:14px;cursor:pointer}
-.switch input{width:20px;height:20px;accent-color:var(--accent)}
 
 /* buttons, chips, segmented */
 .btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:44px;padding:0 18px;border-radius:10px;border:1px solid var(--line);background:var(--surface);color:var(--ink);font-weight:500;text-decoration:none;cursor:pointer;white-space:nowrap}
@@ -101,7 +95,7 @@ select{min-height:44px;padding:0 34px 0 12px;border-radius:10px;border:1px solid
 .info svg{width:16px;height:16px}
 
 /* page head + lookup */
-main.wrap{padding-top:22px;padding-bottom:72px;display:grid;gap:16px}
+main.wrap{padding-top:22px;padding-bottom:72px;display:grid;grid-template-columns:minmax(0,1fr);gap:16px}
 .head{display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:6px 24px}
 .head h1{margin:0;font-family:var(--display);font-weight:750;font-size:clamp(22px,2.2vw,28px);letter-spacing:-.02em;line-height:1.15;text-wrap:balance}
 .head p{margin:4px 0 0;color:var(--ink-2);font-size:14px}
@@ -152,7 +146,7 @@ main.wrap{padding-top:22px;padding-bottom:72px;display:grid;gap:16px}
 .tbl-panel{overflow:visible}
 .tbl-bar{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px 16px;padding:12px 18px;border-bottom:1px solid var(--line)}
 .focus-note{display:inline-flex;align-items:center;gap:8px;font-size:14px;color:var(--ink-2)}
-.tbl-scroll{overflow:visible}
+.tbl-scroll{overflow:visible;position:relative}
 @media (max-width:1000px){.tbl-scroll{overflow-x:auto}}
 table.rank{width:100%;border-collapse:separate;border-spacing:0;font-size:14px}
 .rank th{position:sticky;top:56px;z-index:5;background:var(--surface);text-align:left;font-size:12px;font-weight:600;color:var(--ink-3);padding:0 10px;height:44px;border-bottom:1px solid var(--line);white-space:nowrap}
@@ -170,6 +164,8 @@ table.rank{width:100%;border-collapse:separate;border-spacing:0;font-size:14px}
 .rank .r-name{display:flex;flex-wrap:wrap;align-items:center;gap:4px 8px}
 .rank .r-name b{font-family:var(--mono);font-weight:500;overflow-wrap:anywhere}
 .rank .r-name b span{color:var(--ink-3);font-weight:400}
+.r-link{color:var(--ink);text-decoration:none;border-radius:4px}
+.r-link:hover b{color:var(--accent-text);text-decoration:underline;text-underline-offset:3px}
 .rank .r-desc{font-size:13px;color:var(--ink-2);max-width:46ch;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-top:2px}
 .rank .r-spike{font-size:12px;font-weight:500;color:var(--warn);margin-top:2px}
 .rank .c-repo{min-width:280px}
@@ -202,11 +198,13 @@ table.rank{width:100%;border-collapse:separate;border-spacing:0;font-size:14px}
 .pop .src{font-family:var(--mono);font-size:12px;overflow-wrap:anywhere}
 .toast{position:fixed;left:50%;bottom:90px;transform:translateX(-50%) translateY(12px);opacity:0;z-index:70;background:var(--ink);color:var(--bg);padding:12px 18px;border-radius:12px;font-size:14px;font-weight:500;transition:opacity .2s,transform .2s;pointer-events:none;max-width:calc(100% - 32px)}
 .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
-.tray{position:fixed;left:50%;transform:translateX(-50%);bottom:16px;z-index:30;display:flex;flex-wrap:wrap;align-items:center;gap:10px 12px;padding:8px 8px 8px 18px;border-radius:16px;background:var(--ink);color:var(--bg);box-shadow:0 10px 30px rgba(0,0,0,.25);max-width:calc(100% - 32px)}
+.tray{position:fixed;left:50%;transform:translateX(-50%);bottom:16px;z-index:30;display:flex;flex-wrap:wrap;align-items:center;gap:10px 12px;padding:8px 8px 8px 18px;border-radius:16px;background:var(--accent);color:var(--accent-ink);box-shadow:0 10px 30px rgba(0,0,0,.25);max-width:calc(100% - 32px)}
 .tray[hidden]{display:none}
-.tray .chip{background:rgba(255,255,255,.14);color:var(--bg);font-family:var(--mono);font-size:12px}
+.tray .chip{background:color-mix(in srgb,var(--accent-ink) 18%,transparent);color:var(--accent-ink);font-family:var(--mono);font-size:12px}
 .tray .chip button{border:none;background:transparent;color:inherit;cursor:pointer;width:26px;height:26px;margin:-4px -8px -4px 0;display:grid;place-items:center;border-radius:50%}
-.tray .btn.primary{background:var(--bg);color:var(--ink);border-color:var(--bg)}
+.tray .btn.primary{background:var(--accent-ink);color:var(--accent);border-color:var(--accent-ink)}
+.tray .btn.primary[disabled]{opacity:.7}
+.tray .chip button:hover{background:color-mix(in srgb,var(--accent-ink) 22%,transparent)}
 .modal-back{position:fixed;inset:0;background:rgba(10,12,10,.45);z-index:80;display:none;align-items:center;justify-content:center;padding:20px}
 .modal-back.open{display:flex}
 .modal{background:var(--surface);border-radius:18px;padding:24px;width:min(640px,100%);max-height:85vh;overflow:auto;display:grid;gap:14px}
@@ -219,29 +217,16 @@ footer .wrap{display:flex;flex-wrap:wrap;gap:8px 24px}
 <body>
 <header class="top">
   <div class="wrap">
-    <a class="brand" href="#" aria-label="GitAnalyze home">
+    <a class="brand" href="/" aria-label="GitAnalyze home">
       <svg width="28" height="28" viewBox="0 0 28 28" aria-hidden="true"><rect x="1" y="1" width="26" height="26" rx="8" fill="var(--accent)"></rect><g transform="translate(6 6)" fill="var(--accent-ink)"><path d="M6 .278a.77.77 0 0 1 .08.858 7.2 7.2 0 0 0-.878 3.46c0 4.021 3.278 7.277 7.318 7.277q.792-.001 1.533-.16a.79.79 0 0 1 .81.316.73.73 0 0 1-.031.893A8.35 8.35 0 0 1 8.344 16C3.734 16 0 12.286 0 7.71 0 4.266 2.114 1.312 5.124.06A.75.75 0 0 1 6 .278"></path><path d="M10.794 3.148a.217.217 0 0 1 .412 0l.387 1.162c.173.518.579.924 1.097 1.097l1.162.387a.217.217 0 0 1 0 .412l-1.162.387a1.73 1.73 0 0 0-1.097 1.097l-.387 1.162a.217.217 0 0 1-.412 0l-.387-1.162A1.73 1.73 0 0 0 9.31 6.593l-1.162-.387a.217.217 0 0 1 0-.412l1.162-.387a1.73 1.73 0 0 0 1.097-1.097zM13.863.099a.145.145 0 0 1 .274 0l.258.774c.115.346.386.617.732.732l.774.258a.145.145 0 0 1 0 .274l-.774.258a1.16 1.16 0 0 0-.732.732l-.258.774a.145.145 0 0 1-.274 0l-.258-.774a1.16 1.16 0 0 0-.732-.732l-.774-.258a.145.145 0 0 1 0-.274l.774-.258c.346-.115.617-.386.732-.732z"></path></g></svg>
       GitAnalyze
     </a>
     <nav class="nav" aria-label="Main">
-      <a href="#" aria-current="page">Check</a>
-      <a href="#" data-soon>Explore</a>
-      <a href="#" data-soon>Compare <span class="count" id="navCount" hidden>0</span></a>
-      <a href="#" data-soon>How it works</a>
+      <a href="/" aria-current="page">Main</a>
+      <a href="/compare" data-nav="compare">Compare <span class="count nav-count" hidden>0</span></a>
+      <a href="/about">How it works</a>
     </nav>
     <div class="tools">
-      <div class="demo">
-        <button type="button" id="demoBtn" aria-expanded="false" aria-controls="demoPanel">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 6h10M18 6h2M4 12h4M12 12h8M4 18h12"></path><circle cx="16" cy="6" r="2"></circle><circle cx="10" cy="12" r="2"></circle><circle cx="18" cy="18" r="2"></circle></svg>
-          Demo
-        </button>
-        <div class="demo-panel" id="demoPanel" role="dialog" aria-label="Demo scenarios">
-          <p class="note" style="margin-bottom:10px">This prototype runs on sample repositories and numbers. Switch scenarios to see how the page handles them.</p>
-          <label class="switch">GitHub rate limit reached<input type="checkbox" id="demoBusy"></label>
-          <label class="switch">Rankings not built yet<input type="checkbox" id="demoEmpty"></label>
-          <button type="button" class="btn small" id="demoReset" style="width:100%;margin-top:6px">Reset demo</button>
-        </div>
-      </div>
       <button type="button" class="icon-btn" id="themeBtn" aria-label="Switch colour theme">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="8.5"></circle><path d="M12 3.5a8.5 8.5 0 0 1 0 17z" fill="currentColor"></path></svg>
       </button>
@@ -293,10 +278,7 @@ footer .wrap{display:flex;flex-wrap:wrap;gap:8px 24px}
     <div class="tbl-bar">
       <span class="note" id="showing" aria-live="polite"></span>
       <span style="display:flex;flex-wrap:wrap;align-items:center;gap:8px"><span id="focusNote"></span>
-        <button type="button" class="btn small" id="copyCsv">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><rect x="8" y="8" width="12" height="12" rx="2"></rect><path d="M16 8V5a1 1 0 0 0-1-1H5a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h3"></path></svg>
-        Copy as CSV
-      </button>
+        <button type="button" class="btn small" id="dlTable">Download</button>
       </span>
     </div>
     <div class="tbl-scroll">
@@ -318,7 +300,7 @@ footer .wrap{display:flex;flex-wrap:wrap;gap:8px 24px}
     <span>GitAnalyze is an independent project. It is not affiliated with or endorsed by GitHub.</span>
     <span>Prototype with sample repositories and numbers.</span>
     <span>Data from the public GitHub API, refreshed daily.</span>
-    <span>Definitions and known limits are on How it works.</span>
+    <span><a href="/about">How every number is worked out, and its known limits</a></span>
   </div>
 </footer>
 
@@ -327,6 +309,9 @@ footer .wrap{display:flex;flex-wrap:wrap;gap:8px 24px}
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 <div class="modal-back" id="modalBack"><div class="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle" id="modal"></div></div>
 
+<script src="/metrics.js"></script>
+<script src="/export.js"></script>
+<script src="/compare-list.js"></script>
 <script>
 (function () {
 'use strict';
@@ -361,17 +346,7 @@ const TONE = { Active: 'good', Slowing: 'warn', Quiet: 'neutral', Archived: 'bad
 const statusPill = (s) => '<span class="status tone-' + TONE[s] + '">' + I[TONE[s]] + esc(s) + '</span>';
 
 /* ---------- metric definitions (one source, per F6) ---------- */
-const M = {
-  status: { label: 'Status', means: 'A quick read on whether the project is still moving.', method: 'Archived wins. Active: a commit in the last 30 days and a release in the last 182 days, or no releases ever. Slowing: a commit in the last 182 days. Otherwise Quiet.', source: 'Computed from pushed_at, releases and archived', cannot: 'Whether the code is any good, or whether a bot is the only one pushing.' },
-  stars: { label: 'Stars', means: 'How many people bookmarked it on GitHub.', method: 'stargazers_count.', source: 'GET /repos/{owner}/{repo}', cannot: 'How many people use it. Stars can also be bought.' },
-  gained: { label: 'Stars gained', means: 'People who starred it in the window, minus those who removed their star.', method: 'Sum of daily counts from GitHub star history over the selected window.', source: 'GET /repos/{owner}/{repo}/stargazers/history', cannot: 'Whether people use it, or whether the stars are genuine.' },
-  trend: { label: '12-week trend', means: 'Stars gained per week over the last 12 weeks.', method: 'Weekly net stars; the dot marks the latest week.', source: 'GET /repos/{owner}/{repo}/stargazers/history', cannot: 'Anything about usage. A spike can come from one link going viral.' },
-  commit: { label: 'Last commit', means: 'When anyone last pushed to any branch.', method: 'The repository’s pushed_at field, compared in UTC.', source: 'GET /repos/{owner}/{repo}', cannot: 'Whether the main branch changed; bot pushes count too.' },
-  contributors: { label: 'Contributors', means: 'Accounts with commits in the repository.', method: 'The last page number of the contributor list at one per page, anonymous included.', source: 'GET /repos/{owner}/{repo}/contributors?per_page=1&anon=1', cannot: 'How many contributors are still active.' },
-  ai: { label: 'AI capabilities', means: 'Whether the repository contains AI skills, agent setup files or an MCP server.', method: 'File rules in four levels, applied to the full file tree; vendored folders skipped.', source: 'GET /repos/{owner}/{repo}/git/trees/{branch}?recursive=1', cannot: 'Whether a skill works well or is safe. We never give a safety score.' },
-  tracked: { label: 'Repositories in view', means: 'How many tracked repositories match the current filters.', method: 'Count after language, status, AI and archived filters.', source: 'GitAnalyze watch list, refreshed daily', cannot: 'Repositories outside the watch list.' },
-  active: { label: 'Active share', means: 'The share of repositories in view with recent commits and releases.', method: 'Active repositories divided by repositories in view.', source: 'Computed from Status', cannot: 'How healthy each project is beyond the status rule.' }
-};
+const M = window.GA_METRICS;
 
 /* ---------- sample data (deterministic) ---------- */
 const NOW_LABEL = 'Nov 22, 2026';
@@ -452,7 +427,7 @@ const BY_ID = Object.fromEntries(REPOS.map((r) => [r.id, r]));
 
 /* ---------- state ---------- */
 const DEFAULTS = { view: 'stars', lang: 'Any', status: 'any', win: '7d', limit: 25, pages: 1, aiOnly: false, hideArch: true, sort: 'stars', dir: 'desc', focus: null, focusLabel: '', query: '' };
-const state = Object.assign({}, DEFAULTS, { compare: [], recent: ['lumen-labs/agent-kit'], busy: false, empty: false });
+const state = Object.assign({}, DEFAULTS, { compare: GACompare.ids().filter((x) => BY_ID[x]), recent: ['lumen-labs/agent-kit'], busy: false, empty: false });
 const WIN = { '7d': ['gain7', 'last 7 days', 'This week'], '30d': ['gain30', 'last 30 days', 'This month'], '1y': ['gainYear', 'last 12 months', 'This year'] };
 const gained = (r) => r[WIN[state.win][0]];
 
@@ -567,12 +542,17 @@ function spark(r) {
     '<polyline points="' + pts + '" fill="none" stroke="var(--c1)" stroke-width="1.6" stroke-linejoin="round"/>' +
     '<circle cx="' + X(11).toFixed(1) + '" cy="' + Y(w[11]).toFixed(1) + '" r="2.6" fill="var(--c1)"/></svg>';
 }
+function reportUrl(r) {
+  const q = new URLSearchParams({ s: r.status, l: r.lang, st: String(r.stars), p: String(r.pushed), c: String(r.contributors), o: r.ownerType, d: r.desc });
+  if (r.ai) q.set('ai', '1'); if (r.spike) q.set('sp', '1'); if (r.trending) q.set('t', String(r.trending));
+  return '/repo/' + encodeURIComponent(r.owner) + '/' + encodeURIComponent(r.name) + '?' + q.toString();
+}
 function rowHtml(r, i) {
   const g = gained(r); const inC = state.compare.includes(r.id);
   const hl = state.focus && state.focus.length === 1 && state.focus[0] === r.id;
   return '<tr' + (hl ? ' class="hl"' : '') + ' data-id="' + esc(r.id) + '">' +
     '<td class="c-rank num">' + (i + 1) + '</td>' +
-    '<td class="c-repo"><div class="r-name"><b><span>' + esc(r.owner) + '/</span>' + esc(r.name) + '</b>' +
+    '<td class="c-repo"><div class="r-name"><a class="r-link" href="' + esc(reportUrl(r)) + '"><b><span>' + esc(r.owner) + '/</span>' + esc(r.name) + '</b></a>' +
       (r.ai ? '<span class="chip accent">AI</span>' : '') + (r.trending ? '<span class="chip warn">Trending #' + r.trending + '</span>' : '') + '</div>' +
       '<div class="r-desc" title="' + esc(r.desc) + '">' + esc(r.desc) + '</div>' +
       (r.spike ? '<div class="r-spike">Unusual spike: lots of new stars but little other activity.</div>' : '') + '</td>' +
@@ -633,8 +613,7 @@ function renderRecent() {
   $('#recent').innerHTML = state.recent.length ? '<span>Recently checked</span>' + state.recent.map((id) => '<button type="button" data-recent="' + esc(id) + '">' + esc(BY_ID[id] ? BY_ID[id].full : id) + '</button>').join('') : '';
 }
 function renderTray() {
-  const tray = $('#tray'); const nc = $('#navCount');
-  nc.hidden = !state.compare.length; nc.textContent = state.compare.length;
+  const tray = $('#tray');
   if (!state.compare.length) { tray.hidden = true; return; }
   tray.hidden = false;
   tray.innerHTML = '<span style="font-weight:600;font-size:14px">Compare</span>' + state.compare.map((id) => '<span class="chip">' + esc(BY_ID[id].name) + '<button type="button" data-untray="' + esc(id) + '" aria-label="Remove ' + esc(BY_ID[id].full) + ' from compare">' + I.x + '</button></span>').join('') +
@@ -697,39 +676,38 @@ function submitLookup(e) {
   const ids = a.repos.map((p) => p.id);
   ids.forEach(remember);
   if (ids.length === 1) {
-    focusRepos(ids, 'Showing ' + BY_ID[ids[0]].full);
-    toast('Showing ' + BY_ID[ids[0]].full + '. The full report opens from here in the app.');
+    location.href = reportUrl(BY_ID[ids[0]]);
   } else {
-    state.compare = ids.slice(0, 3); renderTray();
-    focusRepos(ids, 'Comparing ' + ids.length + ' repositories');
-    toast('Added ' + ids.length + ' repositories to compare.');
+    state.compare = ids.slice(0, 3); saveCompare();
+    location.href = GACompare.url(state.compare.map((x) => BY_ID[x]));
   }
   setStatus('');
 }
 
-/* ---------- compare ---------- */
+/* ---------- compare (kept in this browser so it follows you to reports and /compare) ---------- */
+window.addEventListener('pageshow', () => { state.compare = GACompare.ids().filter((x) => BY_ID[x]); renderTable(); renderTray(); });
+function saveCompare() { GACompare.set(state.compare.map((x) => BY_ID[x])); }
 function toggleCompare(id) {
   const i = state.compare.indexOf(id);
   if (i >= 0) { state.compare.splice(i, 1); toast('Removed ' + BY_ID[id].full + ' from compare.'); }
   else if (state.compare.length >= 3) { toast('Compare up to 3 repositories at a time.'); return; }
   else { state.compare.push(id); toast('Added ' + BY_ID[id].full + ' to compare.'); }
   $$('[data-add="' + CSS.escape(id) + '"]').forEach((b) => { const on = state.compare.includes(id); b.setAttribute('aria-pressed', on); b.innerHTML = on ? I.check : I.plus; b.setAttribute('aria-label', (on ? 'Remove ' : 'Add ') + BY_ID[id].full + (on ? ' from compare' : ' to compare')); });
-  renderTray();
+  saveCompare(); renderTray();
 }
 
-/* ---------- csv ---------- */
-function csv() {
-  const q = (s) => '"' + String(s).replace(/"/g, '""') + '"';
+/* ---------- download (CSV or Excel) ---------- */
+function tableExport() {
   const list = filtered().slice(0, state.limit * state.pages);
   const head = ['Rank', 'Repository', 'Status', 'Language', 'Stars', 'Stars gained (' + WIN[state.win][1] + ')', 'Last commit (days ago)', 'Contributors', 'AI capabilities'];
   const rows = list.map((r, i) => [i + 1, r.full, r.status, r.lang, r.stars, gained(r), r.pushed, r.contributors, r.ai ? 'Yes' : 'No']);
-  return [head].concat(rows).map((r) => r.map(q).join(',')).join('\n') + '\n' + q('Source: GitHub API via GitAnalyze. Sample data, ' + NOW_LABEL + '.');
+  return { head, rows, source: 'Source: GitHub API via GitAnalyze. Sample data, ' + NOW_LABEL + '.' };
 }
-async function copyCsv() {
-  const text = csv();
-  try { await navigator.clipboard.writeText(text); toast('Copied ' + (text.split('\n').length - 2) + ' rows as CSV with the source line.'); }
-  catch (err) { openModal('<h2 id="modalTitle">Copy the table as CSV</h2><p class="note">Your browser blocked clipboard access. Select the text and copy it.</p><textarea readonly>' + esc(text) + '</textarea><div style="display:flex;justify-content:flex-end"><button class="btn" type="button" data-close>Close</button></div>'); const ta = $('#modal textarea'); ta.focus(); ta.select(); }
-}
+GAExport.mount($('#dlTable'), (fmt) => {
+  const t = tableExport();
+  GAExport.download(Object.assign({ format: fmt, filename: 'gitanalyze-rankings', sheet: 'Rankings' }, t));
+  toast('Downloaded ' + t.rows.length + ' repositories as ' + (fmt === 'xlsx' ? 'Excel' : 'CSV') + ' with the source line.');
+});
 
 /* ---------- toast, popover, modal ---------- */
 let toastTimer;
@@ -757,28 +735,21 @@ document.addEventListener('click', (e) => {
   const t = e.target;
   const info = t.closest('[data-info]'); if (info) { e.stopPropagation(); openInfo(info.dataset.info, info); return; }
   if (pop.classList.contains('open') && !pop.contains(t)) closePop();
-  if (!t.closest('.demo')) { $('#demoPanel').classList.remove('open'); $('#demoBtn').setAttribute('aria-expanded', 'false'); }
   if (!t.closest('#lookup')) closeSuggest();
   const s = t.closest('[data-sort]'); if (s) { const k = s.dataset.sort; if (state.sort === k) state.dir = state.dir === 'desc' ? 'asc' : 'desc'; else { state.sort = k; state.dir = k === 'name' ? 'asc' : 'desc'; } state.pages = 1; renderTable(); const b = $('[data-sort="' + k + '"]'); if (b) b.focus(); return; }
   const add = t.closest('[data-add]'); if (add) { toggleCompare(add.dataset.add); return; }
   const un = t.closest('[data-untray]'); if (un) { toggleCompare(un.dataset.untray); return; }
-  const pick = t.closest('[data-pick]'); if (pick) { const id = pick.dataset.pick; closeSuggest(); $('#lookupInput').value = BY_ID[id].full; onLookupInput(); remember(id); focusRepos([id], 'Showing ' + BY_ID[id].full); return; }
-  const rec = t.closest('[data-recent]'); if (rec) { focusRepos([rec.dataset.recent], 'Showing ' + BY_ID[rec.dataset.recent].full); return; }
+  const pick = t.closest('[data-pick]'); if (pick) { const id = pick.dataset.pick; closeSuggest(); $('#lookupInput').value = BY_ID[id].full; onLookupInput(); remember(id); location.href = reportUrl(BY_ID[id]); return; }
+  const rec = t.closest('[data-recent]'); if (rec) { location.href = reportUrl(BY_ID[rec.dataset.recent]); return; }
   const v = t.closest('[data-view]'); if (v) { state.view = v.dataset.view; state.sort = state.view === 'gaining' ? 'gained' : state.view === 'trending' ? 'trending' : 'stars'; state.dir = 'desc'; state.pages = 1; renderControls(); renderTable(); return; }
   const w = t.closest('[data-win]'); if (w) { state.win = w.dataset.win; state.pages = 1; renderControls(); renderTable(); return; }
   const l = t.closest('[data-limit]'); if (l) { state.limit = +l.dataset.limit; state.pages = 1; renderControls(); renderTable(); return; }
   if (t.closest('#moreBtn')) { loadMore(); return; }
   if (t.closest('#clearFocus')) { Object.assign(state, { focus: null, focusLabel: '', query: '', pages: 1 }); $('#lookupInput').value = ''; onLookupInput(); renderTable(); return; }
   if (t.closest('#resetFilters')) { Object.assign(state, { lang: 'Any', status: 'any', aiOnly: false, hideArch: true, focus: null, query: '', pages: 1 }); renderControls(); renderTable(); return; }
-  if (t.closest('#trayGo')) { focusRepos(state.compare.slice(), 'Comparing ' + state.compare.length + ' repositories'); return; }
-  if (t.closest('[data-soon]')) { e.preventDefault(); toast('This prototype covers the main page only.'); return; }
-  if (t.closest('#copyCsv')) { copyCsv(); return; }
+  if (t.closest('#trayGo')) { location.href = GACompare.url(state.compare.map((x) => BY_ID[x])); return; }
   if (t.id === 'modalBack' || t.closest('[data-close]')) closeModal();
 });
-$('#demoBtn').addEventListener('click', (e) => { e.stopPropagation(); const p = $('#demoPanel'); const o = !p.classList.contains('open'); p.classList.toggle('open', o); $('#demoBtn').setAttribute('aria-expanded', String(o)); });
-$('#demoBusy').addEventListener('change', (e) => { state.busy = e.target.checked; toast(state.busy ? 'GitHub rate limit simulated. Try looking up a repository we don’t have.' : 'Rate limit cleared.'); });
-$('#demoEmpty').addEventListener('change', (e) => { state.empty = e.target.checked; renderTable(); });
-$('#demoReset').addEventListener('click', () => { Object.assign(state, DEFAULTS, { compare: [], recent: ['lumen-labs/agent-kit'], busy: false, empty: false }); $('#demoBusy').checked = false; $('#demoEmpty').checked = false; $('#lookupInput').value = ''; setStatus(''); renderAll(); toast('Demo reset.'); });
 $('#fLang').addEventListener('change', (e) => { state.lang = e.target.value; state.pages = 1; renderTable(); });
 $('#fStatus').addEventListener('change', (e) => { state.status = e.target.value; if (e.target.value === 'Archived') { state.hideArch = false; $('#fArch').checked = false; } state.pages = 1; renderTable(); });
 $('#fAi').addEventListener('change', (e) => { state.aiOnly = e.target.checked; state.pages = 1; renderTable(); });
@@ -790,7 +761,7 @@ $('#lookupInput').addEventListener('keydown', (e) => {
   if (e.key === 'Enter' && active >= 0 && opts[active]) { e.preventDefault(); opts[active].click(); }
 });
 $('#lookupForm').addEventListener('submit', submitLookup);
-document.addEventListener('keydown', (e) => { if (e.key === 'Escape') { closePop(); closeModal(); closeSuggest(); $('#demoPanel').classList.remove('open'); } });
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape') { closePop(); closeModal(); closeSuggest(); } });
 const root = document.documentElement;
 try { const th = localStorage.getItem('ga-theme'); if (th) root.dataset.theme = th; } catch (err) {}
 $('#themeBtn').addEventListener('click', () => {
@@ -800,7 +771,10 @@ $('#themeBtn').addEventListener('click', () => {
 });
 
 renderAll();
+/* /?q=… (from the compare page's search) runs that search here */
+(() => { const q = new URLSearchParams(location.search).get('q'); if (!q) return; $('#lookupInput').value = q; onLookupInput(); submitLookup({ preventDefault() {} }); history.replaceState(null, '', '/'); })();
 })();
 </script>
+<script src="/theme.js"></script>
 </body>
 </html>
