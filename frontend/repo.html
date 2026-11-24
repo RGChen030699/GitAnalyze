@@ -849,6 +849,7 @@ async function load(){
     return;
   }
   DETAIL = await res.json();
+  DETAIL.fetched_at = DETAIL.fetched_at || GAData.lastFetched(DETAIL);
   ({ P, D, A } = GAData.reportModel(DETAIL, NOW));
   REC = GAData.compareRecord(DETAIL, NOW);
   if (DETAIL.full_name.toLowerCase() !== (owner + '/' + name).toLowerCase()) history.replaceState(null, '', `/repo/${DETAIL.owner}/${DETAIL.name}`);

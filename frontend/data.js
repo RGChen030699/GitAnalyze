@@ -185,9 +185,19 @@
     return { P, D, A };
   }
 
+  /* F6 P1: the API puts a fetch time on every value, not one for the whole response.
+     "Last updated" is the newest of them; null when none has one. */
+  function lastFetched(det) {
+    const times = [];
+    Object.values((det && det.provenance) || {}).forEach((o) => { if (o && o.fetched_at) times.push(o.fetched_at); });
+    ((det && det.star_history) || []).forEach((w) => { if (w && w.fetched_at) times.push(w.fetched_at); });
+    if (!times.length) return null;
+    return times.reduce((a, b) => (Date.parse(b) > Date.parse(a) ? b : a));
+  }
+
   return {
     DAY, WEEK, missing, show, compareNullable, sumKnown, daysAgo, statusTone, rankingsQuery, toRow,
-    weeksFromHistory, daysFromHistory, briefFindings, compareRecord, utcStamp, updatedLabel, busyMinutes,
+    weeksFromHistory, daysFromHistory, briefFindings, compareRecord, utcStamp, updatedLabel, busyMinutes, lastFetched,
     agoLabel, reportModel,
   };
 });

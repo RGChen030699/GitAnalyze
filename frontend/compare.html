@@ -364,7 +364,7 @@ async function fetchOne(full){
     toast(res && res.status === 404 ? (body.detail || `We couldn’t find a public repository at ${full}`) : 'GitHub is busy. Try again in a few minutes.');
     return false;
   }
-  const det = await res.json(); const { P, D, A } = GAData.reportModel(det, NOW);
+  const det = await res.json(); det.fetched_at = det.fetched_at || GAData.lastFetched(det); const { P, D, A } = GAData.reportModel(det, NOW);
   cache.set(full.toLowerCase(), { full: det.full_name, rec: GAData.compareRecord(det, NOW), P, D, A, total: det.stars, fetchedAt: det.fetched_at });
   return true;
 }
