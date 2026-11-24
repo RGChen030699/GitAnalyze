@@ -16,6 +16,8 @@ REPOSITORY_FIELDS = (
     "pushed_at",
 )
 GAIN_FIELDS = ("stars_gained_7d", "stars_gained_30d", "stars_gained_year")
+# Not collected yet: null in the JSON, "N/A" in the UI, never 0.
+UNSTORED_FIELDS = ("commit_activity", "contributors", "releases", "issues", "pull_requests")
 STATUS_SOURCE = "Computed from pushed_at and releases (F2 status rule)"
 
 Origin = dict[str, Any] | None
@@ -45,6 +47,7 @@ def _origins(repo: Repository, newest_week: StarWeek | None) -> dict[str, Origin
     if newest_week is not None:
         history = _origin(newest_week.source, repo.star_history_fetched_at)
     origins.update(dict.fromkeys(GAIN_FIELDS, history))
+    origins.update(dict.fromkeys(UNSTORED_FIELDS, None))
     return origins
 
 
@@ -74,6 +77,7 @@ def serialize_detail(repo: Repository) -> dict[str, Any]:
         "stars_gained_7d": repo.stars_gained_7d,
         "stars_gained_30d": repo.stars_gained_30d,
         "stars_gained_year": repo.stars_gained_year,
+        **dict.fromkeys(UNSTORED_FIELDS, None),
     }
     origins = _origins(repo, weeks[-1] if weeks else None)
     return {
