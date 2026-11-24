@@ -220,3 +220,20 @@ test('reportModel lists good-fit and watch-out lines only from known results', (
   assert.deepEqual(quiet.fit, ['You only need the current version as it is and can fix problems yourself.']);
   assert.deepEqual(quiet.watch, ['You need security fixes or new features: the last commit was 3 days ago.']);
 });
+
+test('lastFetched gives the newest fetch time from provenance and star history', () => {
+  const det = {
+    provenance: {
+      stars: { source: '/repos/a/b', fetched_at: '2026-11-24T07:47:11Z' },
+      stars_gained_7d: { source: '/repos/a/b/stargazers/history', fetched_at: '2026-11-24T07:47:22Z' },
+      commit_activity: null,
+    },
+    star_history: [{ week_start: '2026-11-15', fetched_at: '2026-11-24T07:47:20Z' }],
+  };
+  assert.equal(D.lastFetched(det), '2026-11-24T07:47:22Z');
+});
+
+test('lastFetched is null when nothing has a fetch time', () => {
+  assert.equal(D.lastFetched({ provenance: { stars: null }, star_history: [] }), null);
+  assert.equal(D.lastFetched({}), null);
+});
