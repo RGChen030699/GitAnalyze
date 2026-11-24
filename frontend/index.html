@@ -540,7 +540,7 @@ function renderTable() {
     $('#moreWrap').innerHTML = ''; $('#showing').textContent = ''; $('#focusNote').innerHTML = '';
     return;
   }
-  const shown = list.slice(0, state.limit * state.pages);
+  const shown = list.slice(0, shownCount());
   $('#showing').textContent = list.length ? 'Showing ' + fmtN(shown.length) + ' of ' + fmtN(list.length) + ' · sorted by ' + sortLabel() : 'No results';
   $('#focusNote').innerHTML = state.focus || state.query
     ? '<span class="focus-note">' + esc(state.focusLabel) + '<button type="button" class="btn ghost small" id="clearFocus">' + I.x + 'Show all</button></span>' : '';
@@ -550,14 +550,21 @@ function renderTable() {
     $('#tbody').innerHTML = shown.map(rowHtml).join('');
   }
   const rest = list.length - shown.length;
-  $('#moreWrap').innerHTML = rest > 0 ? '<div class="more" id="moreSentinel"><button class="btn" type="button" id="moreBtn">Show ' + Math.min(state.limit, rest) + ' more</button><span class="note">More load automatically as you scroll.</span></div>' : (list.length > state.limit ? '<div class="more"><span class="note">End of list: all ' + fmtN(list.length) + ' repositories shown.</span></div>' : '');
-  if (rest > 0 && 'IntersectionObserver' in window) {
+  const scrolls = state.limit === 100 && rest > 0;
+  $('#moreWrap').innerHTML = scrolls
+    ? '<div class="more" id="moreSentinel"><button class="btn" type="button" id="moreBtn">Show ' + fmtN(Math.min(100, rest)) + ' more</button><span class="note">More load automatically as you scroll.</span></div>'
+    : rest > 0
+      ? '<div class="more"><span class="note">Showing the top ' + fmtN(shown.length) + '. Choose 100 to see more.</span></div>'
+      : (list.length > 25 && shown.length === list.length ? '<div class="more"><span class="note">End of list: all ' + fmtN(list.length) + ' repositories shown.</span></div>' : '');
+  if (scrolls && 'IntersectionObserver' in window) {
     let armed = false; setTimeout(() => { armed = true; }, 600);
     observer = new IntersectionObserver((en) => { if (armed && en[0].isIntersecting) loadMore(); }, { rootMargin: '160px' });
     observer.observe($('#moreSentinel'));
   }
 }
 function sortLabel() { return { trending: 'GitHub Trending rank', stars: 'stars', gained: 'stars gained, ' + WIN[state.win][1], commit: 'last commit', contributors: 'contributors', name: 'name' }[state.sort] + (state.dir === 'asc' ? ' (ascending)' : ''); }
+/* Show 25 or 50 means exactly that many. Only at 100 does scrolling keep adding rows. */
+function shownCount() { return state.limit < 100 ? state.limit : 100 * state.pages; }
 function loadMore() { const y = window.scrollY; state.pages++; renderTable(); window.scrollTo(0, y); }
 
 /* ---------- render: controls ---------- */
@@ -655,7 +662,7 @@ function toggleCompare(id) {
 
 /* ---------- download (CSV or Excel) ---------- */
 function tableExport() {
-  const list = filtered().slice(0, state.limit * state.pages);
+  const list = filtered().slice(0, shownCount());
   const head = ['Rank', 'Repository', 'Status', 'Language', 'Stars', 'Stars gained (' + WIN[state.win][1] + ')', 'Last commit (days ago)', 'Contributors', 'AI capabilities'];
   const na = (v) => (v === null || v === undefined ? 'N/A' : v);
   const rows = list.map((r, i) => [i + 1, r.full, na(r.status), na(r.lang), r.stars, na(gained(r)), r.pushed === null ? 'N/A' : Math.round(r.pushed), na(r.contributors), r.ai === null || r.ai === undefined ? 'N/A' : r.ai ? 'Yes' : 'No']);
