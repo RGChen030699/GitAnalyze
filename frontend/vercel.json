@@ -1,5 +1,7 @@
 {
   "rewrites": [
-    { "source": "/repo/:owner/:name", "destination": "/repo.html" }
+    { "source": "/repo/:owner/:name", "destination": "/repo.html" },
+    { "source": "/about", "destination": "/about.html" },
+    { "source": "/about/:section", "destination": "/about.html" }
   ]
 }

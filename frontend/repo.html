@@ -261,10 +261,8 @@ footer .wrap{display:flex;flex-wrap:wrap;justify-content:space-between;gap:8px 2
       GitAnalyze
     </a>
     <nav class="nav" aria-label="Main">
-      <a href="/" aria-current="page">Check</a>
-      <a href="#">Explore</a>
-      <a href="#">Compare</a>
-      <a href="#">How it works</a>
+      <a href="/">Check</a>
+      <a href="/about">How it works</a>
     </nav>
     <div class="tools">
       <button type="button" class="icon-btn" id="themeBtn" aria-label="Switch colour theme">
@@ -467,10 +465,11 @@ footer .wrap{display:flex;flex-wrap:wrap;justify-content:space-between;gap:8px 2
 
 <footer><div class="wrap">
   <p class="note">Sample data for now. In production, numbers come from the public GitHub API, processed by GitAnalyze (independent, not affiliated with GitHub). Stars are bookmarks, not usage.</p>
-  <p class="note"><a href="#">How every number is worked out</a></p>
+  <p class="note"><a href="/about">How every number is worked out</a></p>
 </div></footer>
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
+<script src="/metrics.js"></script>
 <script>
 (() => {
 'use strict';
@@ -684,9 +683,9 @@ function analyse(p, D){
   checks.push(p.license === 'NOASSERTION' ? { tone:'warn', t:'Custom or unrecognized license', d:'GitHub couldn’t match it to a standard license. Read it before you reuse the code.', k:'license' }
     : !p.license ? { tone:'bad', t:'No license', d:'No license: others may not legally reuse this code.', k:'license' }
     : { tone:'good', t:`${p.license} license`, d:'A standard open-source license.', k:'license' });
-  checks.push(spike ? { tone:'warn', t:'Unusual star spike', d:'Unusual spike: lots of new stars but little other activity.', k:'stars' }
-    : g7 <= 0 ? { tone:'neutral', t:'No new attention', d:`Net ${signed(Math.round(g7))} stars in the last 7 days.`, k:'stars' }
-    : { tone:'good', t:'Steady interest', d:`+${n0(g7)} stars in the last 7 days, in line with recent weeks.`, k:'stars' });
+  checks.push(spike ? { tone:'warn', t:'Unusual star spike', d:'Unusual spike: lots of new stars but little other activity.', k:'star_pattern' }
+    : g7 <= 0 ? { tone:'neutral', t:'No new attention', d:`Net ${signed(Math.round(g7))} stars in the last 7 days.`, k:'star_pattern' }
+    : { tone:'good', t:'Steady interest', d:`+${n0(g7)} stars in the last 7 days, in line with recent weeks.`, k:'star_pattern' });
   const scripted = p.skills.filter(s => s[2] > 0).length;
   if (p.skills.length) checks.push(scripted ? { tone:'warn', t:`${scripted} of ${p.skills.length} skills run scripts`, d:'This skill includes scripts that can run on your computer. Read them before installing.', k:'scripts' }
     : { tone:'good', t:'No skills run scripts', d:`${p.skills.length} skills, all instructions only.`, k:'scripts' });
@@ -807,10 +806,10 @@ function renderKpis(){
   const k = [
     ['Total stars', 'stars', n0(total), delta(A.g30 / Math.max(1, total - A.g30), true, 'in 30 days'), sparkSvg(W.slice(-52).map(w => w.total))],
     ['Stars gained, 30 days', 'gained', signed(A.g30), delta(A.momChange, true, 'vs prior 30 days'), sparkSvg(W.slice(-12).map(w => w.gained))],
-    ['Commits, 13 weeks', 'commits', n0(A.commits90), delta(A.devChange, true, 'vs prior 13'), sparkSvg(D.commits.map(c => c.total))],
-    ['Open issues', 'issues', n0(open), `<span class="delta t-${A.backlog6 > 0 ? 'warn' : 'good'}">${A.backlog6 > 0 ? ICON.up : ICON.down}${signed(A.backlog6)}<span class="muted" style="font-weight:400">&nbsp;in 6 months</span></span>`, sparkSvg(D.months.map((m, i) => sum(D.months.slice(0, i+1).map(x => x.opened - x.closed))), 'var(--c2)')],
-    ['Pull requests merged', 'prs', A.mergeRate === null ? 'N/A' : Math.round(A.mergeRate*100) + '%', `<small>${n0(A.prM)} of ${n0(A.prO)} in 12 months</small>`, sparkSvg(D.months.map(m => m.pr.merged))],
-    ['Releases, 12 months', 'releases', n0(A.rel12), `<small>${A.lastRel ? 'Last ' + ago(A.lastRel.t) : 'N/A'}</small>`, sparkSvg(D.months.map(m => D.releases.filter(r => !r.pre && r.t >= m.t && r.t < m.t + 31*DAY).length))]
+    ['Commits, 13 weeks', 'commits_13w', n0(A.commits90), delta(A.devChange, true, 'vs prior 13'), sparkSvg(D.commits.map(c => c.total))],
+    ['Open issues', 'open_issues', n0(open), `<span class="delta t-${A.backlog6 > 0 ? 'warn' : 'good'}">${A.backlog6 > 0 ? ICON.up : ICON.down}${signed(A.backlog6)}<span class="muted" style="font-weight:400">&nbsp;in 6 months</span></span>`, sparkSvg(D.months.map((m, i) => sum(D.months.slice(0, i+1).map(x => x.opened - x.closed))), 'var(--c2)')],
+    ['Pull requests merged', 'prs_merged', A.mergeRate === null ? 'N/A' : Math.round(A.mergeRate*100) + '%', `<small>${n0(A.prM)} of ${n0(A.prO)} in 12 months</small>`, sparkSvg(D.months.map(m => m.pr.merged))],
+    ['Releases, 12 months', 'releases_12m', n0(A.rel12), `<small>${A.lastRel ? 'Last ' + ago(A.lastRel.t) : 'N/A'}</small>`, sparkSvg(D.months.map(m => D.releases.filter(r => !r.pre && r.t >= m.t && r.t < m.t + 31*DAY).length))]
   ];
   $('#kpis').innerHTML = k.map(([l, key, v, dl, sp]) => `<div class="kpi"><dt>${l}<button class="info" type="button" data-info="${key}" aria-label="About ${l.toLowerCase()}" aria-expanded="false"></button></dt><dd>${v}</dd>${dl}${sp}</div>`).join('');
 }
@@ -1012,7 +1011,7 @@ const listJoin = (a) => a.length < 2 ? a.join('') : a.slice(0, -1).join(', ') + 
 function renderAI(){
   $('#aiCount').textContent = P.skills.length || ''; $('#aiCount').hidden = !P.skills.length;
   const card = $('#aiCard');
-  if (!P.skills.length) { card.innerHTML = `<div class="takeaway"><span class="t-neutral">${ICON.minus}</span><span>No AI capabilities found by our rules.</span></div><p class="note">We looked for skill folders, agent setup files and an MCP server. <a href="#">See the rules</a>.</p>`; return; }
+  if (!P.skills.length) { card.innerHTML = `<div class="takeaway"><span class="t-neutral">${ICON.minus}</span><span>No AI capabilities found by our rules.</span></div><p class="note">We looked for skill folders, agent setup files and an MCP server. <a href="/about#ai">See the rules</a>.</p>`; return; }
   card.innerHTML = `
     <div class="ctrls"><span class="chip">Publisher: ${esc(P.owner)} (${P.ownerType.toLowerCase()})</span><span class="chip">Repository updated ${ago(A.lastCommit)}</span><span class="chip ${A.statusTone === 'good' ? 'good' : A.statusTone === 'warn' ? 'warn' : ''}">Health: ${A.status}</span></div>
     <h3>Contains ${P.skills.length} AI skills <span class="chip good" style="border-radius:6px;font-weight:600">High confidence</span></h3>
@@ -1024,20 +1023,7 @@ function renderAI(){
 }
 
 /* ---------- info popover (F6 copy would come from metrics.yaml) ---------- */
-const DEF = {
-  status:['Status','Whether people are still working on it.','Active: a commit in 30 days and a release in 182 days (or no releases ever). Slowing: a commit in 182 days. Quiet: no commit in 182 days. Archived wins over everything.','/repos/{owner}/{repo}'],
-  maintenance:['Maintenance','Recent commits and releases.','Same rule as Status.','/repos/{owner}/{repo}/commits'],
-  maintainers:['Maintainers','How much of the work depends on one account.','Share of last year’s commits per non-bot account. 80% or more from one account is “Mostly one person”.','/repos/{owner}/{repo}/stats/contributors'],
-  license:['License','Whether others may legally reuse the code.','The SPDX id GitHub detects. NOASSERTION means GitHub couldn’t match it.','/repos/{owner}/{repo}/license'],
-  stars:['Star pattern','Whether new stars look organic.','Flags weeks with far more stars than the 12 weeks before while little other work happens.','/repos/{owner}/{repo}/stargazers/history'],
-  scripts:['Scripts in skills','Skills that ship files your computer can run.','Counts script files inside each skill folder.','/repos/{owner}/{repo}/git/trees/{branch}'],
-  gained:['Stars gained','Net new stars in the period.','Stars added minus stars removed, from weekly history.','/repos/{owner}/{repo}/stargazers/history'],
-  commits:['Commits','Commits to the default branch.','Sum of weekly commit counts.','/repos/{owner}/{repo}/stats/commit_activity'],
-  issues:['Open issues','Issues waiting for an answer, without pull requests.','Search count of open issues.','/search/issues'],
-  prs:['Pull requests merged','Share of opened pull requests that were merged.','Merged ÷ opened, last 12 months.','/search/issues'],
-  releases:['Releases','Formal releases, not tags.','Releases that are not drafts or prereleases.','/repos/{owner}/{repo}/releases']
-};
-DEF.stars_total = DEF.stars;
+const DEF = window.GA_METRICS || {};
 let pop = null;
 function closePop(){ if (pop) { pop.btn.setAttribute('aria-expanded', 'false'); pop.el.remove(); pop = null; } }
 document.addEventListener('click', (e) => {
@@ -1045,12 +1031,11 @@ document.addEventListener('click', (e) => {
   if (!b) { if (pop && !e.target.closest('.popover')) closePop(); return; }
   if (pop && pop.btn === b) { closePop(); return; }
   closePop();
-  const key = b.dataset.info === 'stars' && b.closest('.kpi') ? 'stars_total' : b.dataset.info;
-  const def = b.closest('.kpi') && b.dataset.info === 'stars' ? ['Total stars','People who bookmarked it. Stars are bookmarks, not usage.','stargazers_count on the repository.','/repos/{owner}/{repo}'] : DEF[key];
+  const def = DEF[b.dataset.info];
   if (!def) return;
   const el = document.createElement('div'); el.className = 'popover panel'; el.setAttribute('role', 'dialog');
   el.style.cssText = 'position:absolute;z-index:60;max-width:340px;padding:14px 16px;box-shadow:var(--shadow);font-size:14px';
-  el.innerHTML = `<b style="font-size:15px">${def[0]}</b><p style="margin:4px 0 8px;color:var(--ink-2)">${def[1]}</p><p style="margin:0 0 6px"><b>How</b> ${def[2]}</p><p style="margin:0 0 6px"><b>Source</b> <code class="mono" style="font-size:12px">${def[3]}</code></p><p class="note" style="margin:0"><b>Updated</b> Nov 23, 2026, 12:04 UTC</p>`;
+  el.innerHTML = `<b style="font-size:15px">${esc(def.label)}</b><p style="margin:4px 0 8px;color:var(--ink-2)">${esc(def.means)}</p><p style="margin:0 0 6px"><b>How</b> ${esc(def.method)}</p><p style="margin:0 0 6px"><b>Source</b> <code class="mono" style="font-size:12px">${esc(def.source)}</code></p><p style="margin:0 0 6px"><b>Updated</b> Nov 23, 2026, 12:04 UTC</p><p class="note" style="margin:0"><b>Can’t tell you</b> ${esc(def.cannot)}</p><p class="note" style="margin:6px 0 0"><a href="/about#dictionary">All definitions</a></p>`;
   document.body.appendChild(el);
   const r = b.getBoundingClientRect(); const left = Math.min(window.scrollX + r.left, window.scrollX + document.documentElement.clientWidth - el.offsetWidth - 12);
   el.style.left = Math.max(12, left) + 'px'; el.style.top = (window.scrollY + r.bottom + 6) + 'px';
