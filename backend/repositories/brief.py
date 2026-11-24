@@ -23,4 +23,6 @@ def interest(
     """Is interest real and growing? Stars in the last 30 days against the 30 days before."""
     if gained_30d is None or gained_prev_30d is None or total_stars is None or spike is None:
         return None
+    if spike:
+        return BriefAnswer("warn", "Spiky")
     return None
