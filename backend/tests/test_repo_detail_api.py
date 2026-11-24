@@ -6,10 +6,14 @@ from typing import Any
 import pytest
 import responses
 from django.test import Client
+from github_client.client import API_BASE_URL
 from repositories.models import Repository
+
+from tests.test_refresh_rankings import load, mock_details
 
 NOW = datetime(2026, 11, 23, 12, 0, tzinfo=UTC)
 REPO_SOURCE = "/repos/pallets/flask"
+REPO_URL = f"{API_BASE_URL}{REPO_SOURCE}"
 
 
 @pytest.fixture(autouse=True)
@@ -35,6 +39,11 @@ def make_repo(full_name: str = "pallets/flask", **overrides: Any) -> Repository:
     return Repository.objects.create(**{**fields, **overrides})
 
 
+def mock_flask() -> None:
+    responses.get(REPO_URL, json=load("repo.json"))
+    mock_details("pallets/flask")
+
+
 @responses.activate
 @pytest.mark.django_db
 def test_L4_fresh_repo_served_from_database_without_github_call(client: Client) -> None:
@@ -57,3 +66,18 @@ def test_L4_cache_lookup_is_case_insensitive(client: Client) -> None:
     assert response.status_code == 200
     assert response.json()["full_name"] == "pallets/flask"
     assert len(responses.calls) == 0
+
+
+@responses.activate
+@pytest.mark.django_db
+def test_L4_missing_repo_is_fetched_and_saved(client: Client) -> None:
+    mock_flask()
+
+    response = client.get("/api/repos/pallets/flask")
+
+    assert response.status_code == 200
+    assert response.json()["full_name"] == "pallets/flask"
+    saved = Repository.objects.get()
+    assert saved.source == REPO_SOURCE
+    assert saved.fetched_at == NOW
+    assert responses.calls[0].request.url == REPO_URL
