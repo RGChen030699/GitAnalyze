@@ -117,3 +117,12 @@ def test_brief_release_pace_on_usual_pace_up_to_1_5x_its_gap() -> None:
 def test_brief_release_pace_overdue_beyond_1_5x_its_gap() -> None:
     every_30_days = days_ago(60, 90, 120, 150)
     assert release_pace(every_30_days, NOW) == BriefAnswer("warn", "Overdue, 2.0× its usual gap")
+
+
+def test_brief_release_pace_usual_gap_is_median_of_last_8_gaps() -> None:
+    recent_gaps = [10, 10, 10, 10, 50, 50, 50, 50]  # median 30
+    old_gaps = [300] * 5  # would pull the median of all 13 gaps to 50
+    ages = [60]
+    for gap in reversed(old_gaps + recent_gaps):
+        ages.append(ages[-1] + gap)
+    assert release_pace(days_ago(*ages), NOW) == BriefAnswer("warn", "Overdue, 2.0× its usual gap")
