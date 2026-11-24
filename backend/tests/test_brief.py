@@ -126,3 +126,7 @@ def test_brief_release_pace_usual_gap_is_median_of_last_8_gaps() -> None:
     for gap in reversed(old_gaps + recent_gaps):
         ages.append(ages[-1] + gap)
     assert release_pace(days_ago(*ages), NOW) == BriefAnswer("warn", "Overdue, 2.0× its usual gap")
+
+
+def test_brief_release_pace_none_with_a_single_release() -> None:
+    assert release_pace(days_ago(20), NOW) is None
