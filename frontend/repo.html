@@ -470,6 +470,7 @@ footer .wrap{display:flex;flex-wrap:wrap;justify-content:space-between;gap:8px 2
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
 <script src="/metrics.js"></script>
+<script src="/export.js"></script>
 <script>
 (() => {
 'use strict';
@@ -1050,14 +1051,13 @@ $('#copyBrief').onclick = () => {
   const txt = lines.join('\n');
   (navigator.clipboard ? navigator.clipboard.writeText(txt) : Promise.reject()).then(() => toast('Copied the brief with the source and date.'), () => toast('Copy is blocked in this preview. In production a window shows the text to copy.'));
 };
-$('#dlCsv').onclick = () => {
-  const rows = [['week_start','stars_gained','stars_total','commits']];
+GAExport.mount($('#dlCsv'), (fmt) => {
   const C = new Map(D.commits.map(c => [c.t, c.total]));
-  D.weeks.forEach(w => rows.push([new Date(w.t).toISOString().slice(0,10), w.gained, w.total, C.has(w.t) ? C.get(w.t) : '']));
-  const blob = new Blob(['# Source: GitHub API via GitAnalyze, updated 2026-11-23T12:04Z\n' + rows.map(r => r.join(',')).join('\n')], { type:'text/csv' });
-  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `${P.owner}-${P.name}-weekly.csv`; a.click();
-  toast('Downloaded a CSV with the source and date.');
-};
+  const rows = D.weeks.map(w => [new Date(w.t).toISOString().slice(0,10), w.gained, w.total, C.has(w.t) ? C.get(w.t) : '']);
+  GAExport.download({ format: fmt, filename: `${P.owner}-${P.name}-weekly`, sheet: 'Weekly', head: ['Week starting', 'Stars gained', 'Total stars', 'Commits'], rows,
+    source: `Source: GitHub API via GitAnalyze, ${P.owner}/${P.name}, updated Nov 23, 2026, 12:04 UTC. Sample data.` });
+  toast(`Downloaded weekly numbers as ${fmt === 'xlsx' ? 'Excel' : 'CSV'} with the source and date.`);
+});
 let inCmp = false;
 $('#addCmp').onclick = () => { inCmp = !inCmp; $('#addCmp').innerHTML = inCmp ? `${ICON.check}In compare` : '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>Add to compare'; $('#addCmp').querySelector('svg').style.cssText = 'width:16px;height:16px'; toast(inCmp ? `Added ${P.owner}/${P.name} to compare.` : `Removed ${P.owner}/${P.name} from compare.`); };
 

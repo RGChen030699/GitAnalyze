@@ -275,10 +275,7 @@ footer .wrap{display:flex;flex-wrap:wrap;gap:8px 24px}
     <div class="tbl-bar">
       <span class="note" id="showing" aria-live="polite"></span>
       <span style="display:flex;flex-wrap:wrap;align-items:center;gap:8px"><span id="focusNote"></span>
-        <button type="button" class="btn small" id="copyCsv">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><rect x="8" y="8" width="12" height="12" rx="2"></rect><path d="M16 8V5a1 1 0 0 0-1-1H5a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h3"></path></svg>
-        Copy as CSV
-      </button>
+        <button type="button" class="btn small" id="dlTable">Download</button>
       </span>
     </div>
     <div class="tbl-scroll">
@@ -310,6 +307,7 @@ footer .wrap{display:flex;flex-wrap:wrap;gap:8px 24px}
 <div class="modal-back" id="modalBack"><div class="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle" id="modal"></div></div>
 
 <script src="/metrics.js"></script>
+<script src="/export.js"></script>
 <script>
 (function () {
 'use strict';
@@ -693,19 +691,18 @@ function toggleCompare(id) {
   renderTray();
 }
 
-/* ---------- csv ---------- */
-function csv() {
-  const q = (s) => '"' + String(s).replace(/"/g, '""') + '"';
+/* ---------- download (CSV or Excel) ---------- */
+function tableExport() {
   const list = filtered().slice(0, state.limit * state.pages);
   const head = ['Rank', 'Repository', 'Status', 'Language', 'Stars', 'Stars gained (' + WIN[state.win][1] + ')', 'Last commit (days ago)', 'Contributors', 'AI capabilities'];
   const rows = list.map((r, i) => [i + 1, r.full, r.status, r.lang, r.stars, gained(r), r.pushed, r.contributors, r.ai ? 'Yes' : 'No']);
-  return [head].concat(rows).map((r) => r.map(q).join(',')).join('\n') + '\n' + q('Source: GitHub API via GitAnalyze. Sample data, ' + NOW_LABEL + '.');
+  return { head, rows, source: 'Source: GitHub API via GitAnalyze. Sample data, ' + NOW_LABEL + '.' };
 }
-async function copyCsv() {
-  const text = csv();
-  try { await navigator.clipboard.writeText(text); toast('Copied ' + (text.split('\n').length - 2) + ' rows as CSV with the source line.'); }
-  catch (err) { openModal('<h2 id="modalTitle">Copy the table as CSV</h2><p class="note">Your browser blocked clipboard access. Select the text and copy it.</p><textarea readonly>' + esc(text) + '</textarea><div style="display:flex;justify-content:flex-end"><button class="btn" type="button" data-close>Close</button></div>'); const ta = $('#modal textarea'); ta.focus(); ta.select(); }
-}
+GAExport.mount($('#dlTable'), (fmt) => {
+  const t = tableExport();
+  GAExport.download(Object.assign({ format: fmt, filename: 'gitanalyze-rankings', sheet: 'Rankings' }, t));
+  toast('Downloaded ' + t.rows.length + ' repositories as ' + (fmt === 'xlsx' ? 'Excel' : 'CSV') + ' with the source line.');
+});
 
 /* ---------- toast, popover, modal ---------- */
 let toastTimer;
@@ -746,7 +743,6 @@ document.addEventListener('click', (e) => {
   if (t.closest('#clearFocus')) { Object.assign(state, { focus: null, focusLabel: '', query: '', pages: 1 }); $('#lookupInput').value = ''; onLookupInput(); renderTable(); return; }
   if (t.closest('#resetFilters')) { Object.assign(state, { lang: 'Any', status: 'any', aiOnly: false, hideArch: true, focus: null, query: '', pages: 1 }); renderControls(); renderTable(); return; }
   if (t.closest('#trayGo')) { focusRepos(state.compare.slice(), 'Comparing ' + state.compare.length + ' repositories'); return; }
-  if (t.closest('#copyCsv')) { copyCsv(); return; }
   if (t.id === 'modalBack' || t.closest('[data-close]')) closeModal();
 });
 $('#fLang').addEventListener('change', (e) => { state.lang = e.target.value; state.pages = 1; renderTable(); });
