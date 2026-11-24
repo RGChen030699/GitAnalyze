@@ -234,3 +234,12 @@ def test_T2_filters(client: Client, params: dict[str, str], expected: list[str])
 @pytest.mark.parametrize("params", [{"status": "Dead"}, {"archived": "yes"}])
 def test_T4_invalid_filter_returns_400(client: Client, params: dict[str, str]) -> None:
     assert client.get(URL, params).status_code == 400
+
+
+@pytest.mark.django_db
+def test_T3_sort_pushed_is_most_recent_first_with_null_last(client: Client) -> None:
+    make_repo("a/missing", stars=999)
+    make_repo("b/older", pushed_at=datetime(2026, 1, 1, tzinfo=UTC))
+    make_repo("c/newer", pushed_at=datetime(2026, 11, 1, tzinfo=UTC))
+
+    assert names(client, sort="pushed") == ["c/newer", "b/older", "a/missing"]
