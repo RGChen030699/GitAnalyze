@@ -2,7 +2,7 @@
 
 Runs daily after refresh_trending. A repository is rescanned when its last scan is older than
 7 days: about 170 a day for 1,200 ranked repositories, one API request each. File texts come
-from raw.githubusercontent.com, which costs no API quota.
+through the client's get_raw, which costs no API quota.
 """
 
 from typing import Any

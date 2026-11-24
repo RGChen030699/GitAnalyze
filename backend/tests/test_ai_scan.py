@@ -50,9 +50,10 @@ def test_F4_scan_lists_the_tree_once_and_reads_files_from_raw() -> None:
     assert "Authorization" not in responses.calls[1].request.headers
     assert result["source"] == f"/repos/{REPO}/git/trees/main?recursive=1"
     assert result["fetched_at"] == NOW.isoformat()
-    api_calls = [c for c in responses.calls if c.request.url.startswith(API_BASE_URL)]
-    assert len(api_calls) == 1
-    assert "recursive=1" in api_calls[0].request.url
+    api_urls = [str(c.request.url) for c in responses.calls]
+    api_urls = [url for url in api_urls if url.startswith(API_BASE_URL)]
+    assert len(api_urls) == 1
+    assert "recursive=1" in api_urls[0]
 
 
 @responses.activate

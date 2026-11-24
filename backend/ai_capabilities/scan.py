@@ -47,7 +47,7 @@ def list_tree(
 def read_files(
     client: GitHubClient, full_name: str, branch: str, paths: list[str]
 ) -> dict[str, str | None]:
-    """File texts from raw.githubusercontent.com; a file that can't be read is None."""
+    """File texts via the client's get_raw (no API quota); a file that can't be read is None."""
     owner, name = full_name.split("/", 1)
 
     def read(path: str) -> str | None:
