@@ -11,6 +11,7 @@ FLAT_SHARE_OF_TOTAL = 0.002
 INTEREST_CHANGE = 0.1
 COMMITS_DROP = 0.4
 COMMITS_RISE = 0.1
+KEEPING_UP_RATIO = 0.95
 
 
 @dataclass(frozen=True)
@@ -67,4 +68,7 @@ def issue_response(opened_6m: int | None, closed_6m: int | None) -> BriefAnswer 
         return None
     if opened_6m == 0:
         return BriefAnswer("neutral", "N/A")
+    close_ratio = closed_6m / opened_6m
+    if close_ratio >= KEEPING_UP_RATIO:
+        return BriefAnswer("good", "Keeping up")
     return None
