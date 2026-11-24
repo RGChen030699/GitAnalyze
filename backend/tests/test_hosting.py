@@ -137,7 +137,10 @@ def test_H9_daily_refresh_workflow_uses_repository_secrets() -> None:
     text = WORKFLOW.read_text()
 
     assert "schedule:" in text and "cron:" in text
-    assert "python backend/manage.py refresh_rankings --limit 200" in text
+    assert "python backend/manage.py refresh_rankings --limit 800" in text
+    assert 'cron: "0 11 * * *"' in text  # 06:00 EST (07:00 during daylight saving time)
+    languages = "TypeScript,Python,JavaScript,Java,C#,PHP,Shell,C++,Go,Rust,Swift,Kotlin"
+    assert f"RANKINGS_LANGUAGES: {languages}" in text
     assert "DATABASE_URL: ${{ secrets.DATABASE_URL }}" in text
     assert "GITHUB_TOKEN: ${{ secrets.GH_API_TOKEN }}" in text
 
