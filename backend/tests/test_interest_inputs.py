@@ -44,26 +44,42 @@ def test_G7_star_spike_rule(
     assert is_star_spike(gained_7d, forks, issues, total) is expected
 
 
-@pytest.mark.django_db
-def test_detail_interest_uses_previous_30_days_from_star_weeks(client: Client) -> None:
-    fetched = datetime(2026, 11, 23, 11, 0, tzinfo=UTC)
-    repo = make_repo(
-        stargazers_count=10_000,
-        forks_count=2_000,
-        stars_gained_7d=70,
-        stars_gained_30d=300,
-        star_history_fetched_at=fetched,
-    )
-    for point in weeks_back(10, 10):
+FETCHED = datetime(2026, 11, 23, 11, 0, tzinfo=UTC)
+
+
+def make_repo_with_weeks(week_count: int, **overrides: Any) -> None:
+    fields: dict[str, Any] = {
+        "stargazers_count": 10_000,
+        "forks_count": 2_000,
+        "stars_gained_7d": 70,
+        "stars_gained_30d": None,  # the interest answer must not depend on the 30-day number
+        "star_history_fetched_at": FETCHED,
+    }
+    repo = make_repo(**{**fields, **overrides})
+    for point in weeks_back(week_count, 10):
         StarWeek.objects.create(
             repository=repo,
             week_start=point.week_start,
             stars_gained=70,
             days=list(point.days),
             source=HISTORY_SOURCE,
-            fetched_at=fetched,
+            fetched_at=FETCHED,
         )
+
+
+@pytest.mark.django_db
+def test_detail_interest_compares_15_days_with_the_15_before(client: Client) -> None:
+    make_repo_with_weeks(10)
 
     brief: dict[str, Any] = client.get("/api/repos/pallets/flask").json()["brief"]
 
-    assert brief["interest"] == {"tone": "neutral", "value": "Steady"}
+    assert brief["interest"] == {"tone": "neutral", "value": "Steady", "window_days": 15}
+
+
+@pytest.mark.django_db
+def test_detail_interest_is_null_with_under_30_days_of_history(client: Client) -> None:
+    make_repo_with_weeks(4)  # 23 days: Sunday 1 Nov to Monday 23 Nov
+
+    brief: dict[str, Any] = client.get("/api/repos/pallets/flask").json()["brief"]
+
+    assert brief["interest"] is None
