@@ -1,19 +1,20 @@
 """GET /api/repos/{owner}/{name} (F7 Step 6a; F1 L4, F0 C8, F6 P1)."""
 
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, date, datetime, timedelta
 from typing import Any
 
 import pytest
 import responses
 from django.test import Client
 from github_client.client import API_BASE_URL
-from repositories.models import Repository
+from repositories.models import Repository, StarWeek
 
 from tests.test_refresh_rankings import load, mock_details
 
 NOW = datetime(2026, 11, 23, 12, 0, tzinfo=UTC)
 REPO_SOURCE = "/repos/pallets/flask"
 REPO_URL = f"{API_BASE_URL}{REPO_SOURCE}"
+HISTORY_SOURCE = "/repos/pallets/flask/stargazers/history"
 DETAIL_FIELDS = (
     "full_name",
     "owner",
@@ -170,3 +171,36 @@ def test_F2_detail_returns_repository_fields_status_and_gains(client: Client) ->
         "stars_gained_30d": -2,
         "stars_gained_year": 400,
     }
+
+
+@pytest.mark.django_db
+def test_F3_detail_returns_star_weeks_oldest_first_with_provenance(client: Client) -> None:
+    repo = make_repo()
+    for week_start, total in ((date(2026, 11, 22), 3), (date(2026, 11, 15), 9)):
+        StarWeek.objects.create(
+            repository=repo,
+            week_start=week_start,
+            stars_gained=total,
+            days=[total, 0, 0, 0, 0, 0, 0],
+            source=HISTORY_SOURCE,
+            fetched_at=NOW - timedelta(hours=2),
+        )
+
+    body = client.get("/api/repos/pallets/flask").json()
+
+    assert body["star_history"] == [
+        {
+            "week_start": "2026-11-15",
+            "stars_gained": 9,
+            "days": [9, 0, 0, 0, 0, 0, 0],
+            "source": HISTORY_SOURCE,
+            "fetched_at": "2026-11-23T10:00:00Z",
+        },
+        {
+            "week_start": "2026-11-22",
+            "stars_gained": 3,
+            "days": [3, 0, 0, 0, 0, 0, 0],
+            "source": HISTORY_SOURCE,
+            "fetched_at": "2026-11-23T10:00:00Z",
+        },
+    ]
