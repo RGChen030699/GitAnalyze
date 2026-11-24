@@ -14,5 +14,5 @@ class RepositoryDetailView(APIView):
     permission_classes = [AllowAny]
 
     def get(self, request: Request, owner: str, name: str) -> Response:
-        repo = Repository.objects.get(full_name=f"{owner}/{name}")
+        repo = Repository.objects.get(full_name__iexact=f"{owner}/{name}")
         return Response(serialize_detail(repo))
