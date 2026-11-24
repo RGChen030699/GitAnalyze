@@ -27,3 +27,8 @@ def test_brief_interest_flat_when_gain_under_0_2_percent_of_total() -> None:
 def test_brief_interest_growing_when_up_more_than_10_percent() -> None:
     assert interest(111, 100, 10_000, False) == BriefAnswer("good", "Growing")
     assert interest(110, 100, 10_000, False) != BriefAnswer("good", "Growing")
+
+
+def test_brief_interest_cooling_when_down_more_than_10_percent() -> None:
+    assert interest(89, 100, 10_000, False) == BriefAnswer("warn", "Cooling")
+    assert interest(90, 100, 10_000, False) != BriefAnswer("warn", "Cooling")
