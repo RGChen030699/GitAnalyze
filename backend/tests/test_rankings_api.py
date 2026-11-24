@@ -243,3 +243,68 @@ def test_T3_sort_pushed_is_most_recent_first_with_null_last(client: Client) -> N
     make_repo("c/newer", pushed_at=datetime(2026, 11, 1, tzinfo=UTC))
 
     assert names(client, sort="pushed") == ["c/newer", "b/older", "a/missing"]
+
+
+def make_numbered_repos(count: int) -> list[str]:
+    expected = [f"owner/repo-{index:03d}" for index in range(count)]
+    for index, full_name in enumerate(expected):
+        make_repo(full_name, stars=10_000 - index)
+    return expected
+
+
+@pytest.mark.django_db
+def test_T4_default_limit_is_25(client: Client) -> None:
+    expected = make_numbered_repos(30)
+
+    body = client.get(URL).json()
+
+    assert [row["full_name"] for row in body["results"]] == expected[:25]
+    assert (body["page"], body["limit"], body["count"]) == (1, 25, 30)
+
+
+@pytest.mark.django_db
+@pytest.mark.parametrize("limit", [10, 25, 50, 100])
+def test_T4_allowed_limits(client: Client, limit: int) -> None:
+    make_numbered_repos(101)
+
+    body = client.get(URL, {"limit": limit}).json()
+
+    assert len(body["results"]) == limit
+    assert body["count"] == 101
+
+
+@pytest.mark.django_db
+def test_T5_page_2_continues_ranks(client: Client) -> None:
+    expected = make_numbered_repos(25)
+
+    assert names(client, limit=10, page=2) == expected[10:20]
+
+
+@pytest.mark.django_db
+def test_T5_page_past_end_is_empty(client: Client) -> None:
+    make_numbered_repos(3)
+
+    body = client.get(URL, {"limit": 10, "page": 2}).json()
+
+    assert body["results"] == []
+    assert body["count"] == 3
+
+
+@pytest.mark.django_db
+def test_T5_count_uses_filters(client: Client) -> None:
+    make_repo("a/python", language="Python")
+    make_repo("b/go", language="Go")
+
+    assert client.get(URL, {"lang": "Go"}).json()["count"] == 1
+
+
+@pytest.mark.django_db
+@pytest.mark.parametrize(
+    "params",
+    [{"limit": "7"}, {"limit": "abc"}, {"page": "0"}, {"page": "-1"}, {"page": "abc"}],
+)
+def test_T4_invalid_paging_returns_400(client: Client, params: dict[str, str]) -> None:
+    response = client.get(URL, params)
+
+    assert response.status_code == 400
+    assert response.json()["detail"]
