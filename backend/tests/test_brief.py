@@ -69,3 +69,8 @@ def test_brief_maintenance_steady_otherwise() -> None:
 def test_brief_issue_response_none_when_inputs_null() -> None:
     assert issue_response(None, 10) is None
     assert issue_response(10, None) is None
+
+
+def test_brief_issue_response_na_when_no_issues_opened_in_6_months() -> None:
+    assert issue_response(0, 0) == BriefAnswer("neutral", "N/A")
+    assert issue_response(0, 3) == BriefAnswer("neutral", "N/A")
