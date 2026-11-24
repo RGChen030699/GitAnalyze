@@ -258,3 +258,15 @@ def test_detail_unstored_data_is_null_not_zero(client: Client) -> None:
         assert field in body, field
         assert body[field] is None, field
         assert body["provenance"][field] is None, field
+
+
+@responses.activate
+@pytest.mark.django_db
+def test_F1_unknown_repo_returns_404_with_message(client: Client) -> None:
+    responses.get(f"{API_BASE_URL}/repos/nobody/missing", json={"message": "Not Found"}, status=404)
+
+    response = client.get("/api/repos/nobody/missing")
+
+    assert response.status_code == 404
+    assert response.json() == {"detail": "We couldn't find a public repository at nobody/missing"}
+    assert Repository.objects.count() == 0
