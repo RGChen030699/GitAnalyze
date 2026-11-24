@@ -43,3 +43,8 @@ def test_brief_interest_steady_within_10_percent_or_without_prior_stars() -> Non
 def test_brief_maintenance_none_when_inputs_null() -> None:
     assert maintenance(None, 100) is None
     assert maintenance(100, None) is None
+
+
+def test_brief_maintenance_stopped_when_no_commits_in_13_weeks() -> None:
+    assert maintenance(0, 40) == BriefAnswer("bad", "Stopped")
+    assert maintenance(0, 0) == BriefAnswer("bad", "Stopped")
