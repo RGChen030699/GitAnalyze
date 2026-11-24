@@ -4,7 +4,8 @@ missing, so the page shows N/A instead of guessing."""
 
 from collections.abc import Sequence
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timedelta
+from statistics import median
 from typing import Literal
 
 Tone = Literal["good", "warn", "bad", "neutral"]
@@ -15,6 +16,8 @@ COMMITS_DROP = 0.4
 COMMITS_RISE = 0.1
 KEEPING_UP_RATIO = 0.95
 FALLING_BEHIND_RATIO = 0.6
+ON_PACE_RATIO = 1.5
+SECONDS_PER_DAY = 86_400
 
 
 @dataclass(frozen=True)
@@ -26,6 +29,14 @@ class BriefAnswer:
 def _change(current: int, previous: int) -> float | None:
     """Relative change, or None when there is nothing to compare against."""
     return (current - previous) / previous if previous > 0 else None
+
+
+def _days(span: timedelta) -> float:
+    return span.total_seconds() / SECONDS_PER_DAY
+
+
+def _days_between(dates: Sequence[datetime]) -> list[float]:
+    return [_days(later - earlier) for earlier, later in zip(dates, dates[1:], strict=False)]
 
 
 def interest(
@@ -88,4 +99,9 @@ def release_pace(releases: Sequence[datetime] | None, now: datetime) -> BriefAns
         return None
     if not releases:
         return BriefAnswer("neutral", "No releases")
+    dates = sorted(releases)
+    usual_gap = median(_days_between(dates))
+    ratio = _days(now - dates[-1]) / usual_gap
+    if ratio <= ON_PACE_RATIO:
+        return BriefAnswer("good", "On its usual pace")
     return None
