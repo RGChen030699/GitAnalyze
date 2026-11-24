@@ -245,6 +245,85 @@ def test_T3_sort_pushed_is_most_recent_first_with_null_last(client: Client) -> N
     assert names(client, sort="pushed") == ["c/newer", "b/older", "a/missing"]
 
 
+@pytest.mark.django_db
+def test_F7_empty_database_not_prepared(client: Client) -> None:
+    body = client.get(URL).json()
+
+    assert body["prepared"] is False
+    assert body["updated_at"] is None
+    assert body["tracked"] == 0
+    assert body["languages"] == []
+    assert body["results"] == []
+
+
+@pytest.mark.django_db
+def test_F7_lookup_only_rows_still_not_prepared(client: Client) -> None:
+    make_repo("a/lookup", ranked_at=None)
+
+    body = client.get(URL).json()
+
+    assert body["prepared"] is False
+    assert body["tracked"] == 0
+
+
+@pytest.mark.django_db
+def test_T9_reports_tracked_and_newest_update(client: Client) -> None:
+    make_repo("a/old", ranked_at=datetime(2026, 11, 20, tzinfo=UTC), language="Go")
+    make_repo("b/new", ranked_at=NOW, language="Python")
+
+    body = client.get(URL, {"lang": "Go"}).json()
+
+    assert body["prepared"] is True
+    assert body["tracked"] == 2
+    assert body["count"] == 1
+    assert body["updated_at"] == "2026-11-23T12:00:00Z"
+
+
+@pytest.mark.django_db
+def test_T2_languages_sorted_by_repository_count(client: Client) -> None:
+    for index in range(2):
+        make_repo(f"python/repo-{index}", language="Python")
+        make_repo(f"go/repo-{index}", language="Go")
+    make_repo("rust/repo", language="Rust")
+    make_repo("none/repo")
+
+    assert client.get(URL).json()["languages"] == [
+        {"name": "Go", "count": 2},
+        {"name": "Python", "count": 2},
+        {"name": "Rust", "count": 1},
+    ]
+
+
+@pytest.mark.django_db
+def test_T2_languages_ignore_request_filters(client: Client) -> None:
+    make_repo("a/python", language="Python")
+    make_repo("b/go", language="Go")
+    unfiltered = client.get(URL).json()["languages"]
+
+    filtered = client.get(URL, {"lang": "Python", "page": 2}).json()["languages"]
+
+    assert filtered == unfiltered
+
+
+@pytest.mark.django_db
+def test_T2_languages_exclude_lookup_only_rows(client: Client) -> None:
+    make_repo("a/python", language="Python")
+    make_repo("b/lookup", language="Go", ranked_at=None)
+
+    assert client.get(URL).json()["languages"] == [{"name": "Python", "count": 1}]
+
+
+@pytest.mark.django_db
+def test_T2_languages_capped_at_15(client: Client) -> None:
+    for index in range(16):
+        make_repo(f"lang/repo-{index}", language=f"Lang{index:02d}")
+
+    languages = client.get(URL).json()["languages"]
+
+    assert len(languages) == 15
+    assert languages[-1]["name"] == "Lang14"
+
+
 def make_numbered_repos(count: int) -> list[str]:
     expected = [f"owner/repo-{index:03d}" for index in range(count)]
     for index, full_name in enumerate(expected):
