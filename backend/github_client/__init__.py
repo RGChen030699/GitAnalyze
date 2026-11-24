@@ -2,6 +2,7 @@
 
 from .client import GitHubClient
 from .errors import ForbiddenEndpointError, GitHubError, MissingTokenError, RateLimitError
+from .search import search_repositories
 from .types import GitHubResponse
 
 __all__ = [
@@ -11,4 +12,5 @@ __all__ = [
     "GitHubResponse",
     "MissingTokenError",
     "RateLimitError",
+    "search_repositories",
 ]

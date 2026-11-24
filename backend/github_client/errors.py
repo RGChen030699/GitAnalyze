@@ -17,7 +17,13 @@ class MissingTokenError(GitHubError):
 
 
 class RateLimitError(GitHubError):
-    """GitHub kept rate limiting the request after all attempts (C4)."""
+    """GitHub rate limited the request, or the client chose not to wait (C3, C4)."""
+
+    def __init__(
+        self, message: str, status_code: int | None = None, reset_at: int | None = None
+    ) -> None:
+        super().__init__(message, status_code=status_code)
+        self.reset_at = reset_at
 
 
 class ForbiddenEndpointError(GitHubError):

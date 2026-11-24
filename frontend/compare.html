@@ -321,7 +321,7 @@ footer .wrap{display:flex;flex-wrap:wrap;justify-content:space-between;gap:8px 2
 </main>
 
 <footer><div class="wrap">
-  <p class="note">Source: GitHub API via GitAnalyze. Sample data for now, fetched Nov 23, 2026, 12:04 UTC. Stars are bookmarks, not usage.</p>
+  <p class="note" id="srcNote">Source: GitHub API via GitAnalyze. Stars are bookmarks, not usage.</p>
   <p class="note"><a href="/about#dictionary">Definitions</a></p>
 </div></footer>
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
@@ -329,11 +329,15 @@ footer .wrap{display:flex;flex-wrap:wrap;justify-content:space-between;gap:8px 2
 <script src="/metrics.js"></script>
 <script src="/export.js"></script>
 <script src="/compare-list.js"></script>
-<script src="/sample.js"></script>
+<script src="/data.js"></script>
+<script src="/report-kit.js"></script>
 <script>
 (() => {
 'use strict';
-const { $, DAY, NOW, MON, fDay, fDayY, fMonY, n0, compact, signed, pct, sum, ago, esc, niceMax, niceTicks, ICON, toneIcon, recordFor, profileFor, build, analyse, frame, yAxis, xLabels, hover } = window.GA;
+const { $, DAY, fDay, fDayY, n0, compact, signed, pct, sum, esc, niceTicks, ICON, toneIcon, frame, yAxis, xLabels, hover } = window.GA;
+const NOW = Date.now();
+const CALC = 'GitHub is still calculating this. Check back in a minute.';
+const calc = (el) => { el.innerHTML = `<p class="note">${CALC}</p>`; };
 let tt; function toast(msg){ const t = $('#toast'); t.textContent = msg; t.classList.add('show'); clearTimeout(tt); tt = setTimeout(() => t.classList.remove('show'), 3200); }
 const SERIES = [{ c:'var(--c1)', dash:'' }, { c:'var(--c2)', dash:'9 6' }, { c:'var(--c3)', dash:'2 6' }];
 const lineSwatch = (i, w = 34) => `<svg class="ls" width="${w}" height="8" aria-hidden="true"><line x1="1" x2="${w-1}" y1="4" y2="4" style="stroke:${SERIES[i].c}" stroke-width="3" stroke-dasharray="${SERIES[i].dash}" stroke-linecap="round"/></svg>`;
@@ -344,13 +348,35 @@ function fromUrl(){ const q = new URLSearchParams(location.search).get('repos');
 let fulls = (fromUrl() || GACompare.list().map(r => r.owner + '/' + r.name)).filter((v, i, a) => a.findIndex(x => x.toLowerCase() === v.toLowerCase()) === i).slice(0, 3);
 if (fromUrl() && fromUrl().length > 3) setTimeout(() => toast('Compare up to 3 repositories at a time.'), 300);
 /* keep the saved list in step with what's on screen */
-const recOf = (full) => GACompare.find(full) || recordFor(full);
+const recOf = (full) => { const c = cache.get(full.toLowerCase()); if (c) return c.rec; const [owner, name] = full.split('/'); return GACompare.find(full) || { owner, name }; };
+const cache = new Map();
 GACompare.set(fulls.map(recOf));
 
 let items = [];
-function compute(){ items = fulls.map(full => { const rec = recOf(full); const P = profileFor(rec); const D = build(P); const A = analyse(P, D); return { full, rec, P, D, A, total: D.weeks[D.weeks.length-1].total }; }); }
+function compute(){ items = fulls.map(full => cache.get(full.toLowerCase())).filter(Boolean); }
+async function fetchOne(full){
+  if (cache.has(full.toLowerCase())) return true;
+  const [owner, name] = full.split('/');
+  let res = null;
+  try { res = await fetch('/api/repos/' + encodeURIComponent(owner) + '/' + encodeURIComponent(name)); } catch (_) { res = null; }
+  if (!res || !res.ok) {
+    const body = res ? await res.json().catch(() => ({})) : {};
+    toast(res && res.status === 404 ? (body.detail || `We couldn’t find a public repository at ${full}`) : 'GitHub is busy. Try again in a few minutes.');
+    return false;
+  }
+  const det = await res.json(); const { P, D, A } = GAData.reportModel(det, NOW);
+  cache.set(full.toLowerCase(), { full: det.full_name, rec: GAData.compareRecord(det, NOW), P, D, A, total: det.stars, fetchedAt: det.fetched_at });
+  return true;
+}
+async function loadAll(){
+  const ok = await Promise.all(fulls.map(fetchOne));
+  fulls = fulls.filter((_, i) => ok[i]).map(f => cache.get(f.toLowerCase()).full);
+  GACompare.set(fulls.map(recOf));
+  render();
+}
 function syncUrl(){ const u = fulls.length ? GACompare.url(fulls.map(f => { const [owner, name] = f.split('/'); return { owner, name }; })) : '/compare'; history.replaceState(null, '', u); document.title = fulls.length ? `Compare ${fulls.map(f => f.split('/')[1]).join(', ')} · GitAnalyze` : 'Compare · GitAnalyze'; }
-function reportHref(it){ const r = it.rec; const q = new URLSearchParams({ s:r.status, l:r.lang, st:String(r.stars), p:String(r.pushed), c:String(r.contributors), o:r.ownerType, d:r.desc || '' }); if (r.ai) q.set('ai','1'); if (r.spike) q.set('sp','1'); if (r.trending) q.set('t', String(r.trending)); return `/repo/${encodeURIComponent(r.owner)}/${encodeURIComponent(r.name)}?${q}`; }
+function reportHref(it){ const r = it.rec; return `/repo/${encodeURIComponent(r.owner)}/${encodeURIComponent(r.name)}`; }
+const fetchedAt = () => GAData.utcStamp(items.map(it => it.fetchedAt).filter(Boolean).sort().slice(-1)[0] || null);
 
 /* ---------- rows: one definition drives the table, the CSV and the Excel file ---------- */
 const relDays = (it) => it.A.lastRel ? Math.round(it.A.relDays) : null;
@@ -366,26 +392,26 @@ const ROWS = [
   { g:'Popularity' },
   { l:'Total stars', k:'stars', v: it => it.total, best:'high', fmt: n0 },
   { l:'Stars gained, 30 days', k:'gained', v: it => it.A.g30, best:'high', fmt: signed },
-  { l:'Change on the 30 days before', v: it => it.A.momChange, best:'high', fmt: x => pct(x) },
-  { l:'Star pattern', k:'star_pattern', v: it => it.A.checks[3].t, tone: it => it.A.checks[3].tone, txt:true },
+  { l:'Change on the 15 days before', v: it => it.A.interestChange, best:'high', fmt: x => pct(x) },
+  { l:'Star pattern', k:'star_pattern', v: it => it.A.checks[3].na ? null : it.A.checks[3].t, tone: it => it.A.checks[3].tone, txt:true },
   { g:'Maintenance' },
-  { l:'Last commit', k:'commit', v: it => Math.round((NOW - it.A.lastCommit)/DAY), best:'low', fmt: x => x <= 0 ? 'Today' : x === 1 ? '1 day ago' : `${n0(x)} days ago` },
+  { l:'Last commit', k:'commit', v: it => it.A.lastCommit === null ? null : Math.round((NOW - it.A.lastCommit)/DAY), best:'low', fmt: x => x <= 0 ? 'Today' : x === 1 ? '1 day ago' : `${n0(x)} days ago` },
   { l:'Commits, 13 weeks', k:'commits_13w', v: it => it.A.commits90, best:'high', fmt: n0 },
   { l:'Change on the 13 weeks before', v: it => it.A.devChange, best:'high', fmt: x => pct(x) },
   { l:'Releases, 12 months', k:'releases_12m', v: it => it.A.rel12, best:'high', fmt: n0 },
   { l:'Days since last release', v: relDays, best:'low', fmt: n0, sub: it => it.A.medGap ? `Usually every ${Math.round(it.A.medGap)} days` : '' },
   { g:'People and trust' },
   { l:'Contributors', k:'contributors', v: it => it.rec.contributors, best:'high', fmt: n0 },
-  { l:'Top contributor’s share', k:'maintainers', v: it => Math.round(it.A.top*100), best:'low', fmt: x => x + '%', warn: it => it.A.single },
-  { l:'License', k:'license', v: it => it.P.license === 'NOASSERTION' ? 'Custom or unrecognized' : it.P.license || 'No license', warn: it => it.P.license === 'NOASSERTION' || !it.P.license, txt:true },
-  { l:'Publisher', v: it => `${it.rec.ownerType}: ${it.rec.owner}`, txt:true },
+  { l:'Top contributor’s share', k:'maintainers', v: it => it.A.top === null ? null : Math.round(it.A.top*100), best:'low', fmt: x => x + '%', warn: it => it.A.single },
+  { l:'License', k:'license', v: it => it.P.license === null ? null : it.P.license === 'NOASSERTION' ? 'Custom or unrecognized' : it.P.license || 'No license', warn: it => it.P.license !== null && (it.P.license === 'NOASSERTION' || !it.P.license), txt:true },
+  { l:'Publisher', v: it => `${GAData.show(it.rec.ownerType)}: ${it.rec.owner}`, txt:true },
   { g:'Issues and pull requests' },
-  { l:'Open issues', k:'open_issues', v: it => it.P.openIssues, fmt: n0, sub: () => 'Bigger projects get more' },
+  { l:'Open issues', k:'open_issues', v: it => it.P.openIssues, fmt: n0, sub: () => 'Issues and pull requests together' },
   { l:'Issues closed per 100 opened', k:'close_ratio', v: it => it.A.closeRatio === null ? null : Math.round(it.A.closeRatio*100), best:'high', fmt: n0 },
   { l:'Pull requests merged', k:'prs_merged', v: it => it.A.mergeRate === null ? null : Math.round(it.A.mergeRate*100), best:'high', fmt: x => x + '%' },
   { g:'AI' },
-  { l:'AI skills', k:'ai', v: it => it.P.skills.length, fmt: x => x ? n0(x) : 'None found' },
-  { l:'Skills that run scripts', k:'scripts', v: it => it.P.skills.length ? it.A.scripted : null, best:'low', fmt: n0, warn: it => it.A.scripted > 0 }
+  { l:'AI skills', k:'ai', v: it => it.P.skills === null ? null : it.P.skills.length, fmt: x => x ? n0(x) : 'None found' },
+  { l:'Skills that run scripts', k:'scripts', v: it => it.P.skills && it.P.skills.length ? it.A.scripted : null, best:'low', fmt: n0, warn: it => it.A.scripted > 0 }
 ];
 function bestIdx(row){
   if (!row.best || items.length < 2) return new Set();
@@ -404,7 +430,7 @@ function render(){
   if (items.length < 2) { renderEmpty(); return; }
   const n = items.length;
   let h = `<div class="panel" style="overflow-x:auto"><table class="ctable"><caption class="sr" style="position:absolute;left:-9999px">Comparison of ${items.map(i => i.full).join(', ')}</caption><colgroup><col style="width:24%">${items.map(() => `<col>`).join('')}${n < 3 ? '<col style="width:14%">' : ''}</colgroup><thead><tr><th scope="col">Measure</th>`;
-  h += items.map((it, i) => `<th scope="col"><div class="colh">${lineSwatch(i)}<div class="top"><a href="${esc(reportHref(it))}">${esc(it.full)}</a><button class="rm" type="button" data-rm="${esc(it.full)}" aria-label="Remove ${esc(it.full)} from compare">${X}</button></div><span class="note">${esc(it.rec.lang)} · ${compact(it.total)} stars</span></div></th>`).join('');
+  h += items.map((it, i) => `<th scope="col"><div class="colh">${lineSwatch(i)}<div class="top"><a href="${esc(reportHref(it))}">${esc(it.full)}</a><button class="rm" type="button" data-rm="${esc(it.full)}" aria-label="Remove ${esc(it.full)} from compare">${X}</button></div><span class="note">${esc(GAData.show(it.rec.lang))} · ${compact(it.total)} stars</span></div></th>`).join('');
   if (n < 3) h += `<th scope="col"><a class="addcol" href="/">+ Add one more</a></th>`;
   h += '</tr></thead><tbody>';
   for (const row of ROWS) {
@@ -421,7 +447,7 @@ function render(){
     h += '</tr>';
   }
   h += `</tbody></table></div>
-  <p class="note">Highlighted cells are the best value in their row. “N/A” means GitHub has no data for it. Source: GitHub API via GitAnalyze. Data fetched Nov 23, 2026, 12:04 UTC. <a href="/about#dictionary">Definitions</a></p>
+  <p class="note">Highlighted cells are the best value in their row. “N/A” means GitHub has no data for it. Source: GitHub API via GitAnalyze. Data fetched ${fetchedAt()}. <a href="/about#dictionary">Definitions</a></p>
   <div class="grid2 even">
     <div class="card"><h3>Total stars, last 12 months</h3><div class="legend">${items.map((it, i) => `<span>${lineSwatch(i, 26)}&nbsp;${esc(it.full)}</span>`).join('')}</div><div class="chart" id="cStars" tabindex="0" style="height:240px"></div><p class="cap">Net stars. Stars are bookmarks, not usage. Source <code>GET /repos/{owner}/{repo}/stargazers/history</code></p></div>
     <div class="card"><h3>Commits per week, 4-week average</h3><div class="legend">${items.map((it, i) => `<span>${lineSwatch(i, 26)}&nbsp;${esc(it.full)}</span>`).join('')}</div><div class="chart" id="cCommits" tabindex="0" style="height:240px"></div><p class="cap">Source <code>GET /repos/{owner}/{repo}/stats/commit_activity</code></p></div>
@@ -458,17 +484,21 @@ function overlay(el, series, opts){
 }
 function drawCharts(){
   if (items.length < 2) return;
+  if (items.some(it => it.D.weeks.length < 2)) calc($('#cStars')); else drawStars();
+  if (items.some(it => !it.D.commits)) { calc($('#cCommits')); return; }
+  const comS = items.map(it => ({ name: it.full, pts: it.D.commits.map((c, i, a) => ({ t: c.t, v: sum(a.slice(Math.max(0, i-3), i+1).map(x => x.total)) / Math.min(4, i+1) })) }));
+  overlay($('#cCommits'), comS, { zero: true, label: 'Commits per week, 4-week average, for ' + items.map(i => i.full).join(', ') });
+}
+function drawStars(){
   const weeks = 52, end = Math.max(...items.map(it => it.D.weeks[it.D.weeks.length-1].t));
   const starS = items.map(it => { const byT = new Map(it.D.weeks.map(w => [w.t, w.total])); return { name: it.full, pts: Array.from({ length: weeks }, (_, i) => { const t = end - (weeks-1-i)*7*DAY; return { t, v: byT.has(t) ? byT.get(t) : null }; }) }; });
   overlay($('#cStars'), starS, { label: 'Total stars over the last 12 months for ' + items.map(i => i.full).join(', ') });
-  const comS = items.map(it => ({ name: it.full, pts: it.D.commits.map((c, i, a) => ({ t: c.t, v: sum(a.slice(Math.max(0, i-3), i+1).map(x => x.total)) / Math.min(4, i+1) })) }));
-  overlay($('#cCommits'), comS, { zero: true, label: 'Commits per week, 4-week average, for ' + items.map(i => i.full).join(', ') });
 }
 
 /* ---------- actions ---------- */
 document.addEventListener('click', (e) => {
   const rm = e.target.closest('[data-rm]');
-  if (rm) { fulls = fulls.filter(f => f !== rm.dataset.rm); GACompare.set(fulls.map(recOf)); toast(`Removed ${rm.dataset.rm} from compare.`); render(); return; }
+  if (rm) { fulls = fulls.filter(f => f.toLowerCase() !== rm.dataset.rm.toLowerCase()); GACompare.set(fulls.map(recOf)); toast(`Removed ${rm.dataset.rm} from compare.`); render(); return; }
 });
 $('#copyLink').onclick = () => { const url = location.href; (navigator.clipboard ? navigator.clipboard.writeText(url) : Promise.reject()).then(() => toast('Copied a link to this comparison.'), () => toast('Copy is blocked here. Copy the link from the address bar.')); };
 GAExport.mount($('#dlCmp'), (fmt) => {
@@ -476,7 +506,7 @@ GAExport.mount($('#dlCmp'), (fmt) => {
   ROWS.forEach(row => { if (row.g) { rows.push([row.g, ...items.map(() => '')]); return; }
     rows.push([row.l, ...items.map(it => { const v = row.v(it); return v === null || v === undefined ? 'N/A' : typeof v === 'number' && (!row.fmt || row.fmt === n0 || row.fmt === signed) ? v : showV(row, v); })]); });
   GAExport.download({ format: fmt, filename: 'gitanalyze-compare-' + items.map(it => it.P.name).join('-'), sheet: 'Compare', head, rows,
-    source: 'Source: GitHub API via GitAnalyze. Data fetched Nov 23, 2026, 12:04 UTC. Sample data. Definitions: /about#dictionary' });
+    source: `Source: GitHub API via GitAnalyze. Data fetched ${fetchedAt()}. Definitions: /about#dictionary` });
   toast(`Downloaded the comparison as ${fmt === 'xlsx' ? 'Excel' : 'CSV'} with the source and date.`);
 });
 const DEF = window.GA_METRICS || {};
@@ -491,7 +521,7 @@ document.addEventListener('click', (e) => {
   if (!def) return;
   const el = document.createElement('div'); el.className = 'popover panel'; el.setAttribute('role', 'dialog');
   el.style.cssText = 'position:absolute;z-index:60;max-width:340px;padding:14px 16px;box-shadow:var(--shadow);font-size:14px';
-  el.innerHTML = `<b style="font-size:15px">${esc(def.label)}</b><p style="margin:4px 0 8px;color:var(--ink-2)">${esc(def.means)}</p><p style="margin:0 0 6px"><b>How</b> ${esc(def.method)}</p><p style="margin:0 0 6px"><b>Source</b> <code class="mono" style="font-size:12px">${esc(def.source)}</code></p><p style="margin:0 0 6px"><b>Updated</b> Nov 23, 2026, 12:04 UTC</p><p class="note" style="margin:0"><b>Can’t tell you</b> ${esc(def.cannot)}</p><p class="note" style="margin:6px 0 0"><a href="/about#dictionary">All definitions</a></p>`;
+  el.innerHTML = `<b style="font-size:15px">${esc(def.label)}</b><p style="margin:4px 0 8px;color:var(--ink-2)">${esc(def.means)}</p><p style="margin:0 0 6px"><b>How</b> ${esc(def.method)}</p><p style="margin:0 0 6px"><b>Source</b> <code class="mono" style="font-size:12px">${esc(def.source)}</code></p><p style="margin:0 0 6px"><b>Updated</b> ${fetchedAt()}</p><p class="note" style="margin:0"><b>Can’t tell you</b> ${esc(def.cannot)}</p><p class="note" style="margin:6px 0 0"><a href="/about#dictionary">All definitions</a></p>`;
   document.body.appendChild(el);
   const r = b.getBoundingClientRect(); const left = Math.min(window.scrollX + r.left, window.scrollX + document.documentElement.clientWidth - el.offsetWidth - 12);
   el.style.left = Math.max(12, left) + 'px'; el.style.top = (window.scrollY + r.bottom + 6) + 'px';
@@ -503,7 +533,7 @@ $('#themeBtn').onclick = () => { const r = document.documentElement; const dark 
 try { const s = localStorage.getItem('ga-theme'); if (s) document.documentElement.dataset.theme = s; } catch (_) {}
 
 let rz; window.addEventListener('resize', () => { clearTimeout(rz); rz = setTimeout(drawCharts, 120); });
-render();
+loadAll();
 })();
 </script>
 <script src="/theme.js"></script>
