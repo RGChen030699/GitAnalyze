@@ -28,7 +28,7 @@ jobs:
           cache: pip
       - run: pip install -r requirements.txt
       - name: Refresh rankings
-        run: python backend/manage.py refresh_rankings --limit 100
+        run: python backend/manage.py refresh_rankings --limit 200
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           GITHUB_TOKEN: ${{ secrets.GH_API_TOKEN }}
