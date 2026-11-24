@@ -2,7 +2,14 @@
 
 from datetime import UTC, datetime, timedelta
 
-from repositories.brief import BriefAnswer, interest, issue_response, maintenance, release_pace
+from repositories.brief import (
+    BriefAnswer,
+    interest,
+    issue_response,
+    maintainer_concentration,
+    maintenance,
+    release_pace,
+)
 
 NOW = datetime(2026, 11, 23, 12, 0, tzinfo=UTC)
 
@@ -130,3 +137,9 @@ def test_brief_release_pace_usual_gap_is_median_of_last_8_gaps() -> None:
 
 def test_brief_release_pace_none_with_a_single_release() -> None:
     assert release_pace(days_ago(20), NOW) is None
+
+
+def test_brief_maintainer_concentration_none_without_commits() -> None:
+    assert maintainer_concentration(None) is None
+    assert maintainer_concentration([]) is None
+    assert maintainer_concentration([0, 0]) is None
