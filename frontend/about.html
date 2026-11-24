@@ -134,7 +134,7 @@ footer .wrap{display:flex;flex-wrap:wrap;justify-content:space-between;gap:8px 2
       GitAnalyze
     </a>
     <nav class="nav" aria-label="Main">
-      <a href="/">Check</a>
+      <a href="/">Main</a>
       <a href="/about" aria-current="page">How it works</a>
     </nav>
     <div class="tools">
@@ -334,5 +334,6 @@ $('#themeBtn').onclick = () => { const r = document.documentElement; const dark 
 try { const s = localStorage.getItem('ga-theme'); if (s) document.documentElement.dataset.theme = s; } catch (_) {}
 })();
 </script>
+<script src="/theme.js"></script>
 </body>
 </html>
