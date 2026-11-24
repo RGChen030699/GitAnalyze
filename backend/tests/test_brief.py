@@ -8,3 +8,7 @@ def test_brief_interest_none_when_inputs_null() -> None:
     assert interest(200, None, 10_000, False) is None
     assert interest(200, 100, None, False) is None
     assert interest(200, 100, 10_000, None) is None
+
+
+def test_brief_interest_spiky_when_star_pattern_check_fires() -> None:
+    assert interest(5_000, 100, 10_000, True) == BriefAnswer("warn", "Spiky")
