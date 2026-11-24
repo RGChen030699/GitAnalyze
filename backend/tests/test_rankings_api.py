@@ -129,3 +129,52 @@ def test_C8_row_includes_fields_and_provenance(client: Client) -> None:
     assert row["weeks_12"] == [1] * 12
     assert row["source"] == "/search/repositories?q=stars%3A%3E1000"
     assert row["fetched_at"] == "2026-11-23T12:00:00Z"
+
+
+@pytest.mark.django_db
+@pytest.mark.parametrize(
+    ("params", "expected"),
+    [
+        ({"sort": "gained"}, ["a/week", "b/month", "c/year"]),
+        ({"sort": "gained", "window": "7d"}, ["a/week", "b/month", "c/year"]),
+        ({"sort": "gained", "window": "30d"}, ["b/month", "c/year", "a/week"]),
+        ({"sort": "gained", "window": "1y"}, ["c/year", "a/week", "b/month"]),
+    ],
+)
+def test_G1_sort_gained_uses_window(
+    client: Client, params: dict[str, str], expected: list[str]
+) -> None:
+    make_repo("a/week", stars_gained_7d=30, stars_gained_30d=1, stars_gained_year=20)
+    make_repo("b/month", stars_gained_7d=20, stars_gained_30d=30, stars_gained_year=10)
+    make_repo("c/year", stars_gained_7d=10, stars_gained_30d=20, stars_gained_year=30)
+
+    assert names(client, **params) == expected
+
+
+@pytest.mark.django_db
+def test_T3_gained_sorts_negative_then_null_last(client: Client) -> None:
+    make_repo("a/missing", stars=999)
+    make_repo("b/negative", stars_gained_7d=-5)
+    make_repo("c/zero", stars_gained_7d=0)
+
+    assert names(client, sort="gained") == ["c/zero", "b/negative", "a/missing"]
+
+
+@pytest.mark.django_db
+def test_F7_gained_ties_break_by_full_name(client: Client) -> None:
+    make_repo("z/tied", stars_gained_7d=5)
+    make_repo("A/tied", stars_gained_7d=5)
+
+    assert names(client, sort="gained") == ["A/tied", "z/tied"]
+
+
+@pytest.mark.django_db
+@pytest.mark.parametrize(
+    "params",
+    [{"sort": "nope"}, {"sort": "gained", "window": "5y"}, {"window": "1w"}],
+)
+def test_T4_invalid_sort_or_window_returns_400(client: Client, params: dict[str, str]) -> None:
+    response = client.get(URL, params)
+
+    assert response.status_code == 400
+    assert response.json()["detail"]
