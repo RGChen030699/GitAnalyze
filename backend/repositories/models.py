@@ -34,9 +34,11 @@ class Repository(models.Model):
     health_fetched_at = models.DateTimeField(null=True, blank=True)
     # F8 G4: rank in each Trending list, e.g. {"weekly:all": 3, "daily:Python": 1}; null on none.
     trending = models.JSONField(null=True, blank=True)
-    trending_at = models.DateTimeField(
-        null=True, blank=True
-    )  # last read of the weekly overall list
+    # When the weekly overall Trending list was last read.
+    trending_at = models.DateTimeField(null=True, blank=True)
+    # F4: the AI capabilities panel (findings, rules, paths, source); null until scanned.
+    ai = models.JSONField(null=True, blank=True)
+    ai_fetched_at = models.DateTimeField(null=True, blank=True)
 
     class Meta:
         db_table = "repository"
