@@ -421,3 +421,32 @@ def test_only_the_client_names_github_hosts() -> None:
         if "github_client" not in p.parts and pattern.search(p.read_text())
     ]
     assert offenders == []
+
+
+@responses.activate
+def test_C5_no_wait_stats_return_pending_without_sleeping(sleeps: list[float]) -> None:
+    """A web request can't sleep for a minute, so it reports pending and tries on the next open."""
+    client = GitHubClient(clock=lambda: FIXED_NOW, sleep=sleeps.append, stats_retry_waits=())
+    path = f"{REPO_PATH}/stats/contributors"
+    responses.get(f"{API_BASE_URL}{path}", status=202)
+    result = client.get(path)
+    assert result.status == "pending"
+    assert len(responses.calls) == 1
+    assert sleeps == []
+
+
+@responses.activate
+def test_F2_last_page_is_read_from_link_header(client: GitHubClient) -> None:
+    path = f"{REPO_PATH}/contributors"
+    link = (
+        f'<{API_BASE_URL}/repositories/1/contributors?per_page=1&anon=1&page=2>; rel="next", '
+        f'<{API_BASE_URL}/repositories/1/contributors?per_page=1&anon=1&page=412>; rel="last"'
+    )
+    responses.get(f"{API_BASE_URL}{path}", json=[{"login": "a"}], headers={"Link": link})
+    assert client.get(path, params={"per_page": 1, "anon": 1}).last_page == 412
+
+
+@responses.activate
+def test_F2_last_page_is_none_without_link_header(client: GitHubClient) -> None:
+    responses.get(REPO_URL, json={"full_name": "octo/widget"})
+    assert client.get(REPO_PATH).last_page is None
