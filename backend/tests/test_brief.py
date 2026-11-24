@@ -112,3 +112,8 @@ def test_brief_release_pace_no_releases_when_none_published() -> None:
 def test_brief_release_pace_on_usual_pace_up_to_1_5x_its_gap() -> None:
     every_30_days = days_ago(45, 75, 105, 135)
     assert release_pace(every_30_days, NOW) == BriefAnswer("good", "On its usual pace")
+
+
+def test_brief_release_pace_overdue_beyond_1_5x_its_gap() -> None:
+    every_30_days = days_ago(60, 90, 120, 150)
+    assert release_pace(every_30_days, NOW) == BriefAnswer("warn", "Overdue, 2.0× its usual gap")
