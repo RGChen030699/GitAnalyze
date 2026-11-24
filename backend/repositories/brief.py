@@ -108,3 +108,13 @@ def release_pace(releases: Sequence[datetime] | None, now: datetime) -> BriefAns
     if ratio <= ON_PACE_RATIO:
         return BriefAnswer("good", "On its usual pace")
     return BriefAnswer("warn", f"Overdue, {ratio:.1f}× its usual gap")
+
+
+def maintainer_concentration(commits_per_person: Sequence[int] | None) -> BriefAnswer | None:
+    """What if one person leaves? The top contributor's share of last year's commits.
+
+    ``commits_per_person`` covers the last 365 days, with bot accounts already removed (F2 M2).
+    """
+    if commits_per_person is None or sum(commits_per_person) == 0:
+        return None
+    return None
