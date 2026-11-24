@@ -92,6 +92,11 @@ test('briefFindings keeps the five questions in order and shows N/A for a null a
   assert.equal(D.briefFindings(null).every(([, a]) => a.v === 'N/A'), true);
 });
 
+test('briefFindings gives interest evidence from its window_days', () => {
+  const f = D.briefFindings({ interest: { tone: 'neutral', value: 'Steady', window_days: 15 } });
+  assert.deepEqual(f[0][1], { tone: 'neutral', v: 'Steady', e: 'Net stars in 15 days, change on the 15 days before' });
+});
+
 test('statusTone maps status to its tone and null to neutral', () => {
   assert.equal(D.statusTone('Active'), 'good');
   assert.equal(D.statusTone('Slowing'), 'warn');

@@ -60,3 +60,29 @@ def test_report_pages_show_calculating_message_for_null_charts(page: str) -> Non
 
 def test_sample_js_is_gone() -> None:
     assert not (FRONTEND / "sample.js").exists()
+
+
+def test_about_page_describes_15_day_interest_rule() -> None:
+    about = read("about.html")
+
+    assert "Stars in the last 15 days against the 15 days before" in about
+    assert "Flat (under 0.1% of its total stars in 15 days)" in about
+    assert "Stars in the last 30 days against the 30 days before" not in about
+    assert "0.2%" not in about
+
+
+def test_report_interest_text_compares_with_the_15_days_before() -> None:
+    repo = read("repo.html")
+
+    assert "more stars than the 15 days before." in repo
+    assert "Interest is cooling compared with the 15 days before." in repo
+    assert "the 30 days before" not in repo
+    assert "Stars gained, 30 days" in repo  # 30-day numbers stay
+
+
+def test_compare_interest_row_uses_the_15_days_before() -> None:
+    compare = read("compare.html")
+
+    assert "Change on the 15 days before" in compare
+    assert "Change on the 30 days before" not in compare
+    assert "Stars gained, 30 days" in compare  # 30-day numbers stay
