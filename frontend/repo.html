@@ -391,6 +391,7 @@ footer .wrap{display:flex;flex-wrap:wrap;justify-content:space-between;gap:8px 2
       <div class="readme-wrap" id="readmeWrap"><div class="md" id="readmeBody"></div></div>
       <div class="readme-more" id="readmeMore" hidden>
         <button class="btn load-more" type="button" id="readmeBtn"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M6 13l6 6 6-6"/></svg>Load more</button>
+        <button class="btn load-more" type="button" id="readmeLess" hidden><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 19V5M6 11l6-6 6 6"/></svg>Show less</button>
         <span class="note" id="readmeNote" aria-live="polite"></span>
       </div>
       <p class="cap" id="readmeCap"></p>
@@ -563,7 +564,7 @@ function renderAbout(){
   $('#repoAbout').hidden = !summary && !topics.length;
 }
 /* README section: rendered on the server (sanitized); shown one screen at a time. */
-let readmeShown = 0, readmeHeights = [];
+let readmeShown = 0, readmeFirst = 0, readmeHeights = [];
 function renderReadme(){
   const html = DETAIL.readme_html, body = $('#readmeBody'), origin = DETAIL.provenance && DETAIL.provenance.readme_html;
   $('#readmeCap').innerHTML = origin ? `Source <code>GET /repos/${esc(P.owner)}/${esc(P.name)}/readme</code> · <span>Updated ${GAData.utcStamp(origin.fetched_at)}</span> · <a href="https://github.com/${encodeURIComponent(P.owner)}/${encodeURIComponent(P.name)}#readme" target="_blank" rel="noopener">View on GitHub</a>` : '';
@@ -575,6 +576,15 @@ function renderReadme(){
   readmeHeights = blocks.map(el => el.offsetHeight + parseFloat(getComputedStyle(el).marginBottom || 0));
   readmeShown = 0;
   readmeMore();
+  readmeFirst = readmeShown;
+}
+/* Back to the first screen, keeping the reader at the top of the README. */
+function readmeLess(){
+  readmeShown = 0;
+  readmeMore();
+  const top = $('#s-readme').getBoundingClientRect().top + window.scrollY - 80;
+  if (window.scrollY > top) window.scrollTo({ top, behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
+  $('#readmeBtn').focus();
 }
 function readmeMore(){
   const blocks = [...$('#readmeBody').children], screen = Math.max(480, Math.round(window.innerHeight * 0.8));
@@ -582,10 +592,12 @@ function readmeMore(){
   blocks.forEach((el, i) => el.classList.toggle('rm-hidden', i >= readmeShown));
   const total = readmeHeights.reduce((a, b) => a + b, 0) || 1;
   const seen = readmeHeights.slice(0, readmeShown).reduce((a, b) => a + b, 0);
-  const rest = readmeShown < blocks.length;
-  $('#readmeMore').hidden = !rest;
+  const rest = readmeShown < blocks.length, expanded = readmeFirst > 0 && readmeShown > readmeFirst;
+  $('#readmeMore').hidden = !rest && !expanded;
+  $('#readmeBtn').hidden = !rest;
+  $('#readmeLess').hidden = !expanded;
   $('#readmeWrap').classList.toggle('more', rest);
-  $('#readmeNote').textContent = rest ? `Showing about ${Math.max(1, Math.round(seen / total * 100))}% of the README` : '';
+  $('#readmeNote').textContent = rest ? `Showing about ${Math.max(1, Math.round(seen / total * 100))}% of the README` : expanded ? 'Showing the whole README' : '';
 }
 function renderHead(){
   $('#repoTitle').innerHTML = `<span class="own">${esc(P.owner)} /</span> ${esc(P.name)}`;
@@ -981,6 +993,7 @@ async function load(){
   cmpButton();
 }
 $('#readmeBtn').addEventListener('click', readmeMore);
+$('#readmeLess').addEventListener('click', readmeLess);
 let rz; window.addEventListener('resize', () => { if (!A) return; clearTimeout(rz); rz = setTimeout(drawCharts, 120); });
 load();
 cmpButton();

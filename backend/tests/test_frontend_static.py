@@ -130,3 +130,4 @@ def test_readme_tab_sits_right_after_summary_and_loads_more() -> None:
     assert summary < readme < momentum
     assert 'id="s-readme"' in text
     assert "Load more" in text
+    assert "Show less" in text  # collapses back to the first screen
