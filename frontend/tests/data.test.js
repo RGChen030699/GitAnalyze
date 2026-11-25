@@ -359,17 +359,25 @@ test('F4 rankings rows keep the ai flag, null when not scanned', () => {
 
 /* README Load more / Show less move by exactly one step of pixels, between the first screen and the whole README. */
 test('README readmeStep adds or removes exactly one step, clamped to the first screen and the end', () => {
-  assert.equal(D.readmeStep(560, 1, 560, 3000), 1120);
-  assert.equal(D.readmeStep(1120, -1, 560, 3000), 560);
-  assert.equal(D.readmeStep(3000, -1, 560, 3000), 2440);
-  assert.equal(D.readmeStep(2440, -1, 560, 3000), 1880);
-  assert.equal(D.readmeStep(2800, 1, 560, 3000), 3000);
-  assert.equal(D.readmeStep(700, -1, 560, 3000), 560);
-  assert.equal(D.readmeStep(0, 0, 560, 300), 300);
+  assert.equal(D.readmeStep(560, 1, 560, 560, 3000), 1120);
+  assert.equal(D.readmeStep(1120, -1, 560, 560, 3000), 560);
+  assert.equal(D.readmeStep(3000, -1, 560, 560, 3000), 2440);
+  assert.equal(D.readmeStep(2440, -1, 560, 560, 3000), 1880);
+  assert.equal(D.readmeStep(2800, 1, 560, 560, 3000), 3000);
+  assert.equal(D.readmeStep(700, -1, 560, 560, 3000), 560);
+  assert.equal(D.readmeStep(0, 0, 560, 560, 300), 300);
 });
 
 test('README readmeStep folds a leftover under a quarter step into the step, so no click moves only a sliver', () => {
-  assert.equal(D.readmeStep(1130, -1, 560, 2250), 560);
-  assert.equal(D.readmeStep(1600, 1, 560, 2250), 2250);
-  assert.equal(D.readmeStep(1300, -1, 560, 2250), 740);
+  assert.equal(D.readmeStep(1130, -1, 560, 560, 2250), 560);
+  assert.equal(D.readmeStep(1600, 1, 560, 560, 2250), 2250);
+  assert.equal(D.readmeStep(1300, -1, 560, 560, 2250), 740);
+});
+
+test('README first view can be shorter than a step; steps still move one full step from it', () => {
+  assert.equal(D.readmeStep(0, 0, 560, 336, 3000), 336);
+  assert.equal(D.readmeStep(336, 1, 560, 336, 3000), 896);
+  assert.equal(D.readmeStep(896, -1, 560, 336, 3000), 336);
+  assert.equal(D.readmeStep(3000, -1, 560, 336, 3000), 2440);
+  assert.equal(D.readmeStep(0, 0, 560, 336, 200), 200);
 });
