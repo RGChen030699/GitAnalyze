@@ -43,6 +43,16 @@
         o.textContent.replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c])) + '</li>').join('');
       const chosen = select.options[select.selectedIndex];
       button.textContent = chosen ? chosen.textContent : '';
+      fitWidth();
+    }
+    /* The box is as wide as its longest option, and the menu matches the box exactly. */
+    const ruler = document.createElement('canvas').getContext('2d');
+    function fitWidth() {
+      const style = getComputedStyle(button);
+      ruler.font = style.fontWeight + ' ' + style.fontSize + ' ' + style.fontFamily;
+      const longest = Math.max(0, ...Array.from(select.options).map((o) => ruler.measureText(o.textContent).width));
+      // option text sits 30px in (room for the check) and 12px from the right, plus list padding and borders
+      button.style.minWidth = Math.ceil(longest + 30 + 12 + 6 * 2 + 2) + 'px';
     }
     function highlight(i) {
       const items = options();
@@ -58,7 +68,7 @@
       const top = r.bottom + 6;
       list.style.top = top + 'px';
       list.style.left = r.left + 'px';
-      list.style.minWidth = r.width + 'px';
+      list.style.width = r.width + 'px';
       list.style.maxHeight = Math.max(160, Math.min(320, window.innerHeight - top - 12)) + 'px';
     }
     function open() {
