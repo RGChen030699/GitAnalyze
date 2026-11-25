@@ -403,7 +403,7 @@ footer .wrap{display:flex;flex-wrap:wrap;justify-content:space-between;gap:8px 2
         </div>
         <div class="rm-mid">
           <span class="note" id="readmeNote" aria-live="polite"></span>
-          <button class="btn rm-end" type="button" id="readmeEnd" aria-label="Go to the end of the README" title="Go to the end of the README"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v13M6 11l6 6 6-6M5 20h14"/></svg></button>
+          <button class="btn rm-end" type="button" id="readmeEnd" aria-label="Go to the end of the README so far" title="Go to the end of the README so far"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v13M6 11l6 6 6-6M5 20h14"/></svg></button>
         </div>
         <div class="rm-group rm-close">
           <button class="btn load-more" type="button" id="readmeLess"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 19V5M6 11l6-6 6 6"/></svg>Show less</button>
@@ -612,10 +612,8 @@ function readmeClose(){
   $('#readmeBtn').focus();
 }
 function readmeEnd(){
-  if (readmeShown() < readmeHeights.length) readmeAll();
   const bar = $('#readmeMore'), top = bar.getBoundingClientRect().bottom + window.scrollY - window.innerHeight + 24;
   window.scrollTo({ top: Math.max(top, 0), behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
-  $('#readmeClose').focus({ preventScroll: true });
 }
 function readmeApply(){
   const blocks = readmeBlocks(), shown = readmeShown(), rest = shown < blocks.length, expanded = readmeCuts.length > 1;
@@ -623,7 +621,7 @@ function readmeApply(){
   const total = readmeHeights.reduce((x, y) => x + y, 0) || 1, seen = readmeHeights.slice(0, shown).reduce((x, y) => x + y, 0);
   $('#readmeMore').hidden = !rest && !expanded;
   $('#readmeBtn').hidden = $('#readmeAll').hidden = !rest;
-  $('#readmeEnd').hidden = !(rest && expanded);
+  $('#readmeEnd').hidden = !expanded;
   $('#readmeLess').hidden = $('#readmeClose').hidden = !expanded;
   $('#readmeWrap').classList.toggle('more', rest);
   $('#readmeNote').textContent = rest ? `Showing about ${Math.max(1, Math.round(seen / total * 100))}% of the README` : expanded ? 'Showing the whole README' : '';
