@@ -87,7 +87,7 @@ button,input,select{font:inherit;color:inherit}
 .readme-more{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:12px}
 .rm-group{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
 .rm-close{justify-content:flex-end}
-.rm-mid{display:flex;align-items:center;justify-content:center;gap:8px;text-align:center}
+.rm-mid{display:flex;flex-direction:column;align-items:center;gap:8px;text-align:center}
 .rm-mid [hidden]{display:none}
 .btn.rm-end{width:44px;min-width:44px;padding:0;border-radius:999px;flex:none}
 @media (max-width:760px){.readme-more{grid-template-columns:1fr}.rm-group,.rm-close{justify-content:center}.rm-mid{order:-1}}
@@ -622,7 +622,8 @@ function readmeApply(){
   blocks.forEach((el, i) => el.classList.toggle('rm-hidden', i >= shown));
   const total = readmeHeights.reduce((x, y) => x + y, 0) || 1, seen = readmeHeights.slice(0, shown).reduce((x, y) => x + y, 0);
   $('#readmeMore').hidden = !rest && !expanded;
-  $('#readmeBtn').hidden = $('#readmeAll').hidden = $('#readmeEnd').hidden = !rest;
+  $('#readmeBtn').hidden = $('#readmeAll').hidden = !rest;
+  $('#readmeEnd').hidden = !(rest && expanded);
   $('#readmeLess').hidden = $('#readmeClose').hidden = !expanded;
   $('#readmeWrap').classList.toggle('more', rest);
   $('#readmeNote').textContent = rest ? `Showing about ${Math.max(1, Math.round(seen / total * 100))}% of the README` : expanded ? 'Showing the whole README' : '';
