@@ -357,20 +357,13 @@ test('F4 rankings rows keep the ai flag, null when not scanned', () => {
   assert.equal(D.toRow({ ...apiRow, ai: null }, NOW).ai, null);
 });
 
-/* README section: how many blocks fit in one more screen. */
-test('README readmeCut adds blocks until one screen is full, at least one block', () => {
-  assert.equal(D.readmeCut([100, 200, 300, 400], 0, 450), 2);
-  assert.equal(D.readmeCut([100, 200, 300, 400], 2, 450), 3);
-  assert.equal(D.readmeCut([900, 100], 0, 450), 1);
-  assert.equal(D.readmeCut([100, 100], 1, 450), 2);
-  assert.equal(D.readmeCut([], 0, 450), 0);
-});
-
-/* README Show less: removes about one screen, the mirror of Load more, never below the first screen. */
-test('README readmeBack removes one screen of blocks, at least one, never below the floor', () => {
-  assert.equal(D.readmeBack([100, 200, 300, 400], 4, 450, 1), 3);
-  assert.equal(D.readmeBack([100, 200, 300, 100], 4, 450, 1), 2);
-  assert.equal(D.readmeBack([100, 200, 900], 3, 450, 1), 2);
-  assert.equal(D.readmeBack([100, 100, 100], 3, 9999, 1), 1);
-  assert.equal(D.readmeBack([100, 100], 1, 450, 1), 1);
+/* README Load more / Show less move by exactly one step of pixels, between the first screen and the whole README. */
+test('README readmeStep adds or removes exactly one step, clamped to the first screen and the end', () => {
+  assert.equal(D.readmeStep(560, 1, 560, 3000), 1120);
+  assert.equal(D.readmeStep(1120, -1, 560, 3000), 560);
+  assert.equal(D.readmeStep(3000, -1, 560, 3000), 2440);
+  assert.equal(D.readmeStep(2440, -1, 560, 3000), 1880);
+  assert.equal(D.readmeStep(2800, 1, 560, 3000), 3000);
+  assert.equal(D.readmeStep(700, -1, 560, 3000), 560);
+  assert.equal(D.readmeStep(0, 0, 560, 300), 300);
 });
