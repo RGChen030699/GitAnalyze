@@ -21,11 +21,18 @@ TAGS_PAGE_SIZE = 100
 Part = dict[str, Any]
 
 
+# Bump when a part is added, so health stored by older code is fetched again on the next open.
+# 2: the README summary.
+HEALTH_VERSION = 2
+VERSION_KEY = "version"
+
+
 def health_is_stale(repo: Repository, now: datetime) -> bool:
-    """Missing, over 24 hours old, still calculating last time, or stored before a part existed."""
+    """Missing, over 24 hours old, still calculating last time, or stored by older code."""
     if repo.health_fetched_at is None or now - repo.health_fetched_at >= HEALTH_TTL:
         return True
-    return not set(PARTS) <= set(repo.health or {})
+    stored = repo.health
+    return stored is not None and stored.get(VERSION_KEY, 1) < HEALTH_VERSION
 
 
 def _origin(response: GitHubResponse) -> Part:
@@ -84,7 +91,9 @@ def refresh_health(client: GitHubClient, repo: Repository, now: datetime) -> lis
 
     Parts still pending leave ``health_fetched_at`` empty, so the next open tries again.
     """
-    previous: dict[str, Part] = dict(repo.health or {})
+    previous: dict[str, Part] = {
+        name: part for name, part in (repo.health or {}).items() if isinstance(part, dict)
+    }
     fetchers = dict(PARTS)
     if not repo.releases:
         fetchers["tags"] = _tags  # F2 V2: tags only matter when there are no releases
@@ -98,7 +107,7 @@ def refresh_health(client: GitHubClient, repo: Repository, now: datetime) -> lis
             if name in previous:
                 health[name] = previous[name]
     pending = any(part.get("status") == PENDING for part in health.values())
-    repo.health = health
+    repo.health = {**health, VERSION_KEY: HEALTH_VERSION}
     repo.health_fetched_at = None if pending else now
     repo.save(update_fields=["health", "health_fetched_at"])
     return failed
