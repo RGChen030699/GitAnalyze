@@ -62,10 +62,9 @@ button,input,select{font:inherit;color:inherit}
 .spinner{width:40px;height:40px;border-radius:50%;border:4px solid var(--accent-soft);border-top-color:var(--accent);animation:ga-spin .8s linear infinite}
 @keyframes ga-spin{to{transform:rotate(360deg)}}
 /* README section: GitHub-like typography in our tokens; one screen at a time. */
-.readme-wrap{position:relative}
+.readme-wrap{position:relative;overflow:hidden}
 .readme-wrap.more::after{content:'';position:absolute;left:0;right:0;bottom:0;height:72px;background:linear-gradient(to bottom,transparent,var(--surface));pointer-events:none}
 .md{font-size:15px;line-height:1.65;color:var(--ink);overflow-wrap:anywhere;min-width:0}
-.md>.rm-hidden{display:none!important}
 .md h1,.md h2{font-family:var(--display);border-bottom:1px solid var(--line-2);padding-bottom:6px}
 .md h1{font-size:26px;margin:4px 0 12px}.md h2{font-size:21px;margin:22px 0 10px}.md h3{font-size:17px;margin:18px 0 8px}.md h4,.md h5,.md h6{font-size:15px;margin:14px 0 6px}
 .md p,.md ul,.md ol,.md blockquote,.md pre,.md table,.md details{margin:0 0 12px}
@@ -581,33 +580,30 @@ function renderAbout(){
 }
 /* README section: rendered on the server (sanitized); shown one screen at a time.
    Left: Load more (one screen) and Load all. Right: Show less (back one screen) and Close all. */
-let readmeCuts = [], readmeHeights = [];
-const readmeBlocks = () => [...$('#readmeBody').children];
+let readmeShownPx = 0;
+const readmeTotal = () => $('#readmeWrap').scrollHeight;
+const readmeScreen = () => Math.max(480, Math.round(window.innerHeight * 0.7));
+const readmeFirst = () => Math.min(readmeScreen(), readmeTotal());
 function renderReadme(){
   const html = DETAIL.readme_html, body = $('#readmeBody'), origin = DETAIL.provenance && DETAIL.provenance.readme_html;
   $('#readmeCap').innerHTML = origin ? `Source <code>GET /repos/${esc(P.owner)}/${esc(P.name)}/readme</code> · <span>Updated ${GAData.utcStamp(origin.fetched_at)}</span> · <a href="https://github.com/${encodeURIComponent(P.owner)}/${encodeURIComponent(P.name)}#readme" target="_blank" rel="noopener">View on GitHub</a>` : '';
   if (!html) { body.innerHTML = '<p class="note">No README to show for this repository.</p>'; $('#readmeMore').hidden = true; return; }
   body.innerHTML = html;
   body.querySelectorAll('a[href^="http"]').forEach(a => { a.target = '_blank'; });
-  body.querySelectorAll('img').forEach(img => { img.loading = 'lazy'; img.decoding = 'async'; });
-  readmeHeights = readmeBlocks().map(el => el.offsetHeight + parseFloat(getComputedStyle(el).marginBottom || 0));
-  readmeCuts = [];
-  readmeMore();
+  body.querySelectorAll('img').forEach(img => { img.loading = 'lazy'; img.decoding = 'async'; img.addEventListener('load', readmeApply); });
+  readmeShownPx = 0;
+  readmeMove(0);
 }
-const readmeScreen = () => Math.max(480, Math.round(window.innerHeight * 0.7));
-const readmeShown = () => readmeCuts.length ? readmeCuts[readmeCuts.length - 1] : 0;
-function readmeMore(){ readmeCuts.push(GAData.readmeCut(readmeHeights, readmeShown(), readmeScreen())); readmeApply(); }
-function readmeAll(){ readmeCuts.push(readmeHeights.length); readmeApply(); }
+function readmeMove(dir){ readmeShownPx = GAData.readmeStep(readmeShownPx, dir, readmeScreen(), readmeTotal()); readmeApply(); }
+function readmeMore(){ readmeMove(1); }
+function readmeAll(){ readmeShownPx = readmeTotal(); readmeApply(); }
 function readmeLess(){
-  const back = GAData.readmeBack(readmeHeights, readmeShown(), readmeScreen(), readmeCuts[0]);
-  while (readmeCuts.length > 1 && readmeCuts[readmeCuts.length - 1] > back) readmeCuts.pop();
-  if (readmeShown() < back) readmeCuts.push(back);
-  readmeApply();
+  readmeMove(-1);
   $('#readmeMore').scrollIntoView({ block: 'nearest', behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
   ($('#readmeLess').hidden ? $('#readmeBtn') : $('#readmeLess')).focus();
 }
 function readmeClose(){
-  readmeCuts = readmeCuts.slice(0, 1);
+  readmeShownPx = readmeFirst();
   readmeApply();
   const top = $('#s-readme').getBoundingClientRect().top + window.scrollY - 80;
   if (window.scrollY > top) window.scrollTo({ top, behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
@@ -625,16 +621,17 @@ function readmeEnd(){
   window.scrollTo({ top: Math.max(top, 0), behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
 }
 function readmeApply(){
-  const blocks = readmeBlocks(), shown = readmeShown(), rest = shown < blocks.length, expanded = readmeCuts.length > 1;
-  blocks.forEach((el, i) => el.classList.toggle('rm-hidden', i >= shown));
-  const total = readmeHeights.reduce((x, y) => x + y, 0) || 1, seen = readmeHeights.slice(0, shown).reduce((x, y) => x + y, 0);
+  const total = readmeTotal(), first = readmeFirst();
+  readmeShownPx = Math.min(Math.max(readmeShownPx, first), total);
+  const rest = readmeShownPx < total, expanded = readmeShownPx > first;
+  $('#readmeWrap').style.maxHeight = rest ? `${readmeShownPx}px` : '';
   $('#readmeMore').hidden = !rest && !expanded;
   $('#readmeBtn').hidden = $('#readmeAll').hidden = !rest;
+  $('#readmeLess').hidden = $('#readmeClose').hidden = !expanded;
   readmeExpanded = expanded;
   readmeFloat();
-  $('#readmeLess').hidden = $('#readmeClose').hidden = !expanded;
   $('#readmeWrap').classList.toggle('more', rest);
-  $('#readmeNote').textContent = rest ? `Showing about ${Math.max(1, Math.round(seen / total * 100))}% of the README` : expanded ? 'Showing the whole README' : '';
+  $('#readmeNote').textContent = rest ? `Showing about ${Math.max(1, Math.round(readmeShownPx / total * 100))}% of the README` : expanded ? 'Showing the whole README' : '';
 }
 function renderHead(){
   $('#repoTitle').innerHTML = `<span class="own">${esc(P.owner)} /</span> ${esc(P.name)}`;

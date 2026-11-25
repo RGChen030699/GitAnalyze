@@ -253,18 +253,13 @@
 
   /* F6 P1: the API puts a fetch time on every value, not one for the whole response.
      "Last updated" is the newest of them; null when none has one. */
-  /** README section: the end index after adding one screen of blocks from start (at least one). */
-  function readmeCut(heights, start, screen) {
-    let end = start, used = 0;
-    while (end < heights.length && (end === start || used + heights[end] <= screen)) { used += heights[end]; end++; }
-    return end;
-  }
-
-  /** README Show less: the end index after removing one screen of blocks (at least one), not below floor. */
-  function readmeBack(heights, end, screen, floor) {
-    let start = end, removed = 0;
-    while (start > floor && (start === end || removed + heights[start - 1] <= screen)) { start--; removed += heights[start]; }
-    return start;
+  /** README: pixels shown after moving `dir` steps (+1 Load more, -1 Show less), kept between the first screen and the end. */
+  function readmeStep(shown, dir, step, total) {
+    const first = Math.min(step, total), sliver = step / 4;
+    let next = Math.min(total, Math.max(first, shown + dir * step));
+    if (dir < 0 && next - first < sliver) next = first;
+    if (dir > 0 && total - next < sliver) next = total;
+    return next;
   }
 
   function lastFetched(det) {
@@ -278,6 +273,6 @@
   return {
     DAY, WEEK, missing, show, compareNullable, sumKnown, daysAgo, statusTone, rankingsQuery, toRow,
     weeksFromHistory, daysFromHistory, briefFindings, compareRecord, utcStamp, updatedLabel, busyMinutes, lastFetched,
-    agoLabel, reportModel, readmeCut, readmeBack,
+    agoLabel, reportModel, readmeStep,
   };
 });
