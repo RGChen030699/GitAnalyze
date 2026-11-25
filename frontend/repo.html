@@ -594,7 +594,7 @@ function renderReadme(){
   readmeCuts = [];
   readmeMore();
 }
-const readmeScreen = () => Math.max(480, Math.round(window.innerHeight * 0.8));
+const readmeScreen = () => Math.max(480, Math.round(window.innerHeight * 0.7));
 const readmeShown = () => readmeCuts.length ? readmeCuts[readmeCuts.length - 1] : 0;
 function readmeMore(){ readmeCuts.push(GAData.readmeCut(readmeHeights, readmeShown(), readmeScreen())); readmeApply(); }
 function readmeAll(){ readmeCuts.push(readmeHeights.length); readmeApply(); }
