@@ -253,6 +253,13 @@
 
   /* F6 P1: the API puts a fetch time on every value, not one for the whole response.
      "Last updated" is the newest of them; null when none has one. */
+  /** README section: the end index after adding one screen of blocks from start (at least one). */
+  function readmeCut(heights, start, screen) {
+    let end = start, used = 0;
+    while (end < heights.length && (end === start || used + heights[end] <= screen)) { used += heights[end]; end++; }
+    return end;
+  }
+
   function lastFetched(det) {
     const times = [];
     Object.values((det && det.provenance) || {}).forEach((o) => { if (o && o.fetched_at) times.push(o.fetched_at); });
@@ -264,6 +271,6 @@
   return {
     DAY, WEEK, missing, show, compareNullable, sumKnown, daysAgo, statusTone, rankingsQuery, toRow,
     weeksFromHistory, daysFromHistory, briefFindings, compareRecord, utcStamp, updatedLabel, busyMinutes, lastFetched,
-    agoLabel, reportModel,
+    agoLabel, reportModel, readmeCut,
   };
 });
