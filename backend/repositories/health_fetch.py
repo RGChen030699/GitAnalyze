@@ -1,9 +1,10 @@
 """Fetch F2 health data when a report opens, and keep it for 24 hours.
 
 The daily ranking refresh doesn't do this: about 4 more requests for each of 1,000 repositories
-wouldn't fit in 5,000 requests an hour. A report open costs at most 4 requests, once a day.
+wouldn't fit in 5,000 requests an hour. A report open costs at most 5 requests, once a day.
 """
 
+import base64
 from collections.abc import Callable
 from datetime import datetime, timedelta
 from typing import Any
@@ -12,6 +13,7 @@ from github_client import GitHubClient, GitHubError, GitHubResponse
 from health.services import PENDING, contributor_commits, contributor_count
 
 from repositories.models import Repository
+from repositories.overview import readme_summary
 
 HEALTH_TTL = timedelta(hours=24)
 TAGS_PAGE_SIZE = 100
@@ -56,11 +58,22 @@ def _tags(client: GitHubClient, repo: Repository, now: datetime) -> Part:
     return {"items": names, **_origin(response)}
 
 
+def _readme(client: GitHubClient, repo: Repository, now: datetime) -> Part:
+    """The README's first real paragraph: what the repository is about, in its owner's words."""
+    response = client.get(f"/repos/{repo.full_name}/readme")
+    data = response.data if isinstance(response.data, dict) else {}
+    text = ""
+    if data.get("encoding") == "base64" and isinstance(data.get("content"), str):
+        text = base64.b64decode(data["content"]).decode("utf-8", errors="replace")
+    return {"summary": readme_summary(text), **_origin(response)}
+
+
 Fetcher = Callable[[GitHubClient, Repository, datetime], Part]
 PARTS: dict[str, Fetcher] = {
     "commit_activity": _commit_activity,
     "contributor_commits": _contributor_commits,
     "contributors": _contributors,
+    "readme": _readme,
 }
 
 

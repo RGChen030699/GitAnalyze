@@ -104,6 +104,13 @@ main.wrap{padding-top:10px;padding-bottom:72px;display:grid;grid-template-column
 .rhead h1{margin:0;font-family:var(--display);font-weight:650;font-size:clamp(28px,3.6vw,40px);letter-spacing:-.015em;line-height:1.1;word-break:break-word}
 .rhead h1 .own{color:var(--ink-3);font-weight:500}
 .rhead .desc{margin:4px 0 8px;color:var(--ink-2);font-size:16px;max-width:70ch}
+.rhead .about{margin:0 0 10px;max-width:80ch}
+.rhead .readme{margin:0 0 8px;color:var(--ink-2);font-size:14px;line-height:1.55}
+.rhead .readme .lbl{display:inline-block;margin-right:6px;padding:1px 8px;border-radius:999px;background:var(--surface-2);color:var(--ink-3);font-size:12px;font-weight:600;vertical-align:1px}
+.rhead .topics{display:flex;flex-wrap:wrap;gap:6px;margin:0;padding:0;list-style:none}
+.rhead .topics a{display:inline-flex;align-items:center;min-height:28px;padding:0 10px;border-radius:999px;border:1px solid var(--line);color:var(--ink-2);font-size:12.5px;font-weight:500;text-decoration:none}
+.rhead .topics a::before{content:'#';color:var(--ink-3);margin-right:1px}
+.rhead .topics a:hover{border-color:var(--accent);color:var(--accent-text)}
 .rhead .chips{display:flex;flex-wrap:wrap;gap:6px}
 .rhead .acts{display:flex;flex-wrap:wrap;gap:8px;justify-content:flex-end}
 .rhead>div:first-child{grid-row:span 2}
@@ -290,6 +297,10 @@ footer .wrap{display:flex;flex-wrap:wrap;justify-content:space-between;gap:8px 2
     <div>
       <h1 id="repoTitle"></h1>
       <p class="desc" id="repoDesc"></p>
+      <div class="about" id="repoAbout" hidden>
+        <p class="readme" id="repoReadme" hidden><span class="lbl">From the README</span> <span id="repoReadmeTxt"></span></p>
+        <ul class="topics" id="repoTopics" aria-label="GitHub topics" hidden></ul>
+      </div>
       <div class="chips" id="repoChips"></div>
     </div>
     <div class="acts">
@@ -503,9 +514,19 @@ const ui = { range:'1y', view:'gained' };
 /* F2: "Created" shown as age, e.g. "4 years old". */
 function ageLabel(t){ const y = (NOW - t) / (365.25*DAY); return y >= 1 ? `${Math.floor(y)} year${Math.floor(y) === 1 ? '' : 's'} old` : `${Math.max(1, Math.floor(y*12))} month${Math.floor(y*12) > 1 ? 's' : ''} old`; }
 /* ---------- render: head + verdict + brief + KPIs ---------- */
+/* What the repository is about: the README's first paragraph and the owner's GitHub topics. */
+function renderAbout(){
+  const summary = DETAIL.readme_summary, topics = DETAIL.topics || [];
+  $('#repoReadme').hidden = !summary;
+  $('#repoReadmeTxt').textContent = summary || '';
+  $('#repoTopics').hidden = !topics.length;
+  $('#repoTopics').innerHTML = topics.map(t => `<li><a href="https://github.com/topics/${encodeURIComponent(t)}" target="_blank" rel="noopener">${esc(t)}</a></li>`).join('');
+  $('#repoAbout').hidden = !summary && !topics.length;
+}
 function renderHead(){
   $('#repoTitle').innerHTML = `<span class="own">${esc(P.owner)} /</span> ${esc(P.name)}`;
   $('#repoDesc').textContent = P.desc;
+  renderAbout();
   const chips = [`<span class="chip">${esc(show(P.ownerType))}</span>`, `<span class="chip">${esc(show(P.lang))}</span>`, `<span class="chip">${P.created === null ? 'Age N/A' : esc(ageLabel(P.created))}</span>`];
   if (P.trending) chips.push(`<span class="chip warn">From GitHub Trending · #${P.trending}</span>`);
   if (P.skills && P.skills.length) chips.push(`<span class="chip accent">${P.skills.length} AI skills</span>`);

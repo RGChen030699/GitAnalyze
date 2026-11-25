@@ -92,7 +92,8 @@ def _health_origins(repo: Repository) -> dict[str, Origin]:
         "contributors": _part_origin(health.get("contributors")),
         **dict.fromkeys(CONTRIBUTOR_FIELDS, commits),
         **dict.fromkeys(("releases", "last_release", "releases_12m"), releases),
-        **dict.fromkeys(("license", "created_at"), repository),
+        **dict.fromkeys(("license", "created_at", "topics"), repository),
+        "readme_summary": _part_origin(health.get("readme")),
     }
 
 
@@ -208,6 +209,8 @@ def _health_values(repo: Repository, now: datetime) -> dict[str, Any]:
         **_contributor_values(health.get("contributor_commits")),
         **_release_values(repo, now),
         "license": _license(repo),
+        "topics": repo.raw.get("topics") if "topics" in repo.raw else None,
+        "readme_summary": (health.get("readme") or {}).get("summary"),
         "created_at": parse_datetime(created) if created else None,
     }
 
