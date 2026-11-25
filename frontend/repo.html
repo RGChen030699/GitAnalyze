@@ -583,7 +583,8 @@ function renderAbout(){
 let readmeShownPx = 0;
 const readmeTotal = () => $('#readmeWrap').scrollHeight;
 const readmeScreen = () => Math.max(480, Math.round(window.innerHeight * 0.7));
-const readmeFirst = () => Math.min(readmeScreen(), readmeTotal());
+const readmeFirstView = () => Math.max(280, Math.round(window.innerHeight * 0.4));
+const readmeFirst = () => Math.min(readmeFirstView(), readmeTotal());
 function renderReadme(){
   const html = DETAIL.readme_html, body = $('#readmeBody'), origin = DETAIL.provenance && DETAIL.provenance.readme_html;
   $('#readmeCap').innerHTML = origin ? `Source <code>GET /repos/${esc(P.owner)}/${esc(P.name)}/readme</code> · <span>Updated ${GAData.utcStamp(origin.fetched_at)}</span> · <a href="https://github.com/${encodeURIComponent(P.owner)}/${encodeURIComponent(P.name)}#readme" target="_blank" rel="noopener">View on GitHub</a>` : '';
@@ -594,7 +595,7 @@ function renderReadme(){
   readmeShownPx = 0;
   readmeMove(0);
 }
-function readmeMove(dir){ readmeShownPx = GAData.readmeStep(readmeShownPx, dir, readmeScreen(), readmeTotal()); readmeApply(); }
+function readmeMove(dir){ readmeShownPx = GAData.readmeStep(readmeShownPx, dir, readmeScreen(), readmeFirstView(), readmeTotal()); readmeApply(); }
 function readmeMore(){ readmeMove(1); }
 function readmeAll(){ readmeShownPx = readmeTotal(); readmeApply(); }
 function readmeLess(){

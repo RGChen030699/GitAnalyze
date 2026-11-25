@@ -253,9 +253,9 @@
 
   /* F6 P1: the API puts a fetch time on every value, not one for the whole response.
      "Last updated" is the newest of them; null when none has one. */
-  /** README: pixels shown after moving `dir` steps (+1 Load more, -1 Show less), kept between the first screen and the end. */
-  function readmeStep(shown, dir, step, total) {
-    const first = Math.min(step, total), sliver = step / 4;
+  /** README: pixels shown after moving `dir` steps (+1 Load more, -1 Show less), kept between the first view and the end. */
+  function readmeStep(shown, dir, step, firstView, total) {
+    const first = Math.min(firstView, total), sliver = step / 4;
     let next = Math.min(total, Math.max(first, shown + dir * step));
     if (dir < 0 && next - first < sliver) next = first;
     if (dir > 0 && total - next < sliver) next = total;
