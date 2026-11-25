@@ -347,3 +347,17 @@ def test_overview_missing_readme_and_topics_are_null(client: Client) -> None:
     assert body["readme_summary"] is None
     assert body["topics"] is None
     assert body["commit_activity"]["status"] == "ok"
+
+
+@responses.activate
+@pytest.mark.django_db
+def test_overview_fresh_health_from_before_the_readme_part_fetches_it_now(client: Client) -> None:
+    old_health = {"contributors": {"count": 5, "source": "/x", "fetched_at": NOW.isoformat()}}
+    make_repo(health=old_health, health_fetched_at=NOW - timedelta(hours=2))
+    mock_health()
+
+    body = client.get(DETAIL_URL).json()
+
+    assert body["readme_summary"] == (
+        "Flask is a lightweight WSGI web application framework for Python."
+    )
