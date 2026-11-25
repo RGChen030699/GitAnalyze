@@ -131,7 +131,8 @@ def test_overview_paragraph_stops_where_a_list_starts() -> None:
 def test_overview_reference_style_badges_and_definitions_are_skipped_denoland_deno() -> None:
     text = (
         "# Deno\n\n"
-        "![Twitter badge][Twitter link] ![Bluesky badge][Bluesky link] ![Discord badge][Discord link]\n\n"
+        "![Twitter badge][Twitter link] ![Bluesky badge][Bluesky link] "
+        "![Discord badge][Discord link]\n\n"
         "[Twitter link]: https://twitter.com/deno_land\n[Discord link]: https://discord.gg/deno\n\n"
         "Deno is a JavaScript, TypeScript, and WebAssembly runtime with secure defaults and a "
         "great developer experience.\n"
