@@ -365,3 +365,12 @@ test('README readmeCut adds blocks until one screen is full, at least one block'
   assert.equal(D.readmeCut([100, 100], 1, 450), 2);
   assert.equal(D.readmeCut([], 0, 450), 0);
 });
+
+/* README Show less: removes about one screen, the mirror of Load more, never below the first screen. */
+test('README readmeBack removes one screen of blocks, at least one, never below the floor', () => {
+  assert.equal(D.readmeBack([100, 200, 300, 400], 4, 450, 1), 3);
+  assert.equal(D.readmeBack([100, 200, 300, 100], 4, 450, 1), 2);
+  assert.equal(D.readmeBack([100, 200, 900], 3, 450, 1), 2);
+  assert.equal(D.readmeBack([100, 100, 100], 3, 9999, 1), 1);
+  assert.equal(D.readmeBack([100, 100], 1, 450, 1), 1);
+});
