@@ -1,8 +1,8 @@
 """What a repository is about, in the owner's own words: the first real paragraph of its README.
 
-Pure text handling. Badges, headings, code, tables and quotes are skipped, and so is any block
-that is too short once HTML is removed (logos, link bars). Links and emphasis keep their text;
-nothing is rewritten or summarised by a model.
+Pure text handling. Badges, headings, code, tables, lists, quotes and link definitions are
+skipped, and so is any block too short once HTML is removed (logos, link bars) or that only
+introduces a list. Links and emphasis keep their text; nothing is rewritten or summarised.
 """
 
 import re
@@ -12,12 +12,14 @@ MIN_CHARS = 40  # shorter paragraphs are usually a tagline fragment or a stray l
 
 FRONT_MATTER = re.compile(r"\A---\n.*?\n---\n", re.DOTALL)
 FENCE = re.compile(r"^(```|~~~).*?^\1[^\n]*$", re.DOTALL | re.MULTILINE)
-IMAGE = re.compile(r"!\[[^\]]*\]\([^)]*\)")
+IMAGE = re.compile(r"!\[[^\]]*\](\([^)]*\)|\[[^\]]*\])")  # inline or reference style
 LINK = re.compile(r"\[([^\]]*)\]\([^)]*\)")
 REF_LINK = re.compile(r"\[([^\]]*)\]\[[^\]]*\]")
 TAG = re.compile(r"<[^>]+>")
 EMPHASIS = re.compile(r"(\*\*|__|\*|_|`)(?=\S)(.+?)(?<=\S)\1")
-SKIP_START = ("#", ">", "|", "---", "===", "- ", "* ", "+ ", "    ", "\t")
+HEADING = re.compile(r"^(#{1,6}\s|#+$|={3,}$|-{3,}$)")
+# quotes, tables, list items and link reference definitions
+NOT_PROSE = re.compile(r"^(>|\||[-*+]\s|\d+[.)]\s|\[[^\]]+\]:\s)")
 SENTENCE_END = re.compile(r"[.!?](?=\s|$)")
 
 
@@ -25,6 +27,23 @@ def _blocks(text: str) -> list[str]:
     text = text.lstrip("﻿").replace("\r\n", "\n")
     text = FENCE.sub("", FRONT_MATTER.sub("", text))
     return [block.strip("\n") for block in re.split(r"\n\s*\n", text)]
+
+
+def _prose(block: str) -> str:
+    """The block's opening prose lines: headings above it are dropped, a list or table ends it."""
+    lines: list[str] = []
+    for raw in block.split("\n"):
+        line = raw.strip()
+        if not line:
+            continue
+        if HEADING.match(line):
+            if lines:
+                break
+            continue
+        if NOT_PROSE.match(line) or raw.startswith(("    ", "\t")):
+            break
+        lines.append(line)
+    return " ".join(lines)
 
 
 def _plain(block: str) -> str:
@@ -47,9 +66,7 @@ def _cut(text: str) -> str:
 def readme_summary(text: str) -> str | None:
     """The first paragraph of plain prose, at most about 400 characters; None if there isn't one."""
     for block in _blocks(text):
-        if not block or block.lstrip().startswith(SKIP_START):
-            continue
-        plain = _plain(block)
-        if len(plain) >= MIN_CHARS:
+        plain = _plain(_prose(block))
+        if len(plain) >= MIN_CHARS and not plain.endswith(":"):  # "check out:" introduces a list
             return _cut(plain)
     return None
