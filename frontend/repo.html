@@ -983,8 +983,13 @@ try { const s = localStorage.getItem('ga-theme'); if (s) document.documentElemen
 const links = [...document.querySelectorAll('#snav a')];
 const secs = links.map(l => document.querySelector(l.getAttribute('href')));
 function spy(){ const line = 130; let on = 0; secs.forEach((sec, i) => { if (sec && sec.getBoundingClientRect().top <= line) on = i; });
-  if (window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 4) on = secs.length - 1;
+  if (window.scrollY > 0 && window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 4) on = secs.length - 1;
   links.forEach((l, i) => { l.classList.toggle('on', i === on); if (i === on) l.setAttribute('aria-current', 'location'); else l.removeAttribute('aria-current'); }); }
+// A load or refresh always opens at the top, on Summary.
+if ('scrollRestoration' in history) history.scrollRestoration = 'manual';
+if (location.hash) history.replaceState(null, '', location.pathname + location.search);
+window.scrollTo(0, 0);
+window.addEventListener('pageshow', () => { window.scrollTo(0, 0); spy(); });
 window.addEventListener('scroll', spy, { passive:true }); spy();
 
 function drawCharts(){ renderPulse(); renderStars(); renderCommits(); renderHeat(); renderPareto(); renderIssues(); renderReleases(); }
