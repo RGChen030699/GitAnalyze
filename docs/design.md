@@ -275,7 +275,7 @@ Pending statistics replace check 2 with a neutral clock: "Maintainer check pendi
 - 1 → "1 thing to look at before you adopt it."
 - n → "n things to look at before you adopt it."
 
-Below the sentence: "We show evidence, never a score. Each check links to how it’s worked out."
+Below the sentence: "No overall score, just the evidence. Press ⓘ on any check to see how it’s worked out."
 
 ---
 
