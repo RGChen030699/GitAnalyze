@@ -583,7 +583,7 @@ function renderAbout(){
 let readmeShownPx = 0;
 const readmeTotal = () => $('#readmeWrap').scrollHeight;
 const readmeScreen = () => Math.max(480, Math.round(window.innerHeight * 0.7));
-const readmeFirstView = () => Math.max(280, Math.round(window.innerHeight * 0.4));
+const readmeFirstView = () => Math.max(315, Math.round(window.innerHeight * 0.45));
 const readmeFirst = () => Math.min(readmeFirstView(), readmeTotal());
 function renderReadme(){
   const html = DETAIL.readme_html, body = $('#readmeBody'), origin = DETAIL.provenance && DETAIL.provenance.readme_html;
