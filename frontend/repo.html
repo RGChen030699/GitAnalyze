@@ -84,7 +84,10 @@ button,input,select{font:inherit;color:inherit}
 .md summary{cursor:pointer;font-weight:600}
 .md .img-alt{display:inline-block;margin:0 4px 4px 0;padding:0 8px;border-radius:999px;border:1px solid var(--line);color:var(--ink-3);font-size:12px;line-height:22px}
 .md .readme-cut{color:var(--ink-3);font-style:italic}
-.readme-more{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.readme-more{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.rm-group{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.rm-close{margin-left:auto}
+.rm-group [hidden]{display:none}
 .load-more{gap:8px;min-width:160px}
 @media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}*{animation:none!important;transition:none!important}}
 
@@ -390,9 +393,15 @@ footer .wrap{display:flex;flex-wrap:wrap;justify-content:space-between;gap:8px 2
     <div class="card">
       <div class="readme-wrap" id="readmeWrap"><div class="md" id="readmeBody"></div></div>
       <div class="readme-more" id="readmeMore" hidden>
-        <button class="btn load-more" type="button" id="readmeBtn"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M6 13l6 6 6-6"/></svg>Load more</button>
-        <button class="btn load-more" type="button" id="readmeLess" hidden><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 19V5M6 11l6-6 6 6"/></svg>Show less</button>
-        <span class="note" id="readmeNote" aria-live="polite"></span>
+        <div class="rm-group">
+          <button class="btn load-more" type="button" id="readmeBtn"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M6 13l6 6 6-6"/></svg>Load more</button>
+          <button class="btn load-more" type="button" id="readmeAll"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 6l5 5 5-5M7 13l5 5 5-5"/></svg>Load all</button>
+          <span class="note" id="readmeNote" aria-live="polite"></span>
+        </div>
+        <div class="rm-group rm-close">
+          <button class="btn load-more" type="button" id="readmeLess"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 19V5M6 11l6-6 6 6"/></svg>Show less</button>
+          <button class="btn load-more" type="button" id="readmeClose"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 18l5-5 5 5M7 11l5-5 5 5"/></svg>Close all</button>
+        </div>
       </div>
       <p class="cap" id="readmeCap"></p>
     </div>
@@ -563,8 +572,10 @@ function renderAbout(){
   $('#repoTopics').innerHTML = topics.map(t => `<li><a href="https://github.com/topics/${encodeURIComponent(t)}" target="_blank" rel="noopener">${esc(t)}</a></li>`).join('');
   $('#repoAbout').hidden = !summary && !topics.length;
 }
-/* README section: rendered on the server (sanitized); shown one screen at a time. */
-let readmeShown = 0, readmeFirst = 0, readmeHeights = [];
+/* README section: rendered on the server (sanitized); shown one screen at a time.
+   Left: Load more (one screen) and Load all. Right: Show less (back one screen) and Close all. */
+let readmeCuts = [], readmeHeights = [];
+const readmeBlocks = () => [...$('#readmeBody').children];
 function renderReadme(){
   const html = DETAIL.readme_html, body = $('#readmeBody'), origin = DETAIL.provenance && DETAIL.provenance.readme_html;
   $('#readmeCap').innerHTML = origin ? `Source <code>GET /repos/${esc(P.owner)}/${esc(P.name)}/readme</code> · <span>Updated ${GAData.utcStamp(origin.fetched_at)}</span> · <a href="https://github.com/${encodeURIComponent(P.owner)}/${encodeURIComponent(P.name)}#readme" target="_blank" rel="noopener">View on GitHub</a>` : '';
@@ -572,30 +583,34 @@ function renderReadme(){
   body.innerHTML = html;
   body.querySelectorAll('a[href^="http"]').forEach(a => { a.target = '_blank'; });
   body.querySelectorAll('img').forEach(img => { img.loading = 'lazy'; img.decoding = 'async'; });
-  const blocks = [...body.children];
-  readmeHeights = blocks.map(el => el.offsetHeight + parseFloat(getComputedStyle(el).marginBottom || 0));
-  readmeShown = 0;
+  readmeHeights = readmeBlocks().map(el => el.offsetHeight + parseFloat(getComputedStyle(el).marginBottom || 0));
+  readmeCuts = [];
   readmeMore();
-  readmeFirst = readmeShown;
 }
-/* Back to the first screen, keeping the reader at the top of the README. */
+const readmeScreen = () => Math.max(480, Math.round(window.innerHeight * 0.8));
+const readmeShown = () => readmeCuts.length ? readmeCuts[readmeCuts.length - 1] : 0;
+function readmeMore(){ readmeCuts.push(GAData.readmeCut(readmeHeights, readmeShown(), readmeScreen())); readmeApply(); }
+function readmeAll(){ readmeCuts.push(readmeHeights.length); readmeApply(); }
 function readmeLess(){
-  readmeShown = 0;
-  readmeMore();
+  if (readmeCuts.length > 1) readmeCuts.pop();
+  readmeApply();
+  $('#readmeMore').scrollIntoView({ block: 'nearest', behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
+  ($('#readmeLess').hidden ? $('#readmeBtn') : $('#readmeLess')).focus();
+}
+function readmeClose(){
+  readmeCuts = readmeCuts.slice(0, 1);
+  readmeApply();
   const top = $('#s-readme').getBoundingClientRect().top + window.scrollY - 80;
   if (window.scrollY > top) window.scrollTo({ top, behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
   $('#readmeBtn').focus();
 }
-function readmeMore(){
-  const blocks = [...$('#readmeBody').children], screen = Math.max(480, Math.round(window.innerHeight * 0.8));
-  readmeShown = GAData.readmeCut(readmeHeights, readmeShown, screen);
-  blocks.forEach((el, i) => el.classList.toggle('rm-hidden', i >= readmeShown));
-  const total = readmeHeights.reduce((a, b) => a + b, 0) || 1;
-  const seen = readmeHeights.slice(0, readmeShown).reduce((a, b) => a + b, 0);
-  const rest = readmeShown < blocks.length, expanded = readmeFirst > 0 && readmeShown > readmeFirst;
+function readmeApply(){
+  const blocks = readmeBlocks(), shown = readmeShown(), rest = shown < blocks.length, expanded = readmeCuts.length > 1;
+  blocks.forEach((el, i) => el.classList.toggle('rm-hidden', i >= shown));
+  const total = readmeHeights.reduce((x, y) => x + y, 0) || 1, seen = readmeHeights.slice(0, shown).reduce((x, y) => x + y, 0);
   $('#readmeMore').hidden = !rest && !expanded;
-  $('#readmeBtn').hidden = !rest;
-  $('#readmeLess').hidden = !expanded;
+  $('#readmeBtn').hidden = $('#readmeAll').hidden = !rest;
+  $('#readmeLess').hidden = $('#readmeClose').hidden = !expanded;
   $('#readmeWrap').classList.toggle('more', rest);
   $('#readmeNote').textContent = rest ? `Showing about ${Math.max(1, Math.round(seen / total * 100))}% of the README` : expanded ? 'Showing the whole README' : '';
 }
@@ -993,7 +1008,9 @@ async function load(){
   cmpButton();
 }
 $('#readmeBtn').addEventListener('click', readmeMore);
+$('#readmeAll').addEventListener('click', readmeAll);
 $('#readmeLess').addEventListener('click', readmeLess);
+$('#readmeClose').addEventListener('click', readmeClose);
 let rz; window.addEventListener('resize', () => { if (!A) return; clearTimeout(rz); rz = setTimeout(drawCharts, 120); });
 load();
 cmpButton();

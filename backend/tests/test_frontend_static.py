@@ -130,4 +130,11 @@ def test_readme_tab_sits_right_after_summary_and_loads_more() -> None:
     assert summary < readme < momentum
     assert 'id="s-readme"' in text
     assert "Load more" in text
-    assert "Show less" in text  # collapses back to the first screen
+    for label in ("Load all", "Show less", "Close all"):
+        assert label in text
+    # Loads on the left, closes on the right.
+    assert (
+        text.index('id="readmeAll"')
+        < text.index('class="rm-group rm-close"')
+        < text.index('id="readmeLess"')
+    )
