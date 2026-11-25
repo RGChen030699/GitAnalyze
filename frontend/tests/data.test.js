@@ -367,3 +367,9 @@ test('README readmeStep adds or removes exactly one step, clamped to the first s
   assert.equal(D.readmeStep(700, -1, 560, 3000), 560);
   assert.equal(D.readmeStep(0, 0, 560, 300), 300);
 });
+
+test('README readmeStep folds a leftover under a quarter step into the step, so no click moves only a sliver', () => {
+  assert.equal(D.readmeStep(1130, -1, 560, 2250), 560);
+  assert.equal(D.readmeStep(1600, 1, 560, 2250), 2250);
+  assert.equal(D.readmeStep(1300, -1, 560, 2250), 740);
+});
