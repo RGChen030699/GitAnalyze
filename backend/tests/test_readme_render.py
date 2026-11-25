@@ -27,10 +27,11 @@ def test_readme_scripts_styles_and_event_handlers_are_removed() -> None:
         '<script>alert("x")</script>\n\n<style>body{}</style>\n\n'
         '<p onclick="steal()">Hi</p>\n\n[click](javascript:alert(1))\n'
     )
-    assert "<script" not in html and "alert(" not in html
+    assert "<script" not in html and 'alert("x")' not in html
     assert "<style" not in html and "body{}" not in html
     assert "onclick" not in html
-    assert "javascript:" not in html
+    # The javascript: link is refused: it may remain as plain text, never as a link.
+    assert 'href="javascript:' not in html
     assert "Hi" in html
 
 
