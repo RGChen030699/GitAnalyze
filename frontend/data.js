@@ -260,6 +260,13 @@
     return end;
   }
 
+  /** README Show less: the end index after removing one screen of blocks (at least one), not below floor. */
+  function readmeBack(heights, end, screen, floor) {
+    let start = end, removed = 0;
+    while (start > floor && (start === end || removed + heights[start - 1] <= screen)) { start--; removed += heights[start]; }
+    return start;
+  }
+
   function lastFetched(det) {
     const times = [];
     Object.values((det && det.provenance) || {}).forEach((o) => { if (o && o.fetched_at) times.push(o.fetched_at); });
@@ -271,6 +278,6 @@
   return {
     DAY, WEEK, missing, show, compareNullable, sumKnown, daysAgo, statusTone, rankingsQuery, toRow,
     weeksFromHistory, daysFromHistory, briefFindings, compareRecord, utcStamp, updatedLabel, busyMinutes, lastFetched,
-    agoLabel, reportModel, readmeCut,
+    agoLabel, reportModel, readmeCut, readmeBack,
   };
 });

@@ -599,7 +599,9 @@ const readmeShown = () => readmeCuts.length ? readmeCuts[readmeCuts.length - 1] 
 function readmeMore(){ readmeCuts.push(GAData.readmeCut(readmeHeights, readmeShown(), readmeScreen())); readmeApply(); }
 function readmeAll(){ readmeCuts.push(readmeHeights.length); readmeApply(); }
 function readmeLess(){
-  if (readmeCuts.length > 1) readmeCuts.pop();
+  const back = GAData.readmeBack(readmeHeights, readmeShown(), readmeScreen(), readmeCuts[0]);
+  while (readmeCuts.length > 1 && readmeCuts[readmeCuts.length - 1] > back) readmeCuts.pop();
+  if (readmeShown() < back) readmeCuts.push(back);
   readmeApply();
   $('#readmeMore').scrollIntoView({ block: 'nearest', behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
   ($('#readmeLess').hidden ? $('#readmeBtn') : $('#readmeLess')).focus();
