@@ -149,6 +149,7 @@ main.wrap{padding-top:22px;padding-bottom:72px;display:grid;grid-template-column
 /* controls */
 .controls{display:flex;flex-wrap:wrap;align-items:flex-end;gap:12px 18px;padding:14px 18px}
 .controls .spacer{flex:1 1 auto}
+.ctrl-right{display:flex;flex-wrap:wrap;align-items:flex-end;gap:12px 18px;margin-left:auto}
 
 /* table */
 .tbl-bar{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px 16px;padding:12px 18px;border-bottom:1px solid var(--line)}
@@ -278,9 +279,11 @@ footer .wrap{display:flex;flex-wrap:wrap;gap:8px 24px}
       <label class="field" for="fStatus">Status<select id="fStatus">
         <option value="any">Any status</option><option>Active</option><option>Slowing</option><option>Quiet</option><option>Archived</option>
       </select></label>
+      <div class="ctrl-right">
       <div class="field"><span id="viewL">Rank by</span><div class="seg" role="group" aria-labelledby="viewL" id="fView"></div></div>
       <div class="field" id="winField"><span id="winL">Gained over</span><div class="seg" role="group" aria-labelledby="winL" id="fWin"></div></div>
       <div class="field"><span id="limL">Show</span><div class="seg" role="group" aria-labelledby="limL" id="fLimit"></div></div>
+      </div>
       <label class="toggle"><input type="checkbox" id="fAi">Has AI capabilities</label>
       <label class="toggle"><input type="checkbox" id="fArch" checked>Hide archived</label>
     </div>
