@@ -2,5 +2,7 @@ dj-database-url>=3.1,<4  # parses hosted Postgres connection URLs into Django se
 django>=5.0,<6
 djangorestframework>=3.15
 psycopg[binary]>=3.1
+markdown-it-py>=3.0  # README section: Markdown to HTML (CommonMark, GitHub tables)
+nh3>=0.2.17  # README section: allow-list HTML sanitizer, so a stranger's README can't run code
 pyyaml>=6.0  # F4: reads SKILL.md headers (folded and literal YAML blocks); safe_load only
 requests>=2.31

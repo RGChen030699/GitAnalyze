@@ -14,6 +14,7 @@ from health.services import PENDING, contributor_commits, contributor_count
 
 from repositories.models import Repository
 from repositories.overview import readme_summary
+from repositories.readme_render import render_readme
 
 HEALTH_TTL = timedelta(hours=24)
 TAGS_PAGE_SIZE = 100
@@ -22,8 +23,8 @@ Part = dict[str, Any]
 
 
 # Bump when a part is added, so health stored by older code is fetched again on the next open.
-# 2: the README summary.
-HEALTH_VERSION = 2
+# 2: the README summary. 3: the README section's HTML.
+HEALTH_VERSION = 3
 VERSION_KEY = "version"
 
 
@@ -74,7 +75,10 @@ def _readme(client: GitHubClient, repo: Repository, now: datetime) -> Part:
     text = ""
     if data.get("encoding") == "base64" and isinstance(data.get("content"), str):
         text = base64.b64decode(data["content"]).decode("utf-8", errors="replace")
-    return {"summary": readme_summary(text), **_origin(response)}
+    path = str(data.get("path") or "README.md")
+    branch = str(repo.raw.get("default_branch") or "HEAD")
+    html = render_readme(text, repo.full_name, branch, path)
+    return {"summary": readme_summary(text), "html": html, **_origin(response)}
 
 
 Fetcher = Callable[[GitHubClient, Repository, datetime], Part]
