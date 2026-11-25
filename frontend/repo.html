@@ -88,6 +88,8 @@ button,input,select{font:inherit;color:inherit}
 .rm-close{justify-content:flex-end}
 .rm-mid{display:flex;flex-direction:column;align-items:center;gap:8px;text-align:center}
 .btn.rm-end{position:fixed;bottom:24px;z-index:40;width:48px;min-width:48px;height:48px;padding:0;border-radius:999px;transform:translateX(-50%);box-shadow:0 4px 14px rgba(0,0,0,.18)}
+.btn.rm-end{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.btn.rm-end:hover{border-color:var(--accent);filter:brightness(1.08)}
 .btn.rm-end[hidden]{display:none}
 @media (max-width:760px){.readme-more{grid-template-columns:1fr}.rm-group,.rm-close{justify-content:center}.rm-mid{order:-1}}
 .rm-group [hidden]{display:none}
