@@ -22,8 +22,10 @@ Part = dict[str, Any]
 
 
 def health_is_stale(repo: Repository, now: datetime) -> bool:
-    """Missing, older than 24 hours, or a part GitHub was still calculating last time."""
-    return repo.health_fetched_at is None or now - repo.health_fetched_at >= HEALTH_TTL
+    """Missing, older than 24 hours, still calculating last time, or stored before a part existed."""
+    if repo.health_fetched_at is None or now - repo.health_fetched_at >= HEALTH_TTL:
+        return True
+    return not set(PARTS) <= set(repo.health or {})
 
 
 def _origin(response: GitHubResponse) -> Part:
