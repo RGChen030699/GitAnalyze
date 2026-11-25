@@ -135,6 +135,8 @@
     new MutationObserver(sync).observe(select, { childList: true, subtree: true, characterData: true });
     select._gaSync = sync;
     sync();
+    // Measure again once the page font has loaded; the first pass may use the fallback font.
+    if (document.fonts && document.fonts.ready) document.fonts.ready.then(fitWidth);
   }
 
   /** Call after setting select.value in code, so the button shows the new choice. */
