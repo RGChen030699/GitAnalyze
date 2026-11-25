@@ -113,3 +113,10 @@ def test_home_dropdowns_open_below_on_computers_and_stay_native_on_touch() -> No
     assert '<script src="/select.js"></script>' in read("index.html")
     assert "(hover: hover) and (pointer: fine)" in script  # touch devices keep the native picker
     assert "r.bottom + 6" in script  # the list starts below the box, never on top of it
+
+
+def test_report_page_shows_a_spinner_while_it_loads() -> None:
+    text = read("repo.html")
+    assert 'id="pageLoading"' in text and 'class="spinner"' in text
+    assert "Loading report" in text
+    assert "Fetching from GitHub. A first look can take a few seconds." in text
