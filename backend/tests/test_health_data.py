@@ -1,5 +1,6 @@
 """F2 health data fetched when a report opens, cached 24 hours, and served with provenance."""
 
+import base64
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
@@ -86,6 +87,7 @@ def mock_health(
     activity_status: int = 200,
     contributors: Any = None,
     contributors_count_status: int = 200,
+    readme_status: int = 200,
 ) -> None:
     responses.get(
         f"{BASE}/stats/commit_activity",
@@ -103,6 +105,7 @@ def mock_health(
         status=contributors_count_status,
     )
     responses.get(f"{BASE}/tags", json=[{"name": "v0.9.0"}, {"name": "v0.10.0"}])
+    mock_readme(readme_status)
 
 
 def urls() -> list[str]:
@@ -130,7 +133,12 @@ def test_F2_report_open_fetches_health_once_then_serves_cache(client: Client) ->
     body = client.get(DETAIL_URL).json()
 
     assert sorted(urls()) == sorted(
-        [f"{BASE}/stats/commit_activity", f"{BASE}/stats/contributors", f"{BASE}/contributors"]
+        [
+            f"{BASE}/stats/commit_activity",
+            f"{BASE}/stats/contributors",
+            f"{BASE}/contributors",
+            f"{BASE}/readme",  # the report's overview: what the repository is about
+        ]
     )
     assert body["commit_activity"]["status"] == "ok"
     assert len(body["commit_activity"]["weeks"]) == 52
@@ -295,3 +303,47 @@ def test_F6_P1_health_values_carry_source_and_fetch_time(client: Client) -> None
         "fetched_at": fetched,
     }
     assert provenance["releases"]["source"] == f"/repos/{FULL_NAME}/releases"
+
+
+README_TEXT = (
+    "# Flask\n\n![badge](https://x/y.svg)\n\n"
+    "Flask is a lightweight WSGI web application framework for Python.\n"
+)
+
+
+def mock_readme(status: int = 200) -> None:
+    payload = {"encoding": "base64", "content": base64.b64encode(README_TEXT.encode()).decode()}
+    responses.get(f"{BASE}/readme", json=payload, status=status)
+
+
+@responses.activate
+@pytest.mark.django_db
+def test_overview_readme_summary_and_topics_are_served(client: Client) -> None:
+    make_repo(raw={**load("repo.json"), "topics": ["flask", "python", "wsgi"]})
+    mock_health()
+
+    body = client.get(DETAIL_URL).json()
+
+    assert body["readme_summary"] == (
+        "Flask is a lightweight WSGI web application framework for Python."
+    )
+    assert body["topics"] == ["flask", "python", "wsgi"]
+    assert body["provenance"]["readme_summary"] == {
+        "source": f"/repos/{FULL_NAME}/readme",
+        "fetched_at": "2026-11-23T12:00:00Z",
+    }
+    assert body["provenance"]["topics"]["source"] == f"/repos/{FULL_NAME}"
+
+
+@responses.activate
+@pytest.mark.django_db
+def test_overview_missing_readme_and_topics_are_null(client: Client) -> None:
+    raw = {k: v for k, v in load("repo.json").items() if k != "topics"}
+    make_repo(raw=raw)
+    mock_health(readme_status=404)
+
+    body = client.get(DETAIL_URL).json()
+
+    assert body["readme_summary"] is None
+    assert body["topics"] is None
+    assert body["commit_activity"]["status"] == "ok"
