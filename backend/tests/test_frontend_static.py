@@ -106,3 +106,10 @@ def test_G4_trending_tab_credits_github_trending_with_a_link() -> None:
     assert '<a href="https://github.com/trending"' in text
     assert "From GitHub Trending</a>" in text
     assert "'Trending last updated '" in text
+
+
+def test_home_dropdowns_open_below_on_computers_and_stay_native_on_touch() -> None:
+    script = read("select.js")
+    assert '<script src="/select.js"></script>' in read("index.html")
+    assert "(hover: hover) and (pointer: fine)" in script  # touch devices keep the native picker
+    assert "r.bottom + 6" in script  # the list starts below the box, never on top of it

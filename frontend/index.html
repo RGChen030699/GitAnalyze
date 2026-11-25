@@ -149,6 +149,15 @@ main.wrap{padding-top:22px;padding-bottom:72px;display:grid;grid-template-column
 /* controls */
 .controls{display:flex;flex-wrap:wrap;align-items:flex-end;gap:12px 18px;padding:14px 18px}
 .controls .spacer{flex:1 1 auto}
+.dd{position:relative}
+.dd-btn{min-height:44px;min-width:100%;padding:0 34px 0 12px;border-radius:10px;border:1px solid var(--line);background:var(--surface);font-size:14px;text-align:left;cursor:pointer;white-space:nowrap;background-image:linear-gradient(45deg,transparent 50%,var(--ink-3) 50%),linear-gradient(135deg,var(--ink-3) 50%,transparent 50%);background-position:calc(100% - 17px) 19px,calc(100% - 12px) 19px;background-size:5px 5px;background-repeat:no-repeat}
+.dd-btn[aria-expanded="true"]{border-color:var(--accent)}
+.dd-list{position:fixed;z-index:60;max-height:320px;overflow-y:auto;margin:0;padding:6px;list-style:none;background:var(--surface);border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow)}
+.dd-list:focus{outline:none}
+.dd-list li{min-height:36px;display:flex;align-items:center;padding:0 12px 0 30px;border-radius:8px;font-size:14px;color:var(--ink);cursor:pointer;white-space:nowrap;position:relative}
+.dd-list li.active{background:var(--accent-soft);color:var(--accent-text)}
+.dd-list li[aria-selected="true"]::before{content:'';position:absolute;left:12px;top:50%;width:9px;height:5px;border-left:2px solid currentColor;border-bottom:2px solid currentColor;transform:translateY(-70%) rotate(-45deg)}
+.dd-list:focus-visible li.active{outline:3px solid var(--accent);outline-offset:-3px}
 .ctrl-right{display:flex;flex-wrap:wrap;align-items:flex-end;gap:12px 18px;margin-left:auto}
 .ctrl-toggles{display:flex;flex-wrap:wrap;gap:4px 24px;margin-left:auto}
 
@@ -276,10 +285,10 @@ footer .wrap{display:flex;flex-wrap:wrap;gap:8px 24px}
   <section class="panel tbl-panel" aria-labelledby="tblTitle">
     <h2 id="tblTitle" class="sr">Repository rankings</h2>
     <div class="controls" id="controls">
-      <label class="field" for="fLang">Language<select id="fLang"></select></label>
-      <label class="field" for="fStatus">Status<select id="fStatus">
+      <div class="field"><label id="langL" for="fLang">Language</label><select id="fLang" aria-labelledby="langL"></select></div>
+      <div class="field"><label id="statusL" for="fStatus">Status</label><select id="fStatus" aria-labelledby="statusL">
         <option value="any">Any status</option><option>Active</option><option>Slowing</option><option>Quiet</option><option>Archived</option>
-      </select></label>
+      </select></div>
       <div class="ctrl-right">
       <div class="field"><span id="viewL">Rank by</span><div class="seg" role="group" aria-labelledby="viewL" id="fView"></div></div>
       <div class="field" id="winField"><span id="winL">Gained over</span><div class="seg" role="group" aria-labelledby="winL" id="fWin"></div></div>
@@ -329,6 +338,7 @@ footer .wrap{display:flex;flex-wrap:wrap;gap:8px 24px}
 <script src="/data.js"></script>
 <script src="/export.js"></script>
 <script src="/compare-list.js"></script>
+<script src="/select.js"></script>
 <script>
 (function () {
 'use strict';
@@ -596,6 +606,8 @@ function renderControls() {
   const langs = ['Any'].concat(META.languages.map((l) => l.name));
   $('#fLang').innerHTML = langs.map((l) => '<option value="' + l + '"' + (l === state.lang ? ' selected' : '') + '>' + (l === 'Any' ? 'Any language' : l) + '</option>').join('');
   $('#fStatus').value = state.status;
+  GASelect.enhance($('#fLang')); GASelect.enhance($('#fStatus'));
+  GASelect.refresh($('#fLang')); GASelect.refresh($('#fStatus'));
   const VIEWS = [['stars', 'Total stars'], ['gaining', 'Gaining stars'], ['trending', 'Trending']];
   $('#fView').innerHTML = VIEWS.map(([k, l]) => '<button type="button" data-view="' + k + '" aria-pressed="' + (state.view === k) + '">' + l + '</button>').join('');
   const onTrending = state.view === 'trending';
