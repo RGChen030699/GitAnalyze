@@ -150,6 +150,7 @@ main.wrap{padding-top:22px;padding-bottom:72px;display:grid;grid-template-column
 .controls{display:flex;flex-wrap:wrap;align-items:flex-end;gap:12px 18px;padding:14px 18px}
 .controls .spacer{flex:1 1 auto}
 .ctrl-right{display:flex;flex-wrap:wrap;align-items:flex-end;gap:12px 18px;margin-left:auto}
+.ctrl-toggles{display:flex;flex-wrap:wrap;gap:4px 24px;margin-left:auto}
 
 /* table */
 .tbl-bar{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px 16px;padding:12px 18px;border-bottom:1px solid var(--line)}
@@ -284,8 +285,10 @@ footer .wrap{display:flex;flex-wrap:wrap;gap:8px 24px}
       <div class="field" id="winField"><span id="winL">Gained over</span><div class="seg" role="group" aria-labelledby="winL" id="fWin"></div></div>
       <div class="field"><span id="limL">Show</span><div class="seg" role="group" aria-labelledby="limL" id="fLimit"></div></div>
       </div>
+      <div class="ctrl-toggles">
       <label class="toggle"><input type="checkbox" id="fAi">Has AI capabilities</label>
       <label class="toggle"><input type="checkbox" id="fArch" checked>Hide archived</label>
+      </div>
     </div>
     <div class="tbl-bar">
       <span class="note" id="showing" aria-live="polite"></span>
