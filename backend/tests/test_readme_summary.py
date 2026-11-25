@@ -32,7 +32,7 @@ def test_overview_html_blocks_and_centered_logos_are_skipped() -> None:
         "Plannotator is the workspace to stay in the loop with your coding agents and review "
         "what they produce.\n"
     )
-    assert readme_summary(text).startswith("Plannotator is the workspace")
+    assert (readme_summary(text) or "").startswith("Plannotator is the workspace")
 
 
 def test_overview_inline_html_tags_are_removed_from_the_paragraph() -> None:
@@ -88,3 +88,55 @@ def test_overview_no_usable_paragraph_returns_none() -> None:
 def test_overview_front_matter_and_bom_are_ignored() -> None:
     text = "﻿---\ntitle: x\n---\r\n\r\nWidget draws charts in the terminal using plain text.\r\n"
     assert readme_summary(text) == "Widget draws charts in the terminal using plain text."
+
+
+# --- Shapes found in real READMEs (checked 2026-11-24) ---
+
+
+def test_overview_heading_directly_above_its_paragraph_anthropics_skills() -> None:
+    text = (
+        "> **Note:** This repository contains Anthropic's implementation of skills for Claude.\n\n"
+        "[![skills.sh](https://skills.sh/b/anthropics/skills)](https://skills.sh/anthropics/skills)\n\n"
+        "# Skills\n"
+        "Skills are folders of instructions, scripts, and resources that Claude loads dynamically "
+        "to improve performance on specialized tasks.\n\n"
+        "For more information, check out:\n"
+        "- [What are skills?](https://support.claude.com/x)\n"
+        "- [Using skills in Claude](https://support.claude.com/y)\n"
+    )
+    assert readme_summary(text) == (
+        "Skills are folders of instructions, scripts, and resources that Claude loads dynamically "
+        "to improve performance on specialized tasks."
+    )
+
+
+def test_overview_a_line_that_introduces_a_list_is_not_a_summary() -> None:
+    text = (
+        "For more information about this project, check out:\n- [Docs](x)\n- [Blog](y)\n\n"
+        "Widget draws charts in the terminal using plain text characters only.\n"
+    )
+    assert (
+        readme_summary(text)
+        == "Widget draws charts in the terminal using plain text characters only."
+    )
+
+
+def test_overview_paragraph_stops_where_a_list_starts() -> None:
+    text = "Widget draws charts in the terminal using plain text characters.\n- fast\n- small\n"
+    assert (
+        readme_summary(text) == "Widget draws charts in the terminal using plain text characters."
+    )
+
+
+def test_overview_reference_style_badges_and_definitions_are_skipped_denoland_deno() -> None:
+    text = (
+        "# Deno\n\n"
+        "![Twitter badge][Twitter link] ![Bluesky badge][Bluesky link] ![Discord badge][Discord link]\n\n"
+        "[Twitter link]: https://twitter.com/deno_land\n[Discord link]: https://discord.gg/deno\n\n"
+        "Deno is a JavaScript, TypeScript, and WebAssembly runtime with secure defaults and a "
+        "great developer experience.\n"
+    )
+    assert readme_summary(text) == (
+        "Deno is a JavaScript, TypeScript, and WebAssembly runtime with secure defaults and a "
+        "great developer experience."
+    )
