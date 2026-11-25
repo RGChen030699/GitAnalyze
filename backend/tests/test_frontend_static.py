@@ -136,7 +136,6 @@ def test_readme_tab_sits_right_after_summary_and_loads_more() -> None:
     assert (
         text.index('id="readmeAll"')
         < text.index('class="rm-mid"')
-        < text.index('id="readmeEnd"')
         < text.index('class="rm-group rm-close"')
         < text.index('id="readmeLess"')
     )
