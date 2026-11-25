@@ -361,3 +361,28 @@ def test_overview_fresh_health_from_before_the_readme_part_fetches_it_now(client
     assert body["readme_summary"] == (
         "Flask is a lightweight WSGI web application framework for Python."
     )
+
+
+@responses.activate
+@pytest.mark.django_db
+def test_readme_section_html_is_served_with_its_source(client: Client) -> None:
+    make_repo()
+    mock_health()
+
+    body = client.get(DETAIL_URL).json()
+
+    assert body["readme_html"].startswith("<h1>Flask</h1>")
+    assert "Flask is a lightweight WSGI" in body["readme_html"]
+    assert body["provenance"]["readme_html"] == body["provenance"]["readme_summary"]
+
+
+@responses.activate
+@pytest.mark.django_db
+def test_readme_health_stored_before_the_readme_section_is_fetched_again(client: Client) -> None:
+    summary_only = {"summary": "Old.", "source": "/x", "fetched_at": NOW.isoformat()}
+    make_repo(health={"readme": summary_only, "version": 2}, health_fetched_at=NOW)
+    mock_health()
+
+    body = client.get(DETAIL_URL).json()
+
+    assert body["readme_html"] is not None

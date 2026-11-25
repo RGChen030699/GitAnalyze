@@ -356,3 +356,12 @@ test('F4 rankings rows keep the ai flag, null when not scanned', () => {
   assert.equal(D.toRow({ ...apiRow, ai: true }, NOW).ai, true);
   assert.equal(D.toRow({ ...apiRow, ai: null }, NOW).ai, null);
 });
+
+/* README section: how many blocks fit in one more screen. */
+test('README readmeCut adds blocks until one screen is full, at least one block', () => {
+  assert.equal(D.readmeCut([100, 200, 300, 400], 0, 450), 2);
+  assert.equal(D.readmeCut([100, 200, 300, 400], 2, 450), 3);
+  assert.equal(D.readmeCut([900, 100], 0, 450), 1);
+  assert.equal(D.readmeCut([100, 100], 1, 450), 2);
+  assert.equal(D.readmeCut([], 0, 450), 0);
+});

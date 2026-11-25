@@ -120,3 +120,13 @@ def test_report_page_shows_a_spinner_while_it_loads() -> None:
     assert 'id="pageLoading"' in text and 'class="spinner"' in text
     assert "Loading report" in text
     assert "Fetching from GitHub. A first look can take a few seconds." in text
+
+
+def test_readme_tab_sits_right_after_summary_and_loads_more() -> None:
+    text = read("repo.html")
+    summary = text.index('<a href="#s-summary">Summary</a>')
+    readme = text.index('<a href="#s-readme">README</a>')
+    momentum = text.index('<a href="#s-momentum">Momentum</a>')
+    assert summary < readme < momentum
+    assert 'id="s-readme"' in text
+    assert "Load more" in text
