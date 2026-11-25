@@ -51,8 +51,9 @@
       const style = getComputedStyle(button);
       ruler.font = style.fontWeight + ' ' + style.fontSize + ' ' + style.fontFamily;
       const longest = Math.max(0, ...Array.from(select.options).map((o) => ruler.measureText(o.textContent).width));
-      // option text sits 30px in (room for the check) and 12px from the right, plus list padding and borders
-      button.style.minWidth = Math.ceil(longest + 30 + 12 + 6 * 2 + 2) + 'px';
+      // the box's text is centred between 12px on the left and the arrow (34px); the menu's text
+      // sits 30px in (room for the check) and 12px from the right, inside 6px padding; plus borders
+      button.style.minWidth = Math.ceil(longest + Math.max(12 + 34, 30 + 12 + 6 * 2) + 2) + 'px';
     }
     function highlight(i) {
       const items = options();
